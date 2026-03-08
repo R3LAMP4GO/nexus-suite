@@ -149,6 +149,7 @@ model Organization {
   usageRecords         UsageRecord[]
   onboardingSubmission OnboardingSubmission?
   trackedCreators      TrackedCreator[]
+  sourceVideos         SourceVideo[]
 }
 
 // ── Multi-Tenant: Membership ─────────────────────────────────────
@@ -197,7 +198,10 @@ model OrgPlatformToken {
   sessionStoragePath   String?         // R2 key: "sessions/{orgId}/{accountId}/state.json"
   warmupStatus         WarmupStatus    @default(NOT_STARTED)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organization      Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  postRecords       PostRecord[]
+  warmingLogs       AccountWarmingLog[]
+  proxyAllocations  ProxyAllocation[]
 
   @@unique([organizationId, platform, accountLabel])
   @@index([organizationId, platform])
@@ -342,4 +346,114 @@ model PostSnapshot {
   post TrackedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@index([postId, capturedAt])
+}
+
+// ── Multiplier Enums ──────────────────────────────────────────────
+
+enum VariationStatus {
+  PENDING
+  PROCESSING
+  READY
+  FAILED
+}
+
+enum PostStatus {
+  SCHEDULED
+  POSTING
+  POSTED
+  FAILED
+  FLAGGED
+  REMOVED
+}
+
+enum ProxyStatus {
+  ACTIVE
+  BURNED
+  ROTATING
+}
+
+// ── Multiplier Models ─────────────────────────────────────────────
+
+model SourceVideo {
+  id             String   @id @default(cuid())
+  organizationId String
+  url            String
+  platform       Platform
+  r2StorageKey   String?
+  duration       Float?
+  createdAt      DateTime @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  variations   VideoVariation[]
+
+  @@index([organizationId])
+}
+
+model VideoVariation {
+  id               String          @id @default(cuid())
+  sourceVideoId    String
+  variationIndex   Int
+  transforms       Json
+  r2StorageKey     String?
+  fileHash         String          // SHA-256
+  pHash            String
+  audioFingerprint String?
+  caption          String?
+  status           VariationStatus @default(PENDING)
+  createdAt        DateTime        @default(now())
+
+  sourceVideo SourceVideo  @relation(fields: [sourceVideoId], references: [id], onDelete: Cascade)
+  postRecords PostRecord[]
+
+  @@unique([sourceVideoId, variationIndex])
+  @@index([sourceVideoId])
+}
+
+model PostRecord {
+  id             String     @id @default(cuid())
+  accountId      String
+  variationId    String
+  platform       Platform
+  scheduledAt    DateTime
+  postedAt       DateTime?
+  status         PostStatus @default(SCHEDULED)
+  externalPostId String?
+  caption        String?    @db.Text
+  createdAt      DateTime   @default(now())
+
+  account   OrgPlatformToken @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  variation VideoVariation   @relation(fields: [variationId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([variationId])
+  @@index([status, scheduledAt])
+}
+
+model AccountWarmingLog {
+  id        String   @id @default(cuid())
+  accountId String
+  phase     String
+  action    String
+  timestamp DateTime @default(now())
+  success   Boolean
+
+  account OrgPlatformToken @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model ProxyAllocation {
+  id                String      @id @default(cuid())
+  proxyIp           String
+  provider          String
+  status            ProxyStatus @default(ACTIVE)
+  assignedAccountId String?
+  lastBannedAt      DateTime?
+  burnedReason      String?
+  createdAt         DateTime    @default(now())
+
+  assignedAccount OrgPlatformToken? @relation(fields: [assignedAccountId], references: [id])
+
+  @@index([status])
+  @@index([assignedAccountId])
 }

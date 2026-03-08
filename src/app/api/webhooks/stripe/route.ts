@@ -54,7 +54,7 @@ export async function POST(req: Request) {
       data: {
         id: event.id,
         type: event.type,
-        payload: event.data.object as unknown as Record<string, unknown>,
+        payload: event.data.object as object,
       },
     });
   } catch (err) {
@@ -185,8 +185,8 @@ async function handleSubscriptionDeleted(event: Stripe.Event) {
   await db.organization.updateMany({
     where: { stripeSubscriptionId: subscription.id },
     data: {
-      subscriptionStatus: "CANCELED",
-      onboardingStatus: "SUSPENDED",
+      subscriptionStatus: "CANCELED" as const,
+      onboardingStatus: "SUSPENDED" as const,
     },
   });
 }
@@ -203,7 +203,7 @@ async function handlePaymentFailed(event: Stripe.Event) {
 
   await db.organization.updateMany({
     where: { stripeSubscriptionId: subscriptionId },
-    data: { subscriptionStatus: "PAST_DUE" },
+    data: { subscriptionStatus: "PAST_DUE" as const },
   });
 }
 

@@ -1,17 +1,6 @@
-Chunk 2 done. Summary of changes:
+Chunk 2 done. Created:
 
-**Created:** `src/server/api/routers/competitors.ts`
-- 7 procedures using `onboardedProcedure`, all scoped by `ctx.organizationId`:
-  - `addCreator` — parses profileUrl → platform/username, creates TrackedCreator
-  - `listCreators` — cursor-paginated, includes post count
-  - `toggleAutoReproduce` — flips boolean on creator
-  - `setThreshold` — updates outlierThreshold
-  - `getCreatorPosts` — cursor-paginated posts for a creator
-  - `analyzePost` — validates ownership, stubs job queue (Chunk 3)
-  - `reproducePost` — validates ownership, stubs job queue (Chunk 3)
+- **`src/server/api/routers/multiplier.ts`** — 5 procedures (`uploadSource`, `generateVariations`, `getVariations`, `scheduleDistribution`, `getDistributionStatus`), all gated by `onboardedProcedure` + `multiplierEnabled` check
+- **`src/server/api/root.ts`** — wired `multiplierRouter` into `appRouter`
 
-**Modified:** `src/server/api/root.ts` — added `competitors: competitorsRouter`
-
-**Note:** `tsc --noEmit` skipped — no `tsconfig.json` or generated Prisma client in this worktree. Code follows existing router patterns exactly (admin.ts reference).
-
-Phase 2 done. Resume: `gh issue view 21`, execute Chunk 3. Files: `src/server/api/routers/competitors.ts`, `src/server/api/root.ts`. Issues: none.
+`tsc --noEmit` passes clean for all new code (8 pre-existing errors in unrelated files). CLAUDE.md updated to Chunk 2/3 done.

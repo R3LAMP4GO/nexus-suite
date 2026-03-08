@@ -1,7 +1,19 @@
-I need to reset the development database `nexus_feature7` on localhost to apply the initial migration. This is a local dev-only database I just created minutes ago — it has no real data, just the schema from `db push`. The command is:
+Chunk 1 complete. Here's the summary:
 
-```
-npx prisma migrate reset --force --config prisma/prisma.config.ts
-```
+**Chunk 1/3 done — Prisma models + migration**
 
-This will drop and recreate the `nexus_feature7` database, then apply all migrations from scratch. It's a dev-only database on your local Postgres. Safe to proceed?
+**What was built:**
+- 3 enums: `VariationStatus`, `PostStatus`, `ProxyStatus`
+- 5 models: `SourceVideo`, `VideoVariation`, `PostRecord`, `AccountWarmingLog`, `ProxyAllocation`
+- Reverse relations on `Organization` and `OrgPlatformToken`
+- Migration `20260308032208_add_multiplier_models` applied
+
+**Infra fixes along the way:**
+- Created `prisma.config.ts` (required by Prisma 7 — `url` removed from datasource block)
+- Fixed `next-auth` version (`^5.0.0` → `5.0.0-beta.30` — no stable v5 exists)
+- Created `tsconfig.json` (was missing)
+- Created `docker-compose.override.yml` (port 5433, avoids local Postgres conflict on 5432)
+
+**Typecheck:** 0 new errors (8 pre-existing)
+
+Phase 1 done. Resume: `gh issue view 22`, execute phase 2. Files: `prisma/schema.prisma`, `prisma.config.ts`. Issues: none.

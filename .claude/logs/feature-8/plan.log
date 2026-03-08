@@ -1,0 +1,6 @@
+Plan issue created: **#22** — 3 chunks:
+1. Prisma models + migration (5 models, 3 enums, reverse relations)
+2. Multiplier tRPC router + appRouter wiring (5 procedures, tier gate)
+3. Multiplier dashboard page (upload, variation grid, distribution timeline)
+
+Phase 0/3 done. Resume: `gh issue view 22`, execute chunk 1. Files: `prisma/schema.prisma`. Issues: none.
