@@ -1,17 +1,8 @@
-Chunk 4 complete. Created:
+Chunk 4 complete. Summary:
 
-**`src/server/services/posting.ts`** — hybrid posting logic:
-- `postContent(orgId, accountId, variationId, platform, postRecordId)` — main entry
-- Routes by `accountType`: PRIMARY → `postViaApi()`, SECONDARY → `postViaBrowser()`
-- API path: fetches OAuth token from Infisical (fetch-use-discard), dispatches to platform-specific stubs (YouTube, TikTok, Instagram, Facebook, X, LinkedIn)
-- Browser path: loads fingerprint profile + proxy from Infisical, session from R2 (Patchright stubs)
-- `finalizePost()` — updates PostRecord status, calls circuit breaker `recordSuccess`/`recordFailure`, emits SSE via Redis pub/sub `post:events`
+**Created 24 files:**
+- 6 platform agents: `src/agents/platforms/{youtube,tiktok,instagram,linkedin,x,facebook}/agent.ts`
+- 17 specialist agents: `src/agents/specialists/{seo-agent,hook-writer,title-generator,thumbnail-creator,script-agent,caption-writer,hashtag-optimizer,thread-writer,article-writer,trend-scout,engagement-responder,analytics-reporter,content-repurposer,quality-scorer,variation-orchestrator,brand-persona-agent,viral-teardown-agent}.ts`
+- Updated `src/agents/registry.ts` — all 25 agents imported and registered
 
-**`src/server/workers/post-worker.ts`** — pg-boss consumer:
-- Subscribes to `post:task` queue (teamSize=2, teamConcurrency=2)
-- Validates PostRecord still SCHEDULED before executing
-- `startPostWorker()` / `stopPostWorker()` lifecycle
-
-`tsc --noEmit` can't run — `next-auth@^5.0.0` has no matching npm version (pre-existing). Code manually reviewed; types align with schema, circuit-breaker, and infisical imports.
-
-CLAUDE.md updated to **Chunk 4/4 (complete)**.
+**Typecheck:** 0 new errors (9 pre-existing, none in agent files). CLAUDE.md phase updated to `Chunk 4/4 complete`.

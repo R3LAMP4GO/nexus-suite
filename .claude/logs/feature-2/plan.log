@@ -1,0 +1,8 @@
+Plan issue created: **#17** — 4 chunks:
+
+1. **Agent foundation** — `prepareContext()`, types, prompts, registry bootstrap
+2. **Tier 1** — Orchestrator + Workflow Agent
+3. **Tier 2** — 6 Platform Main Agents
+4. **Tier 3** — 17 Specialists + full registry wiring
+
+Phase 0/4, ready for build. Resume: `gh issue view 17`, execute chunk 1.

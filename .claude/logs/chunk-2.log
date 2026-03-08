@@ -1,15 +1,8 @@
-Chunk 2 complete. Created 4 files:
-
-- **`src/agents/general/tool-wrappers.ts`** — `wrapToolHandler()` wraps CLI bridge calls as Mastra `createTool()` with execution timing, structured error capture, payload size logging (truncated at 2KB). Includes `socialPostTool` and `socialAnalyticsTool` examples.
-
-- **`src/agents/general/safety.ts`** — Content policy check (keyword blocklist for prompt injection patterns) + per-tool rate limiting via Redis sliding window (`safety:ratelimit:{orgId}:{toolName}`).
-
-- **`src/agents/general/prompts.ts`** — Template functions: `dataMinimizationPrompt()`, `brandVoicePrompt()`, `toolUsagePrompt()`, `composeSystemPrompt()`. All accept org context, return formatted strings.
-
-- **`src/agents/general/memory.ts`** — `prepareContext()` strips workflow context to agent-specific field allowlists (data minimization). `trimContextWindow()` and `summarizeForContext()` for context window management.
-
-**tsc**: skipped — no `tsconfig.json` in worktree, `npm install` fails on pre-existing `next-auth@^5.0.0` version mismatch.
-
-**CLAUDE.md** updated to Chunk 2/3.
-
-Phase 2 done. Resume: `gh issue view 15`, execute Chunk 3. Files: `src/agents/general/{tool-wrappers,safety,prompts,memory}.ts`. Issues: none.
+chunk: 2/4
+status: complete
+files:
+  - src/agents/orchestrator/agent.ts (new) — Nexus Orchestrator agent
+  - src/agents/orchestrator/workflow-agent.ts (new) — NL→YAML workflow agent
+  - src/agents/registry.ts (updated) — registers both agents
+  - CLAUDE.md (updated) — phase line
+typecheck: pass (no agent errors)

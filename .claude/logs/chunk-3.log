@@ -1,14 +1,1 @@
-chunk: 3/3
-status: complete
-files:
-  - src/server/workflows/agent-delegate.ts (modified)
-  - docker-compose.yml (modified)
-  - CLAUDE.md (updated phase line)
-changes:
-  - Extended registerAgent() to accept optional tools array (MastraTool[])
-  - Registry stores RegisteredAgent { generateFn, tools } instead of bare function
-  - resolveAgent returns RegisteredAgent, executeAgentDelegate destructures it
-  - Return value includes toolsMeta (id + description) for downstream visibility
-  - Added POCKET_CLI_PATH env var to nexus-worker service in docker-compose.yml
-  - Added TODO comment re: Phase 4 Dockerfile.worker Go binary install
-typecheck: skipped (npm install fails on next-auth@^5.0.0 — pre-existing dep issue)
+/Users/imorgado/nexus-suite/.claude/worktrees/feature-2/scripts/run-plan.sh: line 182: /Users/imorgado/.local/bin/claude: Argument list too long

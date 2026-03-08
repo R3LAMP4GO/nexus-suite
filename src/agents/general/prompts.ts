@@ -77,3 +77,21 @@ export function composeSystemPrompt(
     .filter(Boolean)
     .join("\n");
 }
+
+/**
+ * Build a complete system prompt by combining org brand voice with agent-specific instructions.
+ */
+export function buildSystemPrompt(
+  agentInstructions: string,
+  brandVoice?: string,
+): string {
+  const parts: string[] = [];
+
+  if (brandVoice) {
+    parts.push(`## Brand Voice\n${brandVoice}`);
+  }
+
+  parts.push(`## Instructions\n${agentInstructions}`);
+
+  return parts.join("\n\n");
+}
