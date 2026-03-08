@@ -1,0 +1,7 @@
+Plan issue created: **#25** — 4 chunks:
+1. SSE broadcasting + Redis pub/sub
+2. Dashboard + Settings pages + tRPC routers
+3. Prometheus metrics + health checks
+4. Docker Compose monitoring override
+
+Phase 0 done. Resume: `gh issue view 25`, execute chunk 1. Files: see issue. Issues: none.

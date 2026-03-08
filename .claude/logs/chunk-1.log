@@ -1,19 +1,11 @@
-Chunk 1 done. Here's what was built:
+Chunk 1 complete. Files created:
 
-**Files created:**
-- `services/scraper-pool/package.json` — standalone service w/ patchright, ioredis, pg-boss deps
-- `services/scraper-pool/tsconfig.json` — ES2022/Node16 module config
-- `services/scraper-pool/src/fingerprint.ts` — copied from `src/lib/fingerprint.ts`
-- `services/scraper-pool/src/pool.ts` — `AgentPool` class: async semaphore, N pre-warmed Patchright contexts, fingerprint injection on creation, `acquire()`/`release()`/`recycle()`/`shutdown()` lifecycle
-- `services/scraper-pool/src/index.ts` — entrypoint w/ graceful shutdown
+- **`src/server/services/sse-broadcaster.ts`** — Redis pub/sub SSE broadcaster with `publishSSE(orgId, type, data)` and `subscribeSSE(orgId)`. Separate Redis connections for pub vs sub (ioredis requirement). Heartbeat every 30s. Supports 5 event types: `workflow_status`, `post_status`, `budget_warning`, `outlier_detected`, `account_health`.
 
-**AgentPool key behaviors:**
-- Launches headless Chromium via Patchright with anti-detection flags
-- Creates `POOL_SIZE` (default 8) contexts with unique fingerprints (UA, viewport, timezone, WebGL, platform, languages)
-- Async semaphore: `acquire()` returns immediately if context available, otherwise queues caller
-- `recycle()` closes old context, creates fresh one with new fingerprint (used by Chunk 2's rotation)
-- Tracks `taskCount` per context for fingerprint rotation threshold
+- **`src/app/api/sse/[orgId]/route.ts`** — Next.js route handler streaming SSE. Auth-gated (checks session exists + `session.organizationId === orgId`). Cleans up subscriber on client disconnect via `AbortSignal`.
 
-**Typecheck:** `tsc --noEmit` passes clean.
+- **No middleware change needed** — `/api/sse` is not in `PUBLIC_ROUTES`, so it already requires auth through the existing middleware flow. The route handler does its own session + orgId verification.
 
-Phase 1 done. Resume: `gh issue view 18`, execute Chunk 2. Files: `services/scraper-pool/src/`. Issues: none.
+Couldn't run `tsc --noEmit` — deps not installable in worktree (`next-auth@^5.0.0` resolution issue). Code follows existing patterns exactly (Redis from ioredis, auth from `@/server/auth/config`).
+
+Phase 1 done. Resume: `gh issue view 25`, execute Chunk 2. Files: `src/server/services/sse-broadcaster.ts`, `src/app/api/sse/[orgId]/route.ts`. Issues: none.

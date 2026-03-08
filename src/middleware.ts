@@ -2,7 +2,7 @@ import { auth } from "@/server/auth/config";
 import { NextResponse } from "next/server";
 
 // Routes that don't require auth
-const PUBLIC_ROUTES = ["/login", "/api/webhooks/stripe", "/api/auth"];
+const PUBLIC_ROUTES = ["/login", "/api/webhooks/stripe", "/api/auth", "/api/metrics", "/api/health"];
 // Routes accessible during onboarding (PENDING_SETUP)
 const ONBOARDING_ROUTES = ["/onboarding", "/provisioning"];
 // Routes only for fully onboarded users
