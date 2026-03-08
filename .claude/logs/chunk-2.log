@@ -1,9 +1,9 @@
-Chunk 2 done. Changes to `posting.ts`:
+Chunk 2/2 done. Summary:
 
-1. **Import** `postLinkedInApi` from `./platform-apis/linkedin`
-2. **LINKEDIN case** now calls `postLinkedInApi(accessToken, variation)` — matches YouTube/TikTok pattern
-3. **Removed stub** function (lines 297-301) — module handles everything including mock mode
+- **competitors/page.tsx** — Replaced inline modal div with `<Modal>` component
+- **settings/page.tsx** — Replaced Name/Slug label+input blocks with `<FormField>`
+- **onboarding/page.tsx** — Replaced all 7 label+input+error blocks with `<FormField>` (Content Niche, Brand Voice, Tone Preferences, Competitor URLs, Posting Frequency, Content Style, Additional Notes)
+- Typecheck passes clean
+- CLAUDE.md updated, GitHub issue #56 fully checked off
 
-Typecheck passes clean. Phase line updated to Chunk 2/2 done.
-
-Phase 2 done. Resume: `gh issue view 54`, all chunks complete. Files: `src/server/services/posting.ts`, `CLAUDE.md`. Issues: none.
+Phase 2/2 done. Resume: `gh issue view 56`, all chunks complete. Files: `competitors/page.tsx`, `settings/page.tsx`, `onboarding/page.tsx`, `CLAUDE.md`. Issues: none.
