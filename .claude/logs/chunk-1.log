@@ -1,3 +1,15 @@
+<<<<<<< HEAD
 Chunk 1 done. `getWorkflowStats` now queries `PostRecord.groupBy({ by: ['status'] })` and maps `POSTING→active`, `SUCCESS→completed`, `FAILED→failed`, `SCHEDULED→queued`. TypeCheck passes clean.
 
 Phase 1 done. Resume: `gh issue view 47`, execute Chunk 2. Files: `src/server/api/routers/dashboard.ts`. Issues: none.
+=======
+Chunk 1 done. Changes in `src/server/api/routers/competitors.ts`:
+
+- Added pg-boss singleton (`getBoss()`) + `competitor:task` queue constant
+- `analyzePost` → sends job `{ jobType: "analyze", postId, url, organizationId }`
+- `reproducePost` → sends job `{ jobType: "reproduce", postId, url, organizationId }`
+- Fixed field name: schema has `url` not `postUrl`
+- Typecheck passes clean
+
+Phase 1 done. Resume: `gh issue view 49`, execute Chunk 2. Files: `src/server/api/routers/competitors.ts`. Issues: none.
+>>>>>>> feature-33

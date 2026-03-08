@@ -1,6 +1,7 @@
 import PgBoss from "pg-boss";
 import { Worker } from "bullmq";
 import { registerJobHandlers } from "./jobs/index.js";
+import { startCompetitorWorker, stopCompetitorWorker } from "../workers/competitor-worker.js";
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const REDIS_URL = process.env.REDIS_URL;
@@ -16,6 +17,9 @@ async function start(): Promise<void> {
   console.log("[worker] starting pg-boss...");
   await boss.start();
   registerJobHandlers(boss);
+
+  console.log("[worker] starting competitor worker...");
+  await startCompetitorWorker();
 
   console.log("[worker] connecting to Redis for BullMQ...");
   const bullWorker = new Worker(
@@ -35,6 +39,7 @@ async function shutdown(): Promise<void> {
   for (const w of bullWorkers) {
     await w.close();
   }
+  await stopCompetitorWorker();
   await boss.stop();
   console.log("[worker] stopped");
   process.exit(0);

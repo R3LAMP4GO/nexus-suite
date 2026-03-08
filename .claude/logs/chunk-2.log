@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Done. Chunk 2 implemented:
 
 - Replaced `getRecentPosts` stub with real `findMany` query joining `variation` (caption) and `account` (accountLabel)
@@ -5,3 +6,13 @@ Done. Chunk 2 implemented:
 - Typecheck passes clean
 
 **Phase 2/2 done. Resume:** `gh issue view 47`, all chunks complete. Files: `src/server/api/routers/dashboard.ts`, `CLAUDE.md`. Issues: none.
+=======
+Chunk 2 done. Created `src/server/workers/competitor-worker.ts`:
+
+- **pg-boss singleton** — same pattern as `post-worker.ts`
+- **`CompetitorTaskPayload`** — `jobType: "analyze" | "reproduce"`, `postId`, `url`, `organizationId`
+- **Subscribes to `competitor:task`** queue (separate from `scrape:task` to avoid conflicts with scraper-pool)
+- **Stub handlers** — logs receipt for both `analyze` and `reproduce` jobs
+- **Exports `startCompetitorWorker()` / `stopCompetitorWorker()`** — matches post-worker API shape
+- Typecheck passes clean
+>>>>>>> feature-33

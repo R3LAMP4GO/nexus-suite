@@ -2,6 +2,21 @@ import { z } from "zod";
 import { createTRPCRouter, onboardedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { Platform } from "@prisma/client";
+import PgBoss from "pg-boss";
+
+// ── pg-boss singleton ────────────────────────────────────────
+
+const COMPETITOR_QUEUE = "competitor:task";
+
+let boss: PgBoss | null = null;
+
+async function getBoss(): Promise<PgBoss> {
+  if (!boss) {
+    boss = new PgBoss(process.env.DATABASE_URL!);
+    await boss.start();
+  }
+  return boss;
+}
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -178,7 +193,13 @@ export const competitorsRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Post not found" });
       }
 
-      // TODO: queue download+transcript+analysis job (Chunk 3)
+      const b = await getBoss();
+      await b.send(COMPETITOR_QUEUE, {
+        jobType: "analyze" as const,
+        postId: post.id,
+        url: post.url,
+        organizationId: ctx.organizationId,
+      });
 
       return { queued: true, postId: input.postId };
     }),
@@ -197,7 +218,13 @@ export const competitorsRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Post not found" });
       }
 
-      // TODO: queue full content pipeline job (Chunk 3)
+      const b = await getBoss();
+      await b.send(COMPETITOR_QUEUE, {
+        jobType: "reproduce" as const,
+        postId: post.id,
+        url: post.url,
+        organizationId: ctx.organizationId,
+      });
 
       return { queued: true, postId: input.postId };
     }),
