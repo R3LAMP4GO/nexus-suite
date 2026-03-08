@@ -2,6 +2,7 @@ import { writeFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
+import crypto from "node:crypto";
 import { Redis } from "ioredis";
 import { db } from "@/lib/db";
 import { fetchSecret } from "@/lib/infisical";
@@ -10,6 +11,8 @@ import { getMetaAuth, getVideoUrl, isMockMode, mockPostResult } from "./platform
 import { loadAccountContext, launchBrowser, persistSession } from "./browser-helpers";
 import { downloadFile } from "./r2-storage";
 import { uploadViaPlatform } from "./browser-posting";
+import { postYouTubeApi } from "./platform-apis/youtube";
+import { postTikTokApi } from "./platform-apis/tiktok";
 import type { Platform, AccountType } from "@prisma/client";
 
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
@@ -19,7 +22,7 @@ const INFISICAL_ENV = process.env.INFISICAL_ENV ?? "production";
 
 // ── Types ─────────────────────────────────────────────────────
 
-interface PostResult {
+export interface PostResult {
   success: boolean;
   externalPostId?: string;
   errorMessage?: string;
@@ -42,7 +45,7 @@ interface AccountData {
   } | null;
 }
 
-interface VariationData {
+export interface VariationData {
   id: string;
   r2StorageKey: string | null;
   caption: string | null;
@@ -158,11 +161,27 @@ async function postViaApi(
   variation: VariationData,
   platform: Platform,
 ): Promise<PostResult> {
+  // Mock mode — no HTTP calls, return fake success
+  if (process.env.MOCK_PLATFORM_APIS === "true") {
+    return {
+      success: true,
+      externalPostId: `mock_${platform}_${crypto.randomUUID()}`,
+    };
+  }
+
+  // Fetch OAuth tokens from Infisical (fetch-use-discard)
+  const accessToken = await fetchSecret(
+    INFISICAL_PROJECT_ID,
+    INFISICAL_ENV,
+    account.infisicalSecretPath,
+    "access_token",
+  );
+
   switch (platform) {
     case "YOUTUBE":
-      return postYouTubeApi(variation);
+      return postYouTubeApi(accessToken, variation);
     case "TIKTOK":
-      return postTikTokApi(variation);
+      return postTikTokApi(accessToken, variation);
     case "INSTAGRAM":
       return postInstagramApi(account, variation);
     case "FACEBOOK":
@@ -176,20 +195,7 @@ async function postViaApi(
   }
 }
 
-// Platform API stubs — each returns PostResult
-// These will be replaced with real API calls in later phases
-
-async function postYouTubeApi(variation: VariationData): Promise<PostResult> {
-  // TODO: YouTube Data API v3 — videos.insert with resumable upload
-  void variation;
-  return { success: false, errorMessage: "YouTube API posting not yet implemented" };
-}
-
-async function postTikTokApi(variation: VariationData): Promise<PostResult> {
-  // TODO: TikTok Content Posting API — /v2/post/publish/video/init
-  void variation;
-  return { success: false, errorMessage: "TikTok API posting not yet implemented" };
-}
+// Platform API stubs — remaining platforms
 
 const GRAPH_API = "https://graph.facebook.com/v21.0";
 const CONTAINER_POLL_INTERVAL_MS = 5_000;
