@@ -1,17 +1,13 @@
-Chunk 1 complete. Summary:
+Chunk 1 done. Created 3 files:
 
-**Created 7 files:**
-- `tsconfig.json` — Next.js-compatible config with `@/` path alias
-- `vitest.config.ts` — path alias, globals, setup file
-- `src/test/setup.ts` — mock reset before each test
-- `src/test/factories.ts` — factories for Organization, User, OnboardingSubmission, StripeEvent + mock Prisma client
-- `src/server/workflows/validator.test.ts` — 21 tests covering all 12 validation layers
-- `src/server/workflows/interpolation.test.ts` — 10 tests (simple vars, dot-path, array index, JSON serialize, unresolved placeholders, recursive params)
-- `src/server/workflows/control-flow.test.ts` — 10 tests (condition branching, forEach batching, while maxIterations, parallel concurrency, abort respect)
-- `src/server/workflows/executor.test.ts` — 8 tests (wave grouping, deadlock, action retry, LLM budget pre-flight, abort propagation, variable passing)
+- **`services/ml-sidecar/Dockerfile`** — Python 3.12 slim, non-root `mluser`, healthcheck via urllib, uvicorn entrypoint
+- **`services/ml-sidecar/requirements.txt`** — fastapi, uvicorn, redis, psycopg2-binary, sentence-transformers, numpy
+- **`services/ml-sidecar/main.py`** — FastAPI app with:
+  - Lifespan: Redis async client + DB connection pool + SentenceTransformer model load
+  - Structured JSON error handler
+  - `GET /health` — pings Redis + DB, returns status/degraded
+  - `POST /embeddings` — encodes texts via all-MiniLM-L6-v2, returns 384-dim normalized vectors
 
-**Results:** 49/49 tests passing. TSC errors are pre-existing (ungenerated Prisma client, unrelated source files).
+No TypeScript in this chunk (Python sidecar only). CLAUDE.md updated.
 
-**Also fixed:** `next-auth` version specifier (`^5.0.0` → `^5.0.0-beta.30`) to unblock dependency resolution.
-
-Phase 1 done. Resume: `gh issue view 26`, execute Chunk 2. Files: `src/server/services/llm-budget.ts`, `src/lib/fingerprint.ts`. Issues: none.
+Phase 1 done. Resume: `gh issue view 27`, execute Chunk 2. Files: `services/ml-sidecar/{Dockerfile,requirements.txt,main.py}`. Issues: none.

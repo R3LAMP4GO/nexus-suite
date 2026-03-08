@@ -1,0 +1,108 @@
+[0;34mFetching plan from issue #27...[0m
+[0;34m══════════════════════════════════════════════════════[0m
+[0;34m  Plan Executor - feature-13[0m
+[0;34m══════════════════════════════════════════════════════[0m
+[0;32m✓[0m Issue: #27
+[0;32m✓[0m 3 chunks, starting from 1
+[0;32m✓[0m Feature: __FEATURE_NAME__
+[0;32m✓[0m Checks: npx tsc --noEmit 2>&1 || true
+
+[0;32m✓[0m Chunks: 1 2 3
+
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1;33m▶ Chunk 1/3: ML Sidecar scaffolding + health + embeddings[0m  Log: /Users/imorgado/nexus-suite/.claude/worktrees/feature-13/.claude/logs/chunk-1.log
+Chunk 1 done. Created 3 files:
+
+- **`services/ml-sidecar/Dockerfile`** — Python 3.12 slim, non-root `mluser`, healthcheck via urllib, uvicorn entrypoint
+- **`services/ml-sidecar/requirements.txt`** — fastapi, uvicorn, redis, psycopg2-binary, sentence-transformers, numpy
+- **`services/ml-sidecar/main.py`** — FastAPI app with:
+  - Lifespan: Redis async client + DB connection pool + SentenceTransformer model load
+  - Structured JSON error handler
+  - `GET /health` — pings Redis + DB, returns status/degraded
+  - `POST /embeddings` — encodes texts via all-MiniLM-L6-v2, returns 384-dim normalized vectors
+
+No TypeScript in this chunk (Python sidecar only). CLAUDE.md updated.
+
+Phase 1 done. Resume: `gh issue view 27`, execute Chunk 2. Files: `services/ml-sidecar/{Dockerfile,requirements.txt,main.py}`. Issues: none.
+[0;32m✓ Chunk 1 done[0m
+[0;36m  Quality gate after chunk 1...[0m
+[0;32m  ✓ Passed[0m
+[r3lamp4go/feature-13 d1dc3907] checkpoint: chunk 1 — ML Sidecar scaffolding + health + embeddings
+ 8 files changed, 468 insertions(+), 1 deletion(-)
+ create mode 100644 .claude/logs/chunk-1.log
+ create mode 100644 .claude/logs/gate-1.log
+ create mode 100755 scripts/run-plan.sh
+ create mode 100644 services/ml-sidecar/Dockerfile
+ create mode 100644 services/ml-sidecar/main.py
+ create mode 100644 services/ml-sidecar/requirements.txt
+[0;32m  ✓ Checkpoint commit[0m
+https://github.com/R3LAMP4GO/nexus-suite/issues/27
+[0;32m  ✓ Issue #27: Chunk 1 checked off[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1;33m▶ Chunk 2/3: ML Sidecar prediction endpoints (bandit + adaptability + retrain)[0m  Log: /Users/imorgado/nexus-suite/.claude/worktrees/feature-13/.claude/logs/chunk-2.log
+Chunk 2 done. Extended `services/ml-sidecar/main.py` with:
+
+- **`POST /predict/bandit`** — Thompson Sampling via Beta(alpha, beta) per arm, per-org state in Redis `bandit:{org_id}`
+- **`POST /feedback/bandit`** — updates alpha (success) or beta (failure) +1
+- **`POST /predict/adaptability`** — loads RandomForestClassifier from `/models/adaptability.pkl`, one-hot encodes platform/content_type, returns score + confidence
+- **`POST /retrain`** — queries DB for last 30 days `content_performance`, trains RF, saves model, returns accuracy
+
+Also added `scikit-learn` and `joblib` to `requirements.txt`. CLAUDE.md updated.
+
+Phase 2 done. Resume: `gh issue view 27`, execute Chunk 3. Files: `services/ml-sidecar/{main.py,requirements.txt}`. Issues: none.
+[0;32m✓ Chunk 2 done[0m
+[0;36m  Quality gate after chunk 2...[0m
+[0;32m  ✓ Passed[0m
+[r3lamp4go/feature-13 26e891f1] checkpoint: chunk 2 — ML Sidecar prediction endpoints (bandit + adaptability + retrain)
+ 6 files changed, 201 insertions(+), 2 deletions(-)
+ create mode 100644 .claude/logs/chunk-2.log
+ create mode 100644 .claude/logs/gate-2.log
+[0;32m  ✓ Checkpoint commit[0m
+https://github.com/R3LAMP4GO/nexus-suite/issues/27
+[0;32m  ✓ Issue #27: Chunk 2 checked off[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1;33m▶ Chunk 3/3: Scrapling Sidecar service (full)[0m  Log: /Users/imorgado/nexus-suite/.claude/worktrees/feature-13/.claude/logs/chunk-3.log
+Chunk 3 done. Created 3 files in `services/scrapling-sidecar/`:
+
+- **Dockerfile** — Python 3.12 slim, non-root user, healthcheck, uvicorn entrypoint
+- **requirements.txt** — fastapi, uvicorn, redis, httpx, scrapling, lxml
+- **main.py** — Full service with:
+  - `GET /health` — Redis ping
+  - `POST /scrape` — 3-tier fetcher (httpx → StealthFetcher → Fetcher), escalates on block signals/captcha/empty body
+  - `POST /scrape/profile` — fetches page then extracts profile fields via platform-specific CSS selectors (youtube, tiktok, instagram, twitter)
+  - `POST /scrape/posts` — fetches page then extracts post cards via platform-specific selectors
+
+No TS to check (Python-only scope). CLAUDE.md updated to Chunk 3/3 done.
+[0;32m✓ Chunk 3 done[0m
+[0;36m  Quality gate after chunk 3...[0m
+[0;32m  ✓ Passed[0m
+[r3lamp4go/feature-13 a8a69291] checkpoint: chunk 3 — Scrapling Sidecar service (full)
+ 7 files changed, 361 insertions(+), 1 deletion(-)
+ create mode 100644 .claude/logs/chunk-3.log
+ create mode 100644 .claude/logs/gate-3.log
+ create mode 100644 services/scrapling-sidecar/Dockerfile
+ create mode 100644 services/scrapling-sidecar/main.py
+ create mode 100644 services/scrapling-sidecar/requirements.txt
+[0;32m  ✓ Checkpoint commit[0m
+https://github.com/R3LAMP4GO/nexus-suite/issues/27
+[0;32m  ✓ Issue #27: Chunk 3 checked off[0m
+
+[0;32m══════════════════════════════════════════════════════[0m
+[0;32m  All chunks complete![0m
+[0;32m══════════════════════════════════════════════════════[0m
+
+[0;34mClosing plan issue #27...[0m
+[0;32m✓ Issue #27 closed[0m
+[0;34mFinal quality checks...[0m
+
+[41m                                                                               [0m
+[41m[37m                This is not the tsc command you are looking for                [0m
+[41m                                                                               [0m
+
+To get access to the TypeScript compiler, [34mtsc[0m, from the command line either:
+
+- Use [1mnpm install typescript[0m to first add TypeScript to your project [1mbefore[0m using npx
+- Use [1myarn[0m to avoid accidentally running code from un-installed packages
+[0;32m✓ All passed[0m
+
+[0;32mDone![0m git diff → /save → /hp

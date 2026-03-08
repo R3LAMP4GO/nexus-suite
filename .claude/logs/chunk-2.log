@@ -1,9 +1,10 @@
-Chunk 2 done. **23/23 tests pass** (17 LLM budget + 6 fingerprint).
+Chunk 2 done. Extended `services/ml-sidecar/main.py` with:
 
-**Files created:**
-- `src/server/services/llm-budget.test.ts` — exact math (hundredths arithmetic), budget allow/deny, Redis INCRBY + TTL on first write, key rotation at midnight, spend summary status thresholds
-- `src/lib/fingerprint.test.ts` — Mac→Apple WebGL consistency, 100-profile uniqueness, all fields truthy
+- **`POST /predict/bandit`** — Thompson Sampling via Beta(alpha, beta) per arm, per-org state in Redis `bandit:{org_id}`
+- **`POST /feedback/bandit`** — updates alpha (success) or beta (failure) +1
+- **`POST /predict/adaptability`** — loads RandomForestClassifier from `/models/adaptability.pkl`, one-hot encodes platform/content_type, returns score + confidence
+- **`POST /retrain`** — queries DB for last 30 days `content_performance`, trains RF, saves model, returns accuracy
 
-**Pre-existing tsc errors** (not from chunk 2): PrismaClient export, Stripe API version, implicit `any` params — all in other files.
+Also added `scikit-learn` and `joblib` to `requirements.txt`. CLAUDE.md updated.
 
-Phase N done. Resume: `gh issue view 26`, execute chunk 3. Files: `src/server/services/llm-budget.test.ts`, `src/lib/fingerprint.test.ts`, `CLAUDE.md`. Issues: none.
+Phase 2 done. Resume: `gh issue view 27`, execute Chunk 3. Files: `services/ml-sidecar/{main.py,requirements.txt}`. Issues: none.
