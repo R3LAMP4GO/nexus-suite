@@ -1,4 +1,5 @@
 import { executeAgentDelegate } from "@/server/workflows/agent-delegate";
+import { incCounter, observeHistogram } from "@/lib/metrics";
 import type { AgentExecuteJob } from "../types.js";
 import type PgBoss from "pg-boss";
 
@@ -11,6 +12,7 @@ export async function handleAgentExecute(
 
   const prompt = typeof input.prompt === "string" ? input.prompt : JSON.stringify(input);
 
+  const start = performance.now();
   const result = await executeAgentDelegate(agentId, prompt, {
     organizationId,
     workflowName: `job:agent-execute`,
@@ -20,6 +22,12 @@ export async function handleAgentExecute(
     input,
     aborted: false,
   });
+
+  const durationSec = (performance.now() - start) / 1000;
+  await Promise.all([
+    incCounter("agent_calls_total", { agent_id: agentId }),
+    observeHistogram("agent_duration_seconds", { agent_id: agentId }, durationSec),
+  ]);
 
   console.log(`[agent-execute] completed agent=${agentId} job=${job.id}`, result);
 }

@@ -4,21 +4,17 @@
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
-  "links": [
-    { "title": "Posting Pipeline", "url": "/d/nexus-posting-pipeline", "type": "link" },
-    { "title": "Agent Activity", "url": "/d/nexus-agent-activity", "type": "link" },
-    { "title": "Queue Health", "url": "/d/nexus-queue-health", "type": "link" }
-  ],
+  "links": [],
   "panels": [
     {
-      "title": "Workflow Throughput",
+      "title": "Post Attempts Rate by Platform",
       "type": "timeseries",
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
-          "expr": "sum(rate(jobs_processed_total[5m])) by (queue)",
-          "legendFormat": "{{queue}}",
+          "expr": "sum(rate(post_attempts_total[5m])) by (platform)",
+          "legendFormat": "{{platform}}",
           "refId": "A"
         }
       ],
@@ -31,29 +27,9 @@
       }
     },
     {
-      "title": "LLM Spend Over Time",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "targets": [
-        {
-          "expr": "llm_spend_cents",
-          "legendFormat": "{{org}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "drawStyle": "line", "fillOpacity": 10 },
-          "unit": "cents"
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Post Success Rate",
+      "title": "Post Success Rate by Platform",
       "type": "gauge",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
@@ -80,9 +56,49 @@
       }
     },
     {
+      "title": "Post Duration p50",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(post_duration_seconds_bucket[5m])) by (le, platform))",
+          "legendFormat": "p50 {{platform}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Post Duration p95",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(post_duration_seconds_bucket[5m])) by (le, platform))",
+          "legendFormat": "p95 {{platform}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "fillOpacity": 10 },
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
       "title": "Circuit Breaker States",
       "type": "stat",
-      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
       "targets": [
         {
@@ -101,35 +117,15 @@
         },
         "overrides": []
       }
-    },
-    {
-      "title": "Queue Depth",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 8 },
-      "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
-      "targets": [
-        {
-          "expr": "queue_depth",
-          "legendFormat": "{{queue}}",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "custom": { "drawStyle": "bars", "fillOpacity": 50 },
-          "unit": "short"
-        },
-        "overrides": []
-      }
     }
   ],
   "schemaVersion": 39,
-  "tags": ["nexus"],
+  "tags": ["nexus", "posting"],
   "templating": { "list": [] },
   "time": { "from": "now-6h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Nexus Suite",
-  "uid": "nexus-overview",
-  "version": 2
+  "title": "Posting Pipeline",
+  "uid": "nexus-posting-pipeline",
+  "version": 1
 }

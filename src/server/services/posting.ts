@@ -6,6 +6,7 @@ import crypto from "node:crypto";
 import { Redis } from "ioredis";
 import { db } from "@/lib/db";
 import { fetchSecret } from "@/lib/infisical";
+import { incCounter, observeHistogram } from "@/lib/metrics";
 import { recordSuccess, recordFailure } from "./circuit-breaker";
 import { getMetaAuth, getVideoUrl, isMockMode, mockPostResult } from "./platform-apis/meta";
 import { loadAccountContext, launchBrowser, persistSession } from "./browser-helpers";
@@ -100,6 +101,7 @@ export async function postContent(
   }
 
   // Route by account type
+  const startTime = performance.now();
   let result: PostResult;
   try {
     if (account.accountType === "PRIMARY") {
@@ -113,6 +115,13 @@ export async function postContent(
       errorMessage: err instanceof Error ? err.message : String(err),
     };
   }
+
+  const durationSec = (performance.now() - startTime) / 1000;
+  const status = result.success ? "success" : "failed";
+  await Promise.all([
+    incCounter("post_attempts_total", { platform, status }),
+    observeHistogram("post_duration_seconds", { platform }, durationSec),
+  ]);
 
   await finalizePost(postRecordId, accountId, result);
   return result;
