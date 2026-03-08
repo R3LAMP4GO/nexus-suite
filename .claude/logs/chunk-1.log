@@ -1,0 +1,13 @@
+Chunk 1 done. Created 3 files:
+
+- **`services/ml-sidecar/Dockerfile`** — Python 3.12 slim, non-root `mluser`, healthcheck via urllib, uvicorn entrypoint
+- **`services/ml-sidecar/requirements.txt`** — fastapi, uvicorn, redis, psycopg2-binary, sentence-transformers, numpy
+- **`services/ml-sidecar/main.py`** — FastAPI app with:
+  - Lifespan: Redis async client + DB connection pool + SentenceTransformer model load
+  - Structured JSON error handler
+  - `GET /health` — pings Redis + DB, returns status/degraded
+  - `POST /embeddings` — encodes texts via all-MiniLM-L6-v2, returns 384-dim normalized vectors
+
+No TypeScript in this chunk (Python sidecar only). CLAUDE.md updated.
+
+Phase 1 done. Resume: `gh issue view 27`, execute Chunk 2. Files: `services/ml-sidecar/{Dockerfile,requirements.txt,main.py}`. Issues: none.
