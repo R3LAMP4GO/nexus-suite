@@ -1,13 +1,13 @@
-Chunk 2 done. `tsc --noEmit` passes clean.
+Chunk 2 done. Summary:
 
-**What was built in `competitor-worker.ts`:**
-- Imports: `db`, `viralTeardown` agent, `Prisma` types, `randomUUID`
-- `ScrapeResult` type matching the scraper consumer's output shape
-- `scrape:task` / `scrape:result` queue constants
-- Correlation map (`pendingScrapes`) + `startScrapeResultListener()` — listens on `scrape:result`, resolves pending promises by `taskId`
-- `waitForScrapeResult(taskId)` — promise with 120s timeout
-- `analyzePost()` pipeline: dispatch `scrape:task` → await correlated `scrape:result` → call `viral-teardown-agent.generate()` → parse JSON → persist to `TrackedPost.analysis` + `analyzedAt`
-- `analyze` case in worker switch now calls `analyzePost()`
-- `reproduce` stub preserved for Chunk 3
+**Created:**
+- `src/server/worker/jobs/handlers/scraper-run.ts` — forwards job to `scrape:task` pg-boss queue with `taskId`, `url`, `options` matching scraper-pool's `ScrapeTask` interface
+- `src/server/worker/jobs/handlers/agent-execute.ts` — calls `executeAgentDelegate()` with proper `WorkflowContext`, extracts prompt from input
 
-Phase 2 done. Resume: `gh issue view 72`, execute Chunk 3. Files: `src/server/workers/competitor-worker.ts`, `CLAUDE.md`. Issues: none.
+**Modified:**
+- `src/server/worker/jobs/index.ts` — wired `SCRAPER_RUN` + `AGENT_EXECUTE` with dedicated handlers, removed from stub loop
+- `CLAUDE.md` — phase updated to chunk 2/3 done
+
+Typecheck passes clean. Continuation:
+
+`Phase 2 done. Resume: gh issue view 76, execute chunk 3. Files: src/server/worker/jobs/index.ts, handlers/scraper-run.ts, handlers/agent-execute.ts. Issues: none`
