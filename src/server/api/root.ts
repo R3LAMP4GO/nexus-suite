@@ -6,6 +6,7 @@ import { onboardingRouter } from "./routers/onboarding";
 import { dashboardRouter } from "./routers/dashboard";
 import { settingsRouter } from "./routers/settings";
 import { usageRouter } from "./routers/usage";
+import { pricingRouter } from "./routers/pricing";
 
 export const appRouter = createTRPCRouter({
   admin: adminRouter,
@@ -15,6 +16,7 @@ export const appRouter = createTRPCRouter({
   dashboard: dashboardRouter,
   settings: settingsRouter,
   usage: usageRouter,
+  pricing: pricingRouter,
 });
 
 export type AppRouter = typeof appRouter;

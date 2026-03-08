@@ -1,3 +1,8 @@
-Chunk 1 done. Added `SessionProvider` from `next-auth/react` as outermost wrapper in `src/app/providers.tsx`. Typecheck passes clean.
+Chunk 1 done. Created:
 
-Phase 1 done. Resume: `gh issue view 44`, execute Chunk 2. Files: `src/app/providers.tsx`. Issues: none.
+- **`src/server/api/routers/pricing.ts`** — `pricingRouter` with `createCheckoutSession` mutation using `authedProcedure`, takes `{ tier: "PRO" | "MULTIPLIER" | "ENTERPRISE" }`, creates Stripe checkout session with setup + subscription line items, returns `{ url }`
+- **`src/server/api/root.ts`** — registered `pricing: pricingRouter`
+
+TypeScript: 0 errors.
+
+Phase 1 done. Resume: `gh issue view 45`, execute Chunk 2. Files: `src/server/api/routers/pricing.ts`, `src/server/api/root.ts`. Issues: none.

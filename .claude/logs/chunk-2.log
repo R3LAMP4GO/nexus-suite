@@ -1,9 +1,7 @@
-Done. Chunk 2 complete:
+Chunk 2 complete. Created `src/app/pricing/page.tsx`:
 
-- Created `src/app/login/page.tsx` — client component with:
-  - `useSession()` → redirects authenticated users to `/dashboard`
-  - `useSearchParams()` → reads `?error=` param, displays error message (special-cases `OAuthAccountNotLinked`)
-  - Google sign-in button calling `signIn("google")`
-  - Tailwind styling with Google logo SVG
-- `tsc --noEmit` passes clean
-- Updated CLAUDE.md phase line to `Chunk 2/2 done`
+- Client component at `/pricing` with 3 tier cards (Pro / Multiplier / Enterprise)
+- Feature comparison: accounts, workflow runs, videos/mo, LLM budget, ML features, multiplier
+- "Get Started" button calls `api.pricing.createCheckoutSession.useMutation()` → redirects to Stripe URL
+- Follows settings page patterns: `"use client"`, `api` from `@/lib/trpc-client`, matching Tailwind styles
+- Typecheck passes clean
