@@ -2,9 +2,79 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc-client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+
+const CIRCUIT_COLORS: Record<string, string> = {
+  CLOSED: "bg-green-100 text-green-800",
+  HALF_OPEN: "bg-yellow-100 text-yellow-800",
+  OPEN: "bg-red-100 text-red-800",
+};
+
+type PlatformToken = {
+  id: string;
+  platform: string;
+  accountLabel: string;
+  accountType: string;
+  healthScore: number;
+  circuitState: string;
+  warmupStatus: string;
+  lastSuccessAt: Date | null;
+  lastFailureAt: Date | null;
+  createdAt: Date;
+};
+
+const platformTokenColumns: ColumnDef<PlatformToken>[] = [
+  {
+    accessorKey: "platform",
+    header: "Platform / Label",
+    cell: (row) => (
+      <span className="font-medium text-gray-900">
+        {row.platform} — {row.accountLabel}
+      </span>
+    ),
+  },
+  { accessorKey: "accountType", header: "Type" },
+  {
+    accessorKey: "warmupStatus",
+    header: "Warmup",
+    cell: (row) =>
+      row.warmupStatus !== "READY" ? (
+        <span className="text-yellow-600">{row.warmupStatus}</span>
+      ) : (
+        <span className="text-gray-400">READY</span>
+      ),
+  },
+  {
+    accessorKey: "healthScore",
+    header: "Health",
+    cell: (row) => (
+      <div className="flex items-center gap-1">
+        <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+          <div
+            className="h-full rounded-full bg-green-500"
+            style={{ width: `${row.healthScore * 100}%` }}
+          />
+        </div>
+        <span className="text-xs text-gray-500">
+          {(row.healthScore * 100).toFixed(0)}%
+        </span>
+      </div>
+    ),
+  },
+  {
+    accessorKey: "circuitState",
+    header: "Circuit State",
+    cell: (row) => (
+      <span
+        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+          CIRCUIT_COLORS[row.circuitState] ?? "bg-gray-100 text-gray-800"
+        }`}
+      >
+        {row.circuitState}
+      </span>
+    ),
+  },
+];
 
 export default function SettingsPage() {
   const org = api.settings.getOrgDetails.useQuery();
@@ -51,7 +121,7 @@ export default function SettingsPage() {
         <h1 className="mb-8 text-2xl font-bold text-gray-900">Settings</h1>
 
         {/* Org Details */}
-        <Card as="section" className="mb-8">
+        <section className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Organization</h2>
           {org.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -80,61 +150,33 @@ export default function SettingsPage() {
                 <span>Budget: ${(org.data.dailyLlmBudgetCents / 100).toFixed(2)}/day</span>
                 <span>Max Accounts: {org.data.maxAccounts}</span>
               </div>
-              <Button
+              <button
                 onClick={handleSaveOrg}
-                loading={updateOrg.isPending}
+                disabled={updateOrg.isPending}
+                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
               >
-                Save
-              </Button>
+                {updateOrg.isPending ? "Saving..." : "Save"}
+              </button>
               {updateOrg.error && (
                 <p className="text-sm text-red-600">{updateOrg.error.message}</p>
               )}
             </div>
           ) : null}
-        </Card>
+        </section>
 
         {/* Platform Connections */}
-        <Card as="section" className="mb-8">
+        <section className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Platform Connections</h2>
-          {tokens.isLoading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : !tokens.data?.length ? (
-            <p className="text-gray-500">No accounts connected</p>
-          ) : (
-            <div className="divide-y divide-gray-100">
-              {tokens.data.map((token) => (
-                <div key={token.id} className="flex items-center justify-between py-3">
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">
-                      {token.platform} — {token.accountLabel}
-                    </span>
-                    <span className="ml-2 text-xs text-gray-400">{token.accountType}</span>
-                    {token.warmupStatus !== "READY" && (
-                      <span className="ml-2 text-xs text-yellow-600">{token.warmupStatus}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1">
-                      <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
-                        <div
-                          className="h-full rounded-full bg-green-500"
-                          style={{ width: `${token.healthScore * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {(token.healthScore * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                    <Badge variant="circuit" value={token.circuitState} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
+          <DataTable
+            columns={platformTokenColumns}
+            data={(tokens.data ?? []) as PlatformToken[]}
+            isLoading={tokens.isLoading}
+            emptyMessage="No accounts connected"
+          />
+        </section>
 
         {/* Brand Config */}
-        <Card as="section">
+        <section className="rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Brand Configuration</h2>
           <textarea
             value={brandJson}
@@ -143,18 +185,17 @@ export default function SettingsPage() {
             className="w-full rounded-md border px-3 py-2 font-mono text-sm"
             placeholder='{"voice": "professional", "tone": "friendly"}'
           />
-          <Button
+          <button
             onClick={handleSaveBrand}
-            loading={updateBrand.isPending}
-            loadingText="Saving..."
-            className="mt-3"
+            disabled={updateBrand.isPending}
+            className="mt-3 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
           >
-            Save Brand Config
-          </Button>
+            {updateBrand.isPending ? "Saving..." : "Save Brand Config"}
+          </button>
           {updateBrand.error && (
             <p className="mt-2 text-sm text-red-600">{updateBrand.error.message}</p>
           )}
-        </Card>
+        </section>
       </div>
     </div>
   );

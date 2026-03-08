@@ -1,14 +1,33 @@
 "use client";
 
 import { api } from "@/lib/trpc-client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+
+const CIRCUIT_COLORS: Record<string, string> = {
+  CLOSED: "bg-green-100 text-green-800",
+  HALF_OPEN: "bg-yellow-100 text-yellow-800",
+  OPEN: "bg-red-100 text-red-800",
+};
 
 const SPEND_COLORS: Record<string, string> = {
   green: "bg-green-500",
   yellow: "bg-yellow-500",
   red: "bg-red-500",
 };
+
+type RecentPost = {
+  id: string;
+  platform: string;
+  title: string;
+  status: string;
+  publishedAt: Date | null;
+};
+
+const recentPostColumns: ColumnDef<RecentPost>[] = [
+  { accessorKey: "title", header: "Title" },
+  { accessorKey: "platform", header: "Platform" },
+  { accessorKey: "status", header: "Status" },
+];
 
 export default function DashboardPage() {
   const workflows = api.dashboard.getWorkflowStats.useQuery();
@@ -24,17 +43,17 @@ export default function DashboardPage() {
         {/* Workflow Stats */}
         <div className="mb-8 grid grid-cols-4 gap-4">
           {(["active", "completed", "failed", "queued"] as const).map((key) => (
-            <Card key={key} className="p-4">
+            <div key={key} className="rounded-lg border bg-white p-4 shadow-sm">
               <p className="text-sm font-medium capitalize text-gray-500">{key}</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">
                 {workflows.isLoading ? "—" : (workflows.data?.[key] ?? 0)}
               </p>
-            </Card>
+            </div>
           ))}
         </div>
 
         {/* LLM Spend Bar */}
-        <Card className="mb-8">
+        <div className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">LLM Spend (Today)</h2>
           {spend.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -55,10 +74,10 @@ export default function DashboardPage() {
               </p>
             </>
           ) : null}
-        </Card>
+        </div>
 
         {/* Account Health Grid */}
-        <Card className="mb-8">
+        <div className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Account Health</h2>
           {health.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -72,7 +91,13 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium text-gray-900">
                       {token.platform} — {token.accountLabel}
                     </span>
-                    <Badge variant="circuit" value={token.circuitState} />
+                    <span
+                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                        CIRCUIT_COLORS[token.circuitState] ?? "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {token.circuitState}
+                    </span>
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
@@ -92,29 +117,18 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </Card>
+        </div>
 
         {/* Recent Posts */}
-        <Card>
+        <div className="rounded-lg border bg-white p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Recent Posts</h2>
-          {posts.isLoading ? (
-            <p className="text-gray-500">Loading...</p>
-          ) : !posts.data?.length ? (
-            <p className="text-gray-500">No posts yet</p>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {posts.data.map((post) => (
-                <li key={post.id} className="flex items-center justify-between py-2">
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">{post.title}</span>
-                    <span className="ml-2 text-xs text-gray-500">{post.platform}</span>
-                  </div>
-                  <span className="text-xs text-gray-400">{post.status}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+          <DataTable
+            columns={recentPostColumns}
+            data={posts.data ?? []}
+            isLoading={posts.isLoading}
+            emptyMessage="No posts yet"
+          />
+        </div>
       </div>
     </div>
   );

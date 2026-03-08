@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc-client";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { DataTable, type ColumnDef } from "@/components/ui/data-table";
+
+const PLATFORM_COLORS: Record<string, string> = {
+  YOUTUBE: "bg-red-100 text-red-800",
+  TIKTOK: "bg-gray-900 text-white",
+  INSTAGRAM: "bg-pink-100 text-pink-800",
+  LINKEDIN: "bg-blue-100 text-blue-800",
+  X: "bg-gray-100 text-gray-800",
+  FACEBOOK: "bg-indigo-100 text-indigo-800",
+};
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -61,15 +68,18 @@ export default function CompetitorsPage() {
               Monitor creators, detect outlier posts, reproduce winning content
             </p>
           </div>
-          <Button onClick={() => setShowAddModal(true)}>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
+          >
             + Track Creator
-          </Button>
+          </button>
         </div>
 
         {/* Add Creator Modal */}
         {showAddModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <Card className="w-full max-w-md shadow-xl">
+            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">Track a Creator</h2>
               <input
                 type="url"
@@ -82,25 +92,24 @@ export default function CompetitorsPage() {
                 <p className="mt-2 text-sm text-red-600">{addCreator.error.message}</p>
               )}
               <div className="mt-4 flex justify-end gap-2">
-                <Button
-                  variant="secondary"
+                <button
                   onClick={() => {
                     setShowAddModal(false);
                     setProfileUrl("");
                   }}
+                  className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
                 >
                   Cancel
-                </Button>
-                <Button
+                </button>
+                <button
                   onClick={() => addCreator.mutate({ profileUrl })}
-                  disabled={!profileUrl}
-                  loading={addCreator.isPending}
-                  loadingText="Adding..."
+                  disabled={!profileUrl || addCreator.isPending}
+                  className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
                 >
-                  Add
-                </Button>
+                  {addCreator.isPending ? "Adding..." : "Add"}
+                </button>
               </div>
-            </Card>
+            </div>
           </div>
         )}
 
@@ -178,7 +187,7 @@ function CreatorCard({
   onReproduce,
 }: CreatorCardProps) {
   return (
-    <Card className="p-0 border-gray-200">
+    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Avatar */}
@@ -199,7 +208,13 @@ function CreatorCard({
               <span className="truncate font-medium text-gray-900">
                 {creator.username}
               </span>
-              <Badge variant="platform" value={creator.platform} />
+              <span
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                  PLATFORM_COLORS[creator.platform] ?? "bg-gray-100 text-gray-800"
+                }`}
+              >
+                {creator.platform}
+              </span>
             </div>
             <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
               <span>{formatNumber(creator.followerCount)} followers</span>
@@ -253,11 +268,21 @@ function CreatorCard({
           onReproduce={onReproduce}
         />
       )}
-    </Card>
+    </div>
   );
 }
 
 // ── Post List ─────────────────────────────────────────────────
+
+type Post = {
+  id: string;
+  isOutlier: boolean;
+  title: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  publishedAt: string | Date | null;
+};
 
 function PostList({
   creatorId,
@@ -273,57 +298,75 @@ function PostList({
     limit: 20,
   });
 
-  if (isLoading) {
-    return <div className="border-t px-4 py-3 text-center text-xs text-gray-400">Loading posts...</div>;
-  }
-
-  if (!data?.posts.length) {
-    return <div className="border-t px-4 py-3 text-center text-xs text-gray-400">No posts yet</div>;
-  }
+  const columns: ColumnDef<Post>[] = [
+    {
+      accessorKey: "isOutlier",
+      header: "",
+      sortable: false,
+      cell: (row) => (row.isOutlier ? <span title="Outlier">🔥</span> : null),
+    },
+    {
+      accessorKey: "title",
+      header: "Title",
+      cell: (row) => (
+        <span className="truncate font-medium text-gray-800">
+          {row.title ?? "Untitled"}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "views",
+      header: "Views",
+      cell: (row) => formatNumber(row.views),
+    },
+    {
+      accessorKey: "likes",
+      header: "Likes",
+      cell: (row) => formatNumber(row.likes),
+    },
+    {
+      accessorKey: "comments",
+      header: "Comments",
+      cell: (row) => formatNumber(row.comments),
+    },
+    {
+      accessorKey: "publishedAt",
+      header: "Date",
+      cell: (row) =>
+        row.publishedAt ? new Date(row.publishedAt).toLocaleDateString() : "",
+    },
+    {
+      accessorKey: "id",
+      header: "Actions",
+      sortable: false,
+      cell: (row) => (
+        <div className="flex gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAnalyze(row.id); }}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+          >
+            Analyze
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onReproduce(row.id); }}
+            className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+          >
+            Reproduce
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   return (
-    <div className="max-h-64 divide-y divide-gray-100 overflow-y-auto border-t">
-      {data.posts.map((post) => (
-        <div
-          key={post.id}
-          className={`flex items-center gap-3 px-4 py-2 text-sm ${
-            post.isOutlier ? "bg-orange-50" : ""
-          }`}
-        >
-          {post.isOutlier && <span title="Outlier">🔥</span>}
-          <div className="min-w-0 flex-1">
-            <div className="truncate font-medium text-gray-800">
-              {post.title ?? "Untitled"}
-            </div>
-            <div className="flex gap-3 text-xs text-gray-500">
-              <span>{formatNumber(post.views)} views</span>
-              <span>{formatNumber(post.likes)} likes</span>
-              <span>{formatNumber(post.comments)} comments</span>
-              {post.publishedAt && (
-                <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
-              )}
-            </div>
-          </div>
-          <div className="flex gap-1">
-            <Button
-              variant="secondary"
-              onClick={() => onAnalyze(post.id)}
-              className="rounded px-2 py-1 text-xs"
-              title="Analyze"
-            >
-              Analyze
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() => onReproduce(post.id)}
-              className="rounded px-2 py-1 text-xs"
-              title="Reproduce"
-            >
-              Reproduce
-            </Button>
-          </div>
-        </div>
-      ))}
+    <div className="max-h-64 overflow-y-auto border-t">
+      <DataTable
+        columns={columns}
+        data={(data?.posts ?? []) as unknown as Post[]}
+        isLoading={isLoading}
+        emptyMessage="No posts yet"
+        rowClassName={(row) => (row.isOutlier ? "bg-orange-50" : undefined)}
+      />
     </div>
   );
 }
