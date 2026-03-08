@@ -1,7 +1,16 @@
+// Article Writer — Tier 3 shared specialist
+// Writes long-form SEO articles with keyword optimization.
+
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "article-writer";
 
 const INSTRUCTIONS = `You are the Article Writer for Nexus Suite.
 
@@ -23,13 +32,37 @@ Return JSON with:
 - "keyword_occurrences": count of keyword usage
 - "internal_links": suggested internal link placements`;
 
-const AGENT_NAME = "article-writer";
+const getArticleOutline = createTool({
+  id: "getArticleOutline",
+  description: "Fetch SEO structure, keyword density targets, and outline templates for articles",
+  inputSchema: z.object({
+    keyword: z.string().describe("Primary target keyword"),
+    wordCount: z.number().optional().describe("Target word count"),
+    niche: z.string().optional().describe("Content niche for tailored outlines"),
+  }),
+  execute: async (executionContext) => {
+    const { keyword, wordCount, niche } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { keyword: string; wordCount?: number; niche?: string }) => ({
+        keyword: input.keyword,
+        targetWordCount: input.wordCount ?? 1500,
+        niche: input.niche ?? "general",
+        keywordDensity: { min: 1.0, max: 2.5 },
+        suggestedHeadings: [] as string[],
+        outline: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getArticleOutline" },
+    );
+    return wrappedFn({ keyword, wordCount, niche });
+  },
+});
 
 const articleWriterAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getArticleOutline },
 });
 
 export function createAgent() {

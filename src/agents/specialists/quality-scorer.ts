@@ -1,4 +1,8 @@
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
@@ -24,11 +28,84 @@ Return JSON with:
 
 const AGENT_NAME = "quality-scorer";
 
+const getEditingRules = createTool({
+  id: "getEditingRules",
+  description: "Fetch editing rules and style guide for content evaluation",
+  inputSchema: z.object({
+    contentType: z.string().describe("Type of content: post, article, script, caption"),
+    platform: z.string().optional().describe("Target platform"),
+  }),
+  execute: async (executionContext) => {
+    const { contentType, platform } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { contentType: string; platform?: string }) => ({
+        contentType: input.contentType,
+        platform: input.platform ?? "general",
+        rules: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getEditingRules" },
+    );
+    return wrappedFn({ contentType, platform });
+  },
+});
+
+const getQualityThresholds = createTool({
+  id: "getQualityThresholds",
+  description: "Fetch minimum quality thresholds for content approval",
+  inputSchema: z.object({
+    contentType: z.string().describe("Type of content"),
+    tier: z.enum(["draft", "review", "publish"]).optional().describe("Quality tier"),
+  }),
+  execute: async (executionContext) => {
+    const { contentType, tier } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { contentType: string; tier?: string }) => ({
+        contentType: input.contentType,
+        tier: input.tier ?? "publish",
+        minimumScore: 70,
+        categoryMinimums: { grammar: 60, clarity: 60, engagement: 50, brand_alignment: 65, seo: 50 },
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getQualityThresholds" },
+    );
+    return wrappedFn({ contentType, tier });
+  },
+});
+
+const scoreContent = createTool({
+  id: "scoreContent",
+  description: "Score content quality on a 0-100 scale across multiple dimensions",
+  inputSchema: z.object({
+    content: z.string().describe("Content text to score"),
+    contentType: z.string().describe("Type: post, article, script, caption"),
+    platform: z.string().optional().describe("Target platform"),
+  }),
+  execute: async (executionContext) => {
+    const { content, contentType, platform } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { content: string; contentType: string; platform?: string }) => ({
+        contentType: input.contentType,
+        platform: input.platform ?? "general",
+        overall_score: 0,
+        scores: { grammar: 0, clarity: 0, engagement: 0, brand_alignment: 0, seo: 0 },
+        pass: false,
+        threshold: 70,
+        issues: [] as string[],
+        suggestions: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "scoreContent" },
+    );
+    return wrappedFn({ content, contentType, platform });
+  },
+});
+
 const qualityScorerAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getEditingRules, getQualityThresholds, scoreContent },
 });
 
 export function createAgent() {

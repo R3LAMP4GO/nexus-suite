@@ -29,6 +29,72 @@ const searchTrends = createTool({
   },
 });
 
+const searchTwitter = createTool({
+  id: "searchTwitter",
+  description: "Search Twitter/X for trending topics and viral posts",
+  inputSchema: z.object({
+    query: z.string().describe("Search query"),
+    timeframe: z.string().optional().describe("Time range: 1h, 24h, 7d"),
+  }),
+  execute: async (executionContext) => {
+    const { query, timeframe } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { query: string; timeframe?: string }) => ({
+        query: input.query,
+        timeframe: input.timeframe ?? "24h",
+        tweets: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: "trend-scout", toolName: "searchTwitter" },
+    );
+    return wrappedFn({ query, timeframe });
+  },
+});
+
+const searchHackerNews = createTool({
+  id: "searchHackerNews",
+  description: "Search Hacker News for trending tech topics",
+  inputSchema: z.object({
+    query: z.string().describe("Search query"),
+    sortBy: z.enum(["relevance", "date", "points"]).optional().describe("Sort order"),
+  }),
+  execute: async (executionContext) => {
+    const { query, sortBy } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { query: string; sortBy?: string }) => ({
+        query: input.query,
+        sortBy: input.sortBy ?? "relevance",
+        stories: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: "trend-scout", toolName: "searchHackerNews" },
+    );
+    return wrappedFn({ query, sortBy });
+  },
+});
+
+const searchReddit = createTool({
+  id: "searchReddit",
+  description: "Search Reddit for trending discussions and content ideas",
+  inputSchema: z.object({
+    query: z.string().describe("Search query"),
+    subreddit: z.string().optional().describe("Specific subreddit to search"),
+  }),
+  execute: async (executionContext) => {
+    const { query, subreddit } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { query: string; subreddit?: string }) => ({
+        query: input.query,
+        subreddit: input.subreddit ?? "all",
+        posts: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: "trend-scout", toolName: "searchReddit" },
+    );
+    return wrappedFn({ query, subreddit });
+  },
+});
+
 export const trendScoutAgent = new Agent({
   name: "trend-scout",
   instructions: `You are the Trend Scout specialist. Your role is to identify trending topics, viral patterns, and content opportunities across platforms.
@@ -41,5 +107,5 @@ You can search for:
 
 Return concise, actionable trend insights. Focus on timeliness and relevance to the creator's niche.`,
   model: modelConfig.tier25,
-  tools: { searchTrends },
+  tools: { searchTrends, searchTwitter, searchHackerNews, searchReddit },
 });

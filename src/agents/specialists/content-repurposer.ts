@@ -1,7 +1,13 @@
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "content-repurposer";
 
 const INSTRUCTIONS = `You are the Content Repurposer for Nexus Suite.
 
@@ -20,13 +26,33 @@ Return JSON with:
 - "adaptations": what was changed for each platform
 - "media_adjustments": required media format changes`;
 
-const AGENT_NAME = "content-repurposer";
+const getPlatformFormats = createTool({
+  id: "getPlatformFormats",
+  description: "Fetch aspect ratios, character limits, and media specs per platform",
+  inputSchema: z.object({
+    platforms: z.array(z.string()).describe("Platforms to get format specs for"),
+    mediaType: z.string().optional().describe("Filter by media type: video, image, text"),
+  }),
+  execute: async (executionContext) => {
+    const { platforms, mediaType } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { platforms: string[]; mediaType?: string }) => ({
+        platforms: input.platforms,
+        mediaType: input.mediaType ?? "all",
+        formats: [] as Record<string, unknown>[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getPlatformFormats" },
+    );
+    return wrappedFn({ platforms, mediaType });
+  },
+});
 
 const contentRepurposerAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getPlatformFormats },
 });
 
 export function createAgent() {

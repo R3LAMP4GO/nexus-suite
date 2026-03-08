@@ -1,4 +1,8 @@
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
@@ -23,11 +27,54 @@ Return JSON with:
 
 const AGENT_NAME = "hashtag-optimizer";
 
+const getTrending = createTool({
+  id: "getTrending",
+  description: "Fetch currently trending hashtags for a given platform",
+  inputSchema: z.object({
+    platform: z.string().describe("Platform: instagram, tiktok, youtube, twitter, linkedin"),
+    niche: z.string().optional().describe("Content niche to filter by"),
+  }),
+  execute: async (executionContext) => {
+    const { platform, niche } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { platform: string; niche?: string }) => ({
+        platform: input.platform,
+        niche: input.niche ?? "general",
+        trending: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getTrending" },
+    );
+    return wrappedFn({ platform, niche });
+  },
+});
+
+const getHashtagAnalytics = createTool({
+  id: "getHashtagAnalytics",
+  description: "Get performance analytics for specific hashtags",
+  inputSchema: z.object({
+    hashtags: z.array(z.string()).describe("Hashtags to analyze"),
+    platform: z.string().describe("Target platform"),
+  }),
+  execute: async (executionContext) => {
+    const { hashtags, platform } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { hashtags: string[]; platform: string }) => ({
+        platform: input.platform,
+        analytics: input.hashtags.map((h) => ({ hashtag: h, reach: 0, competition: "unknown" })),
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getHashtagAnalytics" },
+    );
+    return wrappedFn({ hashtags, platform });
+  },
+});
+
 const hashtagOptimizerAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getTrending, getHashtagAnalytics },
 });
 
 export function createAgent() {

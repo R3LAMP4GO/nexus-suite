@@ -1,7 +1,16 @@
+// Thread Writer — Tier 3 shared specialist
+// Creates multi-post threads with narrative arc and engagement hooks.
+
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "thread-writer";
 
 const INSTRUCTIONS = `You are the Thread Writer for Nexus Suite.
 
@@ -21,13 +30,37 @@ Return JSON with:
 - "engagement_hooks": hooks placed between posts
 - "estimated_read_time": total read time in seconds`;
 
-const AGENT_NAME = "thread-writer";
+const getThreadStructure = createTool({
+  id: "getThreadStructure",
+  description: "Fetch thread length limits, hook placement patterns, and CTA templates",
+  inputSchema: z.object({
+    platform: z.string().describe("Target platform (x, linkedin, threads)"),
+    narrativeType: z.enum(["listicle", "story", "educational"]).optional().describe("Narrative template"),
+    postCount: z.number().optional().describe("Target number of posts"),
+  }),
+  execute: async (executionContext) => {
+    const { platform, narrativeType, postCount } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { platform: string; narrativeType?: string; postCount?: number }) => ({
+        platform: input.platform,
+        narrativeType: input.narrativeType ?? "listicle",
+        maxPostCount: input.postCount ?? 10,
+        charLimit: 280,
+        hookPlacements: [] as string[],
+        ctaPatterns: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getThreadStructure" },
+    );
+    return wrappedFn({ platform, narrativeType, postCount });
+  },
+});
 
 const threadWriterAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getThreadStructure },
 });
 
 export function createAgent() {

@@ -1,7 +1,13 @@
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "brand-persona-agent";
 
 const INSTRUCTIONS = `You are the Brand Persona Agent for Nexus Suite.
 
@@ -21,13 +27,35 @@ Return JSON with:
 - "dont": array of brand voice don'ts
 - "example_phrases": array of on-brand example phrases`;
 
-const AGENT_NAME = "brand-persona-agent";
+const getBrandProfile = createTool({
+  id: "getBrandProfile",
+  description: "Fetch organization brand voice, tone, values, and visual identity",
+  inputSchema: z.object({
+    organizationId: z.string().describe("Organization ID to fetch brand profile for"),
+    includeVisual: z.boolean().optional().describe("Include visual identity guidelines"),
+  }),
+  execute: async (executionContext) => {
+    const { organizationId, includeVisual } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { organizationId: string; includeVisual?: boolean }) => ({
+        organizationId: input.organizationId,
+        tone: "",
+        formality: "",
+        values: [] as string[],
+        visualIdentity: input.includeVisual ? {} : undefined,
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getBrandProfile" },
+    );
+    return wrappedFn({ organizationId, includeVisual });
+  },
+});
 
 const brandPersonaAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getBrandProfile },
 });
 
 export function createAgent() {

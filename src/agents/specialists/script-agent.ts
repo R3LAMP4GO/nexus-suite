@@ -1,7 +1,16 @@
+// Script Agent — Tier 3 shared specialist
+// Writes full video scripts with pacing, structure, and brand voice.
+
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "script-agent";
 
 const INSTRUCTIONS = `You are the Script Agent for Nexus Suite.
 
@@ -22,13 +31,36 @@ Return JSON with:
 - "word_count": total word count
 - "reading_speed": words per minute target`;
 
-const AGENT_NAME = "script-agent";
+const getScriptTemplate = createTool({
+  id: "getScriptTemplate",
+  description: "Fetch platform-specific script structures and pacing guidelines",
+  inputSchema: z.object({
+    platform: z.string().describe("Target platform (youtube, tiktok, instagram)"),
+    format: z.enum(["short", "long"]).optional().describe("Short-form or long-form"),
+    duration: z.number().optional().describe("Target duration in seconds"),
+  }),
+  execute: async (executionContext) => {
+    const { platform, format, duration } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { platform: string; format?: string; duration?: number }) => ({
+        platform: input.platform,
+        format: input.format ?? "short",
+        targetDuration: input.duration ?? 60,
+        structure: [] as string[],
+        pacingGuidelines: [] as string[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getScriptTemplate" },
+    );
+    return wrappedFn({ platform, format, duration });
+  },
+});
 
 const scriptAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getScriptTemplate },
 });
 
 export function createAgent() {

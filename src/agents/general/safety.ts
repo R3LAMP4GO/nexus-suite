@@ -25,7 +25,18 @@ const TOOL_SCOPE: Record<string, Set<string>> = {
   "caption-writer": new Set(["getCharLimits", "getBrandVoice"]),
   "hashtag-optimizer": new Set(["getTrending", "getHashtagAnalytics"]),
   "trend-scout":   new Set(["tavilySearch", "searchTwitter", "searchHackerNews", "searchReddit"]),
-  "quality-scorer": new Set(["getEditingRules", "getQualityThresholds"]),
+  "quality-scorer": new Set(["getEditingRules", "getQualityThresholds", "scoreContent"]),
+  "article-writer":    new Set(["getArticleOutline"]),
+  "script-agent":      new Set(["getScriptTemplate"]),
+  "thread-writer":     new Set(["getThreadStructure"]),
+  "title-generator":   new Set(["getTitlePerformance"]),
+  "thumbnail-creator": new Set(["getThumbnailSpecs"]),
+  "analytics-reporter":     new Set(["queryAnalytics"]),
+  "brand-persona-agent":    new Set(["getBrandProfile"]),
+  "content-repurposer":     new Set(["getPlatformFormats"]),
+  "engagement-responder":   new Set(["getRecentComments"]),
+  "variation-orchestrator":  new Set(["getTransformPresets"]),
+  "viral-teardown-agent":   new Set(["fetchViralContent"]),
 };
 
 /**

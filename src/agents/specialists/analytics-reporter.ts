@@ -1,7 +1,13 @@
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "analytics-reporter";
 
 const INSTRUCTIONS = `You are the Analytics Reporter for Nexus Suite.
 
@@ -21,13 +27,35 @@ Return JSON with:
 - "top_content": best performing content in period
 - "recommendations": array of actionable next steps`;
 
-const AGENT_NAME = "analytics-reporter";
+const queryAnalytics = createTool({
+  id: "queryAnalytics",
+  description: "Fetch engagement, reach, and follower data by platform and time period",
+  inputSchema: z.object({
+    platform: z.string().describe("Platform to query (youtube, tiktok, instagram, etc.)"),
+    period: z.string().optional().describe("Time period: 7d, 30d, 90d"),
+    metrics: z.array(z.string()).optional().describe("Specific metrics to fetch"),
+  }),
+  execute: async (executionContext) => {
+    const { platform, period, metrics } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { platform: string; period?: string; metrics?: string[] }) => ({
+        platform: input.platform,
+        period: input.period ?? "30d",
+        metrics: input.metrics ?? ["impressions", "engagement_rate", "reach"],
+        data: [] as Record<string, unknown>[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "queryAnalytics" },
+    );
+    return wrappedFn({ platform, period, metrics });
+  },
+});
 
 const analyticsReporterAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { queryAnalytics },
 });
 
 export function createAgent() {

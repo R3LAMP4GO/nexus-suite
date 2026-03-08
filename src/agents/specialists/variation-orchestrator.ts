@@ -1,7 +1,13 @@
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "variation-orchestrator";
 
 const INSTRUCTIONS = `You are the Variation Orchestrator for Nexus Suite.
 
@@ -21,13 +27,33 @@ Return JSON with:
 - "quality_impact": estimated quality loss per variation (0-100)
 - "ffmpeg_command": template FFmpeg command string`;
 
-const AGENT_NAME = "variation-orchestrator";
+const getTransformPresets = createTool({
+  id: "getTransformPresets",
+  description: "Fetch FFmpeg transform presets for video hash alteration",
+  inputSchema: z.object({
+    videoFormat: z.string().optional().describe("Source video format (mp4, webm, etc.)"),
+    maxQualityLoss: z.number().optional().describe("Max acceptable quality loss 0-100"),
+  }),
+  execute: async (executionContext) => {
+    const { videoFormat, maxQualityLoss } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { videoFormat?: string; maxQualityLoss?: number }) => ({
+        videoFormat: input.videoFormat ?? "mp4",
+        maxQualityLoss: input.maxQualityLoss ?? 5,
+        presets: [] as Record<string, unknown>[],
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getTransformPresets" },
+    );
+    return wrappedFn({ videoFormat, maxQualityLoss });
+  },
+});
 
 const variationOrchestratorAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getTransformPresets },
 });
 
 export function createAgent() {

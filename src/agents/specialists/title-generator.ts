@@ -1,7 +1,16 @@
+// Title Generator — Tier 3 shared specialist
+// Creates click-worthy titles optimized for CTR.
+
 import { Agent } from "@mastra/core/agent";
+import { createTool } from "@mastra/core/tools";
+import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+
+const AGENT_NAME = "title-generator";
 
 const INSTRUCTIONS = `You are the Title Generator for Nexus Suite.
 
@@ -20,13 +29,37 @@ Return JSON with:
 - "ctr_prediction": estimated CTR for each title
 - "char_count": character count per title`;
 
-const AGENT_NAME = "title-generator";
+const getTitlePerformance = createTool({
+  id: "getTitlePerformance",
+  description: "Fetch historical CTR data and title patterns that perform well",
+  inputSchema: z.object({
+    niche: z.string().describe("Content niche for relevant title data"),
+    platform: z.string().optional().describe("Target platform for CTR benchmarks"),
+    titleStyle: z.enum(["numbers", "how-to", "curiosity", "urgency"]).optional().describe("Title framework filter"),
+  }),
+  execute: async (executionContext) => {
+    const { niche, platform, titleStyle } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { niche: string; platform?: string; titleStyle?: string }) => ({
+        niche: input.niche,
+        platform: input.platform ?? "youtube",
+        titleStyle: input.titleStyle ?? "all",
+        topPatterns: [] as string[],
+        avgCtr: 0,
+        benchmarks: {} as Record<string, number>,
+        status: "pending-integration" as const,
+      }),
+      { agentName: AGENT_NAME, toolName: "getTitlePerformance" },
+    );
+    return wrappedFn({ niche, platform, titleStyle });
+  },
+});
 
 const titleGeneratorAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
-  tools: {},
+  model: modelConfig.tier25,
+  tools: { getTitlePerformance },
 });
 
 export function createAgent() {
