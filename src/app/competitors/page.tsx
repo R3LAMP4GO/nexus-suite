@@ -2,16 +2,9 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc-client";
-import { Modal } from "@/components/ui/modal";
-
-const PLATFORM_COLORS: Record<string, string> = {
-  YOUTUBE: "bg-red-100 text-red-800",
-  TIKTOK: "bg-gray-900 text-white",
-  INSTAGRAM: "bg-pink-100 text-pink-800",
-  LINKEDIN: "bg-blue-100 text-blue-800",
-  X: "bg-gray-100 text-gray-800",
-  FACEBOOK: "bg-indigo-100 text-indigo-800",
-};
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -68,52 +61,48 @@ export default function CompetitorsPage() {
               Monitor creators, detect outlier posts, reproduce winning content
             </p>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800"
-          >
+          <Button onClick={() => setShowAddModal(true)}>
             + Track Creator
-          </button>
+          </Button>
         </div>
 
         {/* Add Creator Modal */}
-        <Modal
-          open={showAddModal}
-          onClose={() => {
-            setShowAddModal(false);
-            setProfileUrl("");
-          }}
-          title="Track a Creator"
-        >
-          <input
-            type="url"
-            placeholder="https://youtube.com/@creator"
-            value={profileUrl}
-            onChange={(e) => setProfileUrl(e.target.value)}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-          />
-          {addCreator.error && (
-            <p className="mt-2 text-sm text-red-600">{addCreator.error.message}</p>
-          )}
-          <div className="mt-4 flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setShowAddModal(false);
-                setProfileUrl("");
-              }}
-              className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => addCreator.mutate({ profileUrl })}
-              disabled={!profileUrl || addCreator.isPending}
-              className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-            >
-              {addCreator.isPending ? "Adding..." : "Add"}
-            </button>
+        {showAddModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <Card className="w-full max-w-md shadow-xl">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">Track a Creator</h2>
+              <input
+                type="url"
+                placeholder="https://youtube.com/@creator"
+                value={profileUrl}
+                onChange={(e) => setProfileUrl(e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+              />
+              {addCreator.error && (
+                <p className="mt-2 text-sm text-red-600">{addCreator.error.message}</p>
+              )}
+              <div className="mt-4 flex justify-end gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setProfileUrl("");
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => addCreator.mutate({ profileUrl })}
+                  disabled={!profileUrl}
+                  loading={addCreator.isPending}
+                  loadingText="Adding..."
+                >
+                  Add
+                </Button>
+              </div>
+            </Card>
           </div>
-        </Modal>
+        )}
 
         {/* Loading / Empty */}
         {isLoading ? (
@@ -189,7 +178,7 @@ function CreatorCard({
   onReproduce,
 }: CreatorCardProps) {
   return (
-    <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+    <Card className="p-0 border-gray-200">
       <div className="p-4">
         <div className="flex items-start gap-3">
           {/* Avatar */}
@@ -210,13 +199,7 @@ function CreatorCard({
               <span className="truncate font-medium text-gray-900">
                 {creator.username}
               </span>
-              <span
-                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                  PLATFORM_COLORS[creator.platform] ?? "bg-gray-100 text-gray-800"
-                }`}
-              >
-                {creator.platform}
-              </span>
+              <Badge variant="platform" value={creator.platform} />
             </div>
             <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
               <span>{formatNumber(creator.followerCount)} followers</span>
@@ -270,7 +253,7 @@ function CreatorCard({
           onReproduce={onReproduce}
         />
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -322,20 +305,22 @@ function PostList({
             </div>
           </div>
           <div className="flex gap-1">
-            <button
+            <Button
+              variant="secondary"
               onClick={() => onAnalyze(post.id)}
-              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+              className="rounded px-2 py-1 text-xs"
               title="Analyze"
             >
               Analyze
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               onClick={() => onReproduce(post.id)}
-              className="rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-100"
+              className="rounded px-2 py-1 text-xs"
               title="Reproduce"
             >
               Reproduce
-            </button>
+            </Button>
           </div>
         </div>
       ))}

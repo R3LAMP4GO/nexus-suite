@@ -2,13 +2,9 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc-client";
-import { FormField } from "@/components/ui/form-field";
-
-const CIRCUIT_COLORS: Record<string, string> = {
-  CLOSED: "bg-green-100 text-green-800",
-  HALF_OPEN: "bg-yellow-100 text-yellow-800",
-  OPEN: "bg-red-100 text-red-800",
-};
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export default function SettingsPage() {
   const org = api.settings.getOrgDetails.useQuery();
@@ -55,49 +51,50 @@ export default function SettingsPage() {
         <h1 className="mb-8 text-2xl font-bold text-gray-900">Settings</h1>
 
         {/* Org Details */}
-        <section className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
+        <Card as="section" className="mb-8">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Organization</h2>
           {org.isLoading ? (
             <p className="text-gray-500">Loading...</p>
           ) : org.data ? (
             <div className="space-y-4">
-              <FormField label="Name">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
-              </FormField>
-              <FormField label="Slug">
+              </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Slug</label>
                 <input
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
-              </FormField>
+              </div>
               <div className="flex items-center gap-4 text-sm text-gray-500">
                 <span>Tier: {org.data.pricingTier}</span>
                 <span>Budget: ${(org.data.dailyLlmBudgetCents / 100).toFixed(2)}/day</span>
                 <span>Max Accounts: {org.data.maxAccounts}</span>
               </div>
-              <button
+              <Button
                 onClick={handleSaveOrg}
-                disabled={updateOrg.isPending}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+                loading={updateOrg.isPending}
               >
-                {updateOrg.isPending ? "Saving..." : "Save"}
-              </button>
+                Save
+              </Button>
               {updateOrg.error && (
                 <p className="text-sm text-red-600">{updateOrg.error.message}</p>
               )}
             </div>
           ) : null}
-        </section>
+        </Card>
 
         {/* Platform Connections */}
-        <section className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
+        <Card as="section" className="mb-8">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Platform Connections</h2>
           {tokens.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -128,22 +125,16 @@ export default function SettingsPage() {
                         {(token.healthScore * 100).toFixed(0)}%
                       </span>
                     </div>
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        CIRCUIT_COLORS[token.circuitState] ?? "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {token.circuitState}
-                    </span>
+                    <Badge variant="circuit" value={token.circuitState} />
                   </div>
                 </div>
               ))}
             </div>
           )}
-        </section>
+        </Card>
 
         {/* Brand Config */}
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
+        <Card as="section">
           <h2 className="mb-4 text-lg font-semibold text-gray-900">Brand Configuration</h2>
           <textarea
             value={brandJson}
@@ -152,17 +143,18 @@ export default function SettingsPage() {
             className="w-full rounded-md border px-3 py-2 font-mono text-sm"
             placeholder='{"voice": "professional", "tone": "friendly"}'
           />
-          <button
+          <Button
             onClick={handleSaveBrand}
-            disabled={updateBrand.isPending}
-            className="mt-3 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+            loading={updateBrand.isPending}
+            loadingText="Saving..."
+            className="mt-3"
           >
-            {updateBrand.isPending ? "Saving..." : "Save Brand Config"}
-          </button>
+            Save Brand Config
+          </Button>
           {updateBrand.error && (
             <p className="mt-2 text-sm text-red-600">{updateBrand.error.message}</p>
           )}
-        </section>
+        </Card>
       </div>
     </div>
   );

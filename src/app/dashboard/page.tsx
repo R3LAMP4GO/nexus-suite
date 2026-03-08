@@ -1,12 +1,8 @@
 "use client";
 
 import { api } from "@/lib/trpc-client";
-
-const CIRCUIT_COLORS: Record<string, string> = {
-  CLOSED: "bg-green-100 text-green-800",
-  HALF_OPEN: "bg-yellow-100 text-yellow-800",
-  OPEN: "bg-red-100 text-red-800",
-};
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 const SPEND_COLORS: Record<string, string> = {
   green: "bg-green-500",
@@ -28,17 +24,17 @@ export default function DashboardPage() {
         {/* Workflow Stats */}
         <div className="mb-8 grid grid-cols-4 gap-4">
           {(["active", "completed", "failed", "queued"] as const).map((key) => (
-            <div key={key} className="rounded-lg border bg-white p-4 shadow-sm">
+            <Card key={key} className="p-4">
               <p className="text-sm font-medium capitalize text-gray-500">{key}</p>
               <p className="mt-1 text-2xl font-bold text-gray-900">
                 {workflows.isLoading ? "—" : (workflows.data?.[key] ?? 0)}
               </p>
-            </div>
+            </Card>
           ))}
         </div>
 
         {/* LLM Spend Bar */}
-        <div className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
+        <Card className="mb-8">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">LLM Spend (Today)</h2>
           {spend.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -59,10 +55,10 @@ export default function DashboardPage() {
               </p>
             </>
           ) : null}
-        </div>
+        </Card>
 
         {/* Account Health Grid */}
-        <div className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
+        <Card className="mb-8">
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Account Health</h2>
           {health.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -76,13 +72,7 @@ export default function DashboardPage() {
                     <span className="text-sm font-medium text-gray-900">
                       {token.platform} — {token.accountLabel}
                     </span>
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                        CIRCUIT_COLORS[token.circuitState] ?? "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {token.circuitState}
-                    </span>
+                    <Badge variant="circuit" value={token.circuitState} />
                   </div>
                   <div className="mt-2 flex items-center gap-2">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-200">
@@ -102,10 +92,10 @@ export default function DashboardPage() {
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Recent Posts */}
-        <div className="rounded-lg border bg-white p-6 shadow-sm">
+        <Card>
           <h2 className="mb-3 text-lg font-semibold text-gray-900">Recent Posts</h2>
           {posts.isLoading ? (
             <p className="text-gray-500">Loading...</p>
@@ -124,7 +114,7 @@ export default function DashboardPage() {
               ))}
             </ul>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );
