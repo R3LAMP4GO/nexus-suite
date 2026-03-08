@@ -4,6 +4,7 @@ import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { wrapToolHandler } from "@/agents/general";
+import { executeAgentDelegate, getWorkflowContext } from "@/server/workflows/agent-delegate";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 const delegateToSubAgent = createTool({
@@ -17,11 +18,15 @@ const delegateToSubAgent = createTool({
   execute: async (executionContext) => {
     const { subAgentName, prompt } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { subAgentName: string; prompt: string }) => ({
-        delegatedTo: input.subAgentName,
-        prompt: input.prompt,
-        status: "pending-wiring" as const,
-      }),
+      async (input: { subAgentName: string; prompt: string }) => {
+        const workflowContext = getWorkflowContext();
+        const result = await executeAgentDelegate(input.subAgentName, input.prompt, workflowContext);
+        return {
+          delegatedTo: input.subAgentName,
+          result,
+          status: "delegated" as const,
+        };
+      },
       { agentName: "tiktok-main", toolName: "delegateToSubAgent" },
     );
     return wrappedFn({ subAgentName, prompt });

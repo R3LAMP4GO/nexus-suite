@@ -1,6 +1,19 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { WorkflowContext } from "./control-flow";
 import { trackLlmSpend } from "../services/llm-budget";
 import type { WrappedToolResult } from "@/agents/general/cli-tool-wrappers";
+
+// AsyncLocalStorage to thread WorkflowContext through agent tool execution
+const workflowContextStorage = new AsyncLocalStorage<WorkflowContext>();
+
+/** Retrieve the current WorkflowContext from within a tool's execute function. */
+export function getWorkflowContext(): WorkflowContext {
+  const ctx = workflowContextStorage.getStore();
+  if (!ctx) {
+    throw new Error("getWorkflowContext() called outside of executeAgentDelegate — no WorkflowContext available");
+  }
+  return ctx;
+}
 
 // Agent registry: maps agent name → generate function + optional tools
 // Populated at startup when Mastra agents are initialized
@@ -55,9 +68,40 @@ export function registerAgent(
 // 2. src/agents/platforms/{platform}/subagents/{agentName}
 // 3. src/agents/specialists/{agentName}
 // 4. Global agent registry (registered at startup)
+// Known sub-agent names grouped by platform for resolution tier 2
+const PLATFORM_SUBAGENTS = new Set([
+  "community-post-formatter", "shorts-optimizer",
+  "duet-stitch-logic", "sound-selector",
+  "carousel-sequencer", "story-formatter",
+  "professional-tone-adapter", "article-formatter",
+  "news-scout", "tone-translator", "x-engagement-responder",
+]);
+
+// Known specialist names for resolution tier 3
+const SPECIALIST_AGENTS = new Set([
+  "seo-agent", "hook-writer", "title-generator", "thumbnail-creator",
+  "script-agent", "caption-writer", "hashtag-optimizer", "thread-writer",
+  "article-writer", "trend-scout", "engagement-responder",
+  "analytics-reporter", "content-repurposer", "quality-scorer",
+  "variation-orchestrator", "brand-persona-agent", "viral-teardown-agent",
+]);
+
 function resolveAgent(agentName: string, _orgId: string): RegisteredAgent | null {
-  // TODO: Phase 3 will implement dynamic client plugin loading
-  // For now, use the global registry
+  // Resolution order:
+  // 1. Client plugin: src/agents/clients/{orgId}/agents/{agentName}
+  //    TODO: Phase 3 will implement dynamic client plugin loading
+
+  // 2. Platform sub-agent
+  if (PLATFORM_SUBAGENTS.has(agentName)) {
+    return agentRegistry.get(agentName) ?? null;
+  }
+
+  // 3. Specialist agent
+  if (SPECIALIST_AGENTS.has(agentName)) {
+    return agentRegistry.get(agentName) ?? null;
+  }
+
+  // 4. Global registry fallback
   return agentRegistry.get(agentName) ?? null;
 }
 
@@ -76,7 +120,9 @@ export async function executeAgentDelegate(
     );
   }
 
-  const result = await entry.generateFn(prompt, { model, maxTokens });
+  const result = await workflowContextStorage.run(context, () =>
+    entry.generateFn(prompt, { model, maxTokens }),
+  );
 
   // Track LLM spend if usage data is available
   if (result.usage) {

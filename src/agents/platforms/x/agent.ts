@@ -5,12 +5,13 @@ import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { wrapToolHandler } from "@/agents/general";
+import { executeAgentDelegate, getWorkflowContext } from "@/server/workflows/agent-delegate";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 const delegateToSubAgent = createTool({
   id: "delegateToSubAgent",
   description:
-    "Delegate a task to an X platform sub-agent by name (news-scout, tone-translator, engagement-responder)",
+    "Delegate a task to an X platform sub-agent by name (news-scout, tone-translator, x-engagement-responder)",
   inputSchema: z.object({
     subAgentName: z.string().describe("Name of the sub-agent to delegate to"),
     prompt: z.string().describe("Task prompt for the sub-agent"),
@@ -19,11 +20,12 @@ const delegateToSubAgent = createTool({
     const { subAgentName, prompt } = executionContext.context;
     const wrappedFn = wrapToolHandler(
       async (input: { subAgentName: string; prompt: string }) => {
-        // Actual delegation wired in Chunk 3 via executeAgentDelegate
+        const workflowContext = getWorkflowContext();
+        const result = await executeAgentDelegate(input.subAgentName, input.prompt, workflowContext);
         return {
           delegatedTo: input.subAgentName,
-          prompt: input.prompt,
-          status: "pending-wiring" as const,
+          result,
+          status: "delegated" as const,
         };
       },
       { agentName: "x-main", toolName: "delegateToSubAgent" },
@@ -39,7 +41,7 @@ export const xMainAgent = new Agent({
 You can delegate to these sub-agents:
 - news-scout: Finds trending news and topics relevant to the brand
 - tone-translator: Adapts content to X's conversational, concise tone
-- engagement-responder: Crafts replies, quote tweets, and engagement responses
+- x-engagement-responder: Crafts replies, quote tweets, and engagement responses
 
 For specialist tasks (SEO, hashtags, hooks), delegate to shared Tier 3 specialists via the orchestrator.
 

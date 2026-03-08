@@ -8,6 +8,18 @@ import { instagramMainAgent } from "./platforms/instagram/agent";
 import { linkedinMainAgent } from "./platforms/linkedin/agent";
 import { xMainAgent } from "./platforms/x/agent";
 import { generateFacebook } from "./platforms/facebook/agent";
+// Tier 2.5: Platform sub-agents
+import { communityPostFormatterAgent } from "./platforms/youtube/subagents/community-post-formatter";
+import { shortsOptimizerAgent } from "./platforms/youtube/subagents/shorts-optimizer";
+import { duetStitchLogicAgent } from "./platforms/tiktok/subagents/duet-stitch-logic";
+import { soundSelectorAgent } from "./platforms/tiktok/subagents/sound-selector";
+import { carouselSequencerAgent } from "./platforms/instagram/subagents/carousel-sequencer";
+import { storyFormatterAgent } from "./platforms/instagram/subagents/story-formatter";
+import { professionalToneAdapterAgent } from "./platforms/linkedin/subagents/professional-tone-adapter";
+import { articleFormatterAgent } from "./platforms/linkedin/subagents/article-formatter";
+import { newsScoutAgent } from "./platforms/x/subagents/news-scout";
+import { toneTranslatorAgent } from "./platforms/x/subagents/tone-translator";
+import { engagementResponderAgent } from "./platforms/x/subagents/engagement-responder";
 // Specialist agents
 import { generate as generateSeo } from "./specialists/seo-agent";
 import { generate as generateHookWriter } from "./specialists/hook-writer";
@@ -50,29 +62,75 @@ export function bootstrapAgents(): void {
   );
 
   // Tier 2: Platform agents (6) — wrap Agent.generate for those without a generate fn
-  registerAgent("youtube-agent", async (prompt, opts) => {
+  registerAgent("youtube-main", async (prompt, opts) => {
     const result = await youtubeMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
     return { text: result.text };
   });
-  registerAgent("tiktok-agent", async (prompt, opts) => {
+  registerAgent("tiktok-main", async (prompt, opts) => {
     const result = await tiktokMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
     return { text: result.text };
   });
-  registerAgent("instagram-agent", async (prompt, opts) => {
+  registerAgent("instagram-main", async (prompt, opts) => {
     const result = await instagramMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
     return { text: result.text };
   });
-  registerAgent("linkedin-agent", async (prompt, opts) => {
+  registerAgent("linkedin-main", async (prompt, opts) => {
     const result = await linkedinMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
     return { text: result.text };
   });
-  registerAgent("x-agent", async (prompt, opts) => {
+  registerAgent("x-main", async (prompt, opts) => {
     const result = await xMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
     return { text: result.text };
   });
   registerAgent("facebook-agent", (prompt, opts) =>
     generateFacebook(prompt, { organizationId: "", userPrompt: prompt }, opts),
   );
+
+  // Tier 2.5: Platform sub-agents (11)
+  registerAgent("community-post-formatter", async (prompt, opts) => {
+    const result = await communityPostFormatterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("shorts-optimizer", async (prompt, opts) => {
+    const result = await shortsOptimizerAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("duet-stitch-logic", async (prompt, opts) => {
+    const result = await duetStitchLogicAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("sound-selector", async (prompt, opts) => {
+    const result = await soundSelectorAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("carousel-sequencer", async (prompt, opts) => {
+    const result = await carouselSequencerAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("story-formatter", async (prompt, opts) => {
+    const result = await storyFormatterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("professional-tone-adapter", async (prompt, opts) => {
+    const result = await professionalToneAdapterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("article-formatter", async (prompt, opts) => {
+    const result = await articleFormatterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("news-scout", async (prompt, opts) => {
+    const result = await newsScoutAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("tone-translator", async (prompt, opts) => {
+    const result = await toneTranslatorAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
+  registerAgent("x-engagement-responder", async (prompt, opts) => {
+    const result = await engagementResponderAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    return { text: result.text };
+  });
 
   // Tier 3: Specialist agents (17)
   registerAgent("seo-agent", (prompt, opts) =>

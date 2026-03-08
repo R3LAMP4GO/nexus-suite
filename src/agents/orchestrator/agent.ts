@@ -6,8 +6,7 @@ import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { wrapToolHandler } from "@/agents/general";
-import { prepareContext } from "@/agents/general/prepare-context";
-import { executeAgentDelegate } from "@/server/workflows/agent-delegate";
+import { executeAgentDelegate, getWorkflowContext } from "@/server/workflows/agent-delegate";
 import type { WorkflowContext } from "@/server/workflows/control-flow";
 
 const PLATFORM_AGENTS: Record<string, string> = {
@@ -34,11 +33,13 @@ const delegateToPlatform = createTool({
         if (!agentName) {
           return { error: `Unknown platform: ${input.platform}`, status: "error" as const };
         }
+        const workflowContext = getWorkflowContext();
+        const result = await executeAgentDelegate(agentName, input.prompt, workflowContext);
         return {
           delegatedTo: agentName,
           platform: input.platform,
-          prompt: input.prompt,
-          status: "pending-wiring" as const,
+          result,
+          status: "delegated" as const,
         };
       },
       { agentName: "orchestrator", toolName: "delegateToPlatform" },
@@ -95,17 +96,5 @@ export async function executeOrchestrator(
   prompt: string,
   context: WorkflowContext,
 ): Promise<unknown> {
-  const strippedContext = prepareContext(
-    {
-      organizationId: context.organizationId,
-      workflowName: context.workflowName,
-      runId: context.runId,
-      input: context.input,
-      variables: context.variables,
-      config: context.config,
-    },
-    "orchestrator",
-  );
-
   return executeAgentDelegate("orchestrator", prompt, context);
 }
