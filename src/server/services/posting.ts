@@ -13,7 +13,7 @@ import { downloadFile } from "./r2-storage";
 import { uploadViaPlatform } from "./browser-posting";
 import { postYouTubeApi } from "./platform-apis/youtube";
 import { postTikTokApi } from "./platform-apis/tiktok";
-import { postLinkedInApi } from "./platform-apis/linkedin";
+import { postXApi } from "./platform-apis/x";
 import type { Platform, AccountType } from "@prisma/client";
 
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
@@ -188,9 +188,9 @@ async function postViaApi(
     case "FACEBOOK":
       return postFacebookApi(account, variation);
     case "X":
-      return postXApi(variation);
+      return postXApi(accessToken, variation);
     case "LINKEDIN":
-      return postLinkedInApi(accessToken, variation);
+      return postLinkedInApi(variation);
     default:
       return { success: false, errorMessage: `Unsupported platform: ${platform}` };
   }
@@ -289,10 +289,10 @@ async function postFacebookApi(account: AccountData, variation: VariationData): 
   return { success: true, externalPostId: data.id };
 }
 
-async function postXApi(variation: VariationData): Promise<PostResult> {
-  // TODO: X API v2 — POST /2/tweets with media upload
+async function postLinkedInApi(variation: VariationData): Promise<PostResult> {
+  // TODO: LinkedIn Marketing API — /ugcPosts with video upload
   void variation;
-  return { success: false, errorMessage: "X API posting not yet implemented" };
+  return { success: false, errorMessage: "LinkedIn API posting not yet implemented" };
 }
 
 // ── Browser Posting (SECONDARY accounts) ──────────────────────
