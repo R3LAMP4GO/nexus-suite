@@ -1,18 +1,12 @@
-Chunk 1 done. Here's what was built:
+Chunk 1 complete. Here's what was built:
 
-**4 new files in `src/server/services/warming/`:**
+**`src/server/services/usage-tracking.ts`** (new)
+- `incrementUsage(orgId, metric, period?)` — upserts `UsageRecord` via Prisma. Monthly period for accounts/workflow_runs/videos, daily for llm_spend_cents
+- `checkUsageLimit(orgId, metric)` — compares current count against org feature gates. Returns `{ allowed, current, limit, message }`. LLM spend delegates to existing `checkLlmBudget()`
 
-| File | What it does |
-|---|---|
-| `health-tracker.ts` | Redis-backed `session:health:{accountId}` — records actions, checks staleness (>7d threshold), flags stale accounts. 30d TTL auto-cleanup. |
-| `session-manager.ts` | R2 upload/download with AES-256-GCM encryption. Key fetched from Infisical per org (`fetch-use-discard`). Path: `sessions/{orgId}/{accountId}/state.json`. |
-| `queue.ts` | pg-boss singleton, `warm:task` consumer with teamSize=1 (one browser at a time), producer helper with `startAfter` scheduling for phase timing. |
-| `index.ts` | Entry point — boots when `SERVICE_MODE=warming`, starts pg-boss consumer, graceful SIGINT/SIGTERM shutdown. Placeholder handler logs tasks until Chunk 2 wires the executor. |
+**`src/server/api/trpc.ts`** (modified)
+- Added `tierGatedProcedure(feature)` factory chaining after `onboardedProcedure`
+- Boolean gates (`mlFeaturesEnabled`, `multiplierEnabled`): reads session features, throws FORBIDDEN if false
+- Numeric gates (`maxAccounts`, `maxWorkflowRuns`, `maxVideosPerMonth`): calls `checkUsageLimit()`, throws FORBIDDEN with message if exceeded
 
-**Also:** Added `pg-boss` + `@aws-sdk/client-s3` to `package.json`.
-
-**Note:** `tsc --noEmit` couldn't run — no `node_modules` (pre-existing `next-auth@^5.0.0` version conflict blocks `npm install`). Import paths verified manually.
-
-**CLAUDE.md** updated to `build - Chunk 1/3 done - #20`.
-
-Phase 1 done. Resume: `gh issue view 20`, execute Chunk 2. Files: `src/server/services/warming/{index,session-manager,health-tracker,queue}.ts`. Issues: `npm install` blocked by `next-auth@^5.0.0` — no matching version.
+No `node_modules` installed so `tsc --noEmit` couldn't run, but code follows existing patterns and types exactly.

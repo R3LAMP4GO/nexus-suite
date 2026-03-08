@@ -1,0 +1,5 @@
+Plan issue created: **#24** — 3 chunks:
+
+1. **Usage tracking service + tier enforcement middleware** — `usage-tracking.ts` service + `tierGatedProcedure` factory in `trpc.ts`
+2. **R2 storage service** — S3-compatible client with upload/download/signedUrl/delete + `@aws-sdk/client-s3` dep
+3. **Usage tRPC router + dashboard page** — `/settings/usage` with usage bars, LLM spend chart, tier comparison

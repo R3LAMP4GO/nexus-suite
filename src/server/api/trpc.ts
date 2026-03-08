@@ -3,6 +3,7 @@ import superjson from "superjson";
 import { ZodError } from "zod";
 import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
+import { checkUsageLimit } from "@/server/services/usage-tracking";
 
 // ── Context ──────────────────────────────────────────────────────
 
@@ -148,3 +149,58 @@ const enforceAdmin = t.middleware(async ({ ctx, next }) => {
 });
 
 export const adminProcedure = authedProcedure.use(enforceAdmin);
+
+// ── Tier-Gated Procedure Factory ─────────────────────────────────
+// Usage: tierGatedProcedure("multiplierEnabled") or tierGatedProcedure("maxAccounts")
+// Boolean gates: checks session features[key] is truthy
+// Numeric gates: calls checkUsageLimit() against org usage
+
+type BooleanGate = "mlFeaturesEnabled" | "multiplierEnabled";
+type NumericGate = "maxAccounts" | "maxWorkflowRuns" | "maxVideosPerMonth";
+type FeatureGate = BooleanGate | NumericGate;
+
+const GATE_TO_METRIC: Record<NumericGate, "accounts" | "workflow_runs" | "videos"> = {
+  maxAccounts: "accounts",
+  maxWorkflowRuns: "workflow_runs",
+  maxVideosPerMonth: "videos",
+};
+
+const NUMERIC_GATES = new Set<string>(Object.keys(GATE_TO_METRIC));
+
+export function tierGatedProcedure(feature: FeatureGate) {
+  const enforceTierGate = t.middleware(async ({ ctx, next }) => {
+    const features = (ctx as { session: { user: { features?: Record<string, unknown> } } })
+      .session.user.features;
+    const orgId = (ctx as { organizationId: string }).organizationId;
+
+    if (!features) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "No feature gates found. Contact support.",
+      });
+    }
+
+    if (NUMERIC_GATES.has(feature)) {
+      const metric = GATE_TO_METRIC[feature as NumericGate];
+      const result = await checkUsageLimit(orgId, metric);
+      if (!result.allowed) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: result.message ?? `${feature} limit reached (${result.current}/${result.limit}).`,
+        });
+      }
+    } else {
+      // Boolean gate
+      if (!features[feature]) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: `Feature "${feature}" is not available on your current plan.`,
+        });
+      }
+    }
+
+    return next({ ctx });
+  });
+
+  return onboardedProcedure.use(enforceTierGate);
+}
