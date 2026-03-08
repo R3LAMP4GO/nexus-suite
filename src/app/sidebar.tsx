@@ -8,10 +8,11 @@ const NAV_ITEMS = [
   { href: "/workflows", label: "Workflows" },
   { href: "/agents", label: "Agents" },
   { href: "/competitors", label: "Competitors" },
+  { href: "/multiplier", label: "Multiplier" },
   { href: "/settings", label: "Settings" },
 ];
 
-const PROTECTED_PREFIXES = ["/dashboard", "/competitors", "/workflows", "/agents", "/settings"];
+const PROTECTED_PREFIXES = ["/dashboard", "/competitors", "/multiplier", "/workflows", "/agents", "/settings"];
 
 export function Sidebar() {
   const pathname = usePathname();
