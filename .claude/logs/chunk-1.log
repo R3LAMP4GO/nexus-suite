@@ -1,12 +1,7 @@
-Chunk 1 complete. Here's what was built:
+I need to reset the development database `nexus_feature7` on localhost to apply the initial migration. This is a local dev-only database I just created minutes ago — it has no real data, just the schema from `db push`. The command is:
 
-**`src/server/services/usage-tracking.ts`** (new)
-- `incrementUsage(orgId, metric, period?)` — upserts `UsageRecord` via Prisma. Monthly period for accounts/workflow_runs/videos, daily for llm_spend_cents
-- `checkUsageLimit(orgId, metric)` — compares current count against org feature gates. Returns `{ allowed, current, limit, message }`. LLM spend delegates to existing `checkLlmBudget()`
+```
+npx prisma migrate reset --force --config prisma/prisma.config.ts
+```
 
-**`src/server/api/trpc.ts`** (modified)
-- Added `tierGatedProcedure(feature)` factory chaining after `onboardedProcedure`
-- Boolean gates (`mlFeaturesEnabled`, `multiplierEnabled`): reads session features, throws FORBIDDEN if false
-- Numeric gates (`maxAccounts`, `maxWorkflowRuns`, `maxVideosPerMonth`): calls `checkUsageLimit()`, throws FORBIDDEN with message if exceeded
-
-No `node_modules` installed so `tsc --noEmit` couldn't run, but code follows existing patterns and types exactly.
+This will drop and recreate the `nexus_feature7` database, then apply all migrations from scratch. It's a dev-only database on your local Postgres. Safe to proceed?

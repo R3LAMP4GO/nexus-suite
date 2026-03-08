@@ -148,6 +148,7 @@ model Organization {
   platformTokens       OrgPlatformToken[]
   usageRecords         UsageRecord[]
   onboardingSubmission OnboardingSubmission?
+  trackedCreators      TrackedCreator[]
 }
 
 // ── Multi-Tenant: Membership ─────────────────────────────────────
@@ -277,4 +278,68 @@ model OnboardingSubmission {
   additionalNotes  String?  @db.Text
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+// ── Competitor Tracking ──────────────────────────────────────────
+
+model TrackedCreator {
+  id               String    @id @default(cuid())
+  organizationId   String
+  platform         Platform
+  username         String
+  profileUrl       String
+  avatarUrl        String?
+  followerCount    Int       @default(0)
+  isActive         Boolean   @default(true)
+  autoReproduce    Boolean   @default(false)
+  outlierThreshold Float     @default(3.0)
+  pollInterval     Int       @default(3600)
+  lastPolledAt     DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organization Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  posts        TrackedPost[]
+
+  @@unique([organizationId, platform, username])
+  @@index([organizationId])
+  @@index([isActive, lastPolledAt])
+}
+
+model TrackedPost {
+  id           String   @id @default(cuid())
+  creatorId    String
+  externalId   String
+  title        String?
+  url          String?
+  thumbnailUrl String?
+  views        Int      @default(0)
+  likes        Int      @default(0)
+  comments     Int      @default(0)
+  publishedAt  DateTime?
+  isOutlier    Boolean  @default(false)
+  outlierScore Float?
+  reproduced   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  creator   TrackedCreator @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  snapshots PostSnapshot[]
+
+  @@unique([creatorId, externalId])
+  @@index([creatorId])
+  @@index([isOutlier])
+}
+
+model PostSnapshot {
+  id         String   @id @default(cuid())
+  postId     String
+  views      Int      @default(0)
+  likes      Int      @default(0)
+  comments   Int      @default(0)
+  capturedAt DateTime @default(now())
+
+  post TrackedPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, capturedAt])
 }

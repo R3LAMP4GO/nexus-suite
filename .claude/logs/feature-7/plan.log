@@ -1,0 +1,8 @@
+Plan issue created: #21 — 4 chunks:
+
+1. **Prisma schema** — TrackedCreator, TrackedPost, PostSnapshot models + migration
+2. **tRPC router** — competitors router with 7 procedures + appRouter wiring
+3. **pg-boss worker** — competitor polling cron + outlier detection logic
+4. **Next.js page** — /competitors UI with creator cards, outlier highlights, action buttons
+
+CLAUDE.md updated to `plan - Chunk 0/4 - #21`.
