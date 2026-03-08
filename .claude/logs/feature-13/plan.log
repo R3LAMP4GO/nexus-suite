@@ -1,0 +1,6 @@
+Plan created: **#27** — 3 chunks:
+1. ML Sidecar scaffolding + health + embeddings
+2. ML Sidecar prediction endpoints (bandit + adaptability + retrain)
+3. Scrapling Sidecar service (full)
+
+Issue: https://github.com/R3LAMP4GO/nexus-suite/issues/27
