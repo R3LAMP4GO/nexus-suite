@@ -8,12 +8,13 @@ const CAMOUFOX_TIMEOUT = 30_000;
  * Camoufox fallback — launches Firefox via Patchright (different fingerprint
  * family from Chromium). Used when Chromium-based browsers are specifically blocked.
  */
-export async function fetchWithCamoufox(url: string): Promise<BypassResult> {
+export async function fetchWithCamoufox(url: string, proxyUrl?: string): Promise<BypassResult> {
   const profile = generateBrowserProfile();
 
   const browser = await firefox.launch({
     headless: true,
     args: ["--no-remote"],
+    proxy: proxyUrl ? { server: proxyUrl } : undefined,
   });
 
   let context: BrowserContext | null = null;

@@ -87,6 +87,9 @@ export class ScrapeConsumer {
     // Rate limit per domain
     await this.rateLimiter.acquireToken(domain);
 
+    // Resolve proxy for this domain
+    const proxyUrl = await this.proxyManager.getProxy(domain);
+
     // Acquire browser context from pool
     const { context, id: contextId } = await this.pool.acquire();
 
@@ -96,6 +99,7 @@ export class ScrapeConsumer {
         url,
         context,
         redis: this.redis,
+        proxyUrl: proxyUrl ?? undefined,
         onStrategy: (strategy) => {
           void this.stream.strategy(taskId, strategy);
           if (strategy.includes("captcha") || strategy === "turnstile" || strategy === "recaptcha") {
@@ -118,6 +122,7 @@ export class ScrapeConsumer {
       // Publish result to result queue
       await this.boss.send(RESULT_QUEUE, scrapeResult);
       await this.stream.success(taskId);
+      if (proxyUrl) this.proxyManager.reportSuccess(proxyUrl);
 
       console.log(
         `[ScrapeConsumer] task ${taskId} done — ${result.strategy} — ${Date.now() - startTime}ms`,
@@ -125,6 +130,7 @@ export class ScrapeConsumer {
     } catch (err) {
       const error = err instanceof Error ? err.message : String(err);
       await this.stream.failed(taskId, error);
+      if (proxyUrl) this.proxyManager.reportFailure(proxyUrl);
 
       // Publish failure to result queue so caller knows
       await this.boss.send(RESULT_QUEUE, {

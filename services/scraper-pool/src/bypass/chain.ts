@@ -11,6 +11,7 @@ export interface ChainOptions {
   url: string;
   context: BrowserContext;
   redis: Redis;
+  proxyUrl?: string;
   onStrategy?: (strategy: string) => void;
 }
 
@@ -24,7 +25,7 @@ export interface ChainOptions {
  * On successful challenge solve, caches cookies for future request mirroring.
  */
 export async function runBypassChain(opts: ChainOptions): Promise<BypassResult> {
-  const { url, context, redis, onStrategy } = opts;
+  const { url, context, redis, proxyUrl, onStrategy } = opts;
   const cookieCache = new CookieCache(redis);
   const domain = new URL(url).hostname;
 
@@ -49,7 +50,7 @@ export async function runBypassChain(opts: ChainOptions): Promise<BypassResult> 
   // Strategy 3: Camoufox (Firefox)
   onStrategy?.("camoufox");
   try {
-    const result = await fetchWithCamoufox(url);
+    const result = await fetchWithCamoufox(url, proxyUrl);
     if (result.success && result.cookies.length > 0) {
       await cookieCache.set(domain, {
         cookies: result.cookies,
