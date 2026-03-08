@@ -1,4 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import type { WorkflowContext } from "./control-flow";
 import { trackLlmSpend } from "../services/llm-budget";
 import type { WrappedToolResult } from "@/agents/general/cli-tool-wrappers";
@@ -86,10 +88,48 @@ const SPECIALIST_AGENTS = new Set([
   "variation-orchestrator", "brand-persona-agent", "viral-teardown-agent",
 ]);
 
-function resolveAgent(agentName: string, _orgId: string): RegisteredAgent | null {
+// Cache for dynamically loaded client plugins: "orgId::agentName" → RegisteredAgent
+const clientPluginCache = new Map<string, RegisteredAgent>();
+
+async function loadClientPlugin(
+  orgId: string,
+  agentName: string,
+): Promise<RegisteredAgent | null> {
+  const cacheKey = `${orgId}::${agentName}`;
+  const cached = clientPluginCache.get(cacheKey);
+  if (cached) return cached;
+
+  const pluginPath = resolve(
+    process.cwd(),
+    "src/agents/clients",
+    orgId,
+    "agents",
+    `${agentName}.ts`,
+  );
+
+  if (!existsSync(pluginPath)) return null;
+
+  const mod: Record<string, unknown> = await import(pluginPath);
+
+  if (typeof mod.generate !== "function") {
+    throw new Error(
+      `Client plugin "${pluginPath}" must export a "generate" function matching AgentGenerateFn`,
+    );
+  }
+
+  const entry: RegisteredAgent = {
+    generateFn: mod.generate as AgentGenerateFn,
+    tools: [],
+  };
+  clientPluginCache.set(cacheKey, entry);
+  return entry;
+}
+
+async function resolveAgent(agentName: string, orgId: string): Promise<RegisteredAgent | null> {
   // Resolution order:
   // 1. Client plugin: src/agents/clients/{orgId}/agents/{agentName}
-  //    TODO: Phase 3 will implement dynamic client plugin loading
+  const clientPlugin = await loadClientPlugin(orgId, agentName);
+  if (clientPlugin) return clientPlugin;
 
   // 2. Platform sub-agent
   if (PLATFORM_SUBAGENTS.has(agentName)) {
@@ -112,7 +152,7 @@ export async function executeAgentDelegate(
   model?: string,
   maxTokens?: number,
 ): Promise<unknown> {
-  const entry = resolveAgent(agentName, context.organizationId);
+  const entry = await resolveAgent(agentName, context.organizationId);
 
   if (!entry) {
     throw new Error(
