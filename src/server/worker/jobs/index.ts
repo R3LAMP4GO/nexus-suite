@@ -1,8 +1,10 @@
 import type PgBoss from "pg-boss";
 import { JobType } from "./types.js";
-import type { JobData, ContentPublishJob, ContentScheduleJob } from "./types.js";
+import type { JobData, ContentPublishJob, ContentScheduleJob, ScraperRunJob, AgentExecuteJob } from "./types.js";
 import { handleContentPublish } from "./handlers/content-publish.js";
 import { handleContentSchedule } from "./handlers/content-schedule.js";
+import { handleScraperRun } from "./handlers/scraper-run.js";
+import { handleAgentExecute } from "./handlers/agent-execute.js";
 
 export function registerJobHandlers(boss: PgBoss): void {
   // CONTENT_PUBLISH — immediate publish to platforms
@@ -21,11 +23,25 @@ export function registerJobHandlers(boss: PgBoss): void {
     }
   });
 
+  // SCRAPER_RUN — forward to scrape:task queue for scraper-pool consumer
+  boss.work<ScraperRunJob>(JobType.SCRAPER_RUN, async (jobs) => {
+    for (const job of jobs) {
+      console.log(`[worker] processing ${JobType.SCRAPER_RUN} job=${job.id}`);
+      await handleScraperRun(boss, job);
+    }
+  });
+
+  // AGENT_EXECUTE — resolve agent from registry + execute
+  boss.work<AgentExecuteJob>(JobType.AGENT_EXECUTE, async (jobs) => {
+    for (const job of jobs) {
+      console.log(`[worker] processing ${JobType.AGENT_EXECUTE} job=${job.id}`);
+      await handleAgentExecute(job);
+    }
+  });
+
   // Remaining job types — stub handlers for now
   const stubTypes = [
-    JobType.SCRAPER_RUN,
     JobType.MEDIA_PROCESS,
-    JobType.AGENT_EXECUTE,
     JobType.ANALYTICS_SYNC,
     JobType.WEBHOOK_DISPATCH,
   ];
