@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc-client";
+import { FormField } from "@/components/ui/form-field";
 
 // ── Zod Schema ───────────────────────────────────────────────────
 
@@ -141,42 +142,30 @@ export default function OnboardingPage() {
                 Tell us about your brand
               </h2>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Content Niche *
-                </label>
+              <FormField label="Content Niche" required error={errors.niche?.message}>
                 <input
                   {...register("niche")}
                   placeholder="e.g., Tech reviews, Fitness coaching, Real estate..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                {errors.niche && (
-                  <p className="mt-1 text-sm text-red-600">{errors.niche.message}</p>
-                )}
-              </div>
+              </FormField>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Brand Voice
-                </label>
+              <FormField label="Brand Voice">
                 <textarea
                   {...register("brandVoice")}
                   rows={3}
                   placeholder="Describe how your brand sounds — professional, casual, humorous, authoritative..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-              </div>
+              </FormField>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Tone Preferences
-                </label>
+              <FormField label="Tone Preferences">
                 <input
                   {...register("tonePreferences")}
                   placeholder="e.g., Friendly but expert, No slang, Always data-driven..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-              </div>
+              </FormField>
             </div>
           )}
 
@@ -191,10 +180,7 @@ export default function OnboardingPage() {
                 We'll monitor their content for outlier detection.
               </p>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Competitor Profile URLs
-                </label>
+              <FormField label="Competitor Profile URLs">
                 <textarea
                   {...register("competitorUrls")}
                   rows={6}
@@ -203,7 +189,7 @@ export default function OnboardingPage() {
                   }
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 font-mono text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-              </div>
+              </FormField>
             </div>
           )}
 
@@ -239,10 +225,7 @@ export default function OnboardingPage() {
                 )}
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Posting Frequency
-                </label>
+              <FormField label="Posting Frequency">
                 <select
                   {...register("postingFrequency")}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -253,12 +236,9 @@ export default function OnboardingPage() {
                   <option value="weekly">Weekly</option>
                   <option value="custom">Custom (tell us in notes)</option>
                 </select>
-              </div>
+              </FormField>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Content Style
-                </label>
+              <FormField label="Content Style">
                 <select
                   {...register("contentStyle")}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
@@ -270,7 +250,7 @@ export default function OnboardingPage() {
                   <option value="product-showcase">Product Showcase</option>
                   <option value="mixed">Mixed</option>
                 </select>
-              </div>
+              </FormField>
             </div>
           )}
 
@@ -303,17 +283,14 @@ export default function OnboardingPage() {
                 <Row label="Style" value={watch("contentStyle") || "—"} />
               </div>
 
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">
-                  Additional Notes
-                </label>
+              <FormField label="Additional Notes">
                 <textarea
                   {...register("additionalNotes")}
                   rows={3}
                   placeholder="Anything else we should know about your content strategy..."
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-              </div>
+              </FormField>
 
               {submit.error && (
                 <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">

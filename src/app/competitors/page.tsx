@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc-client";
+import { Modal } from "@/components/ui/modal";
 
 const PLATFORM_COLORS: Record<string, string> = {
   YOUTUBE: "bg-red-100 text-red-800",
@@ -76,41 +77,43 @@ export default function CompetitorsPage() {
         </div>
 
         {/* Add Creator Modal */}
-        {showAddModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-              <h2 className="mb-4 text-lg font-semibold text-gray-900">Track a Creator</h2>
-              <input
-                type="url"
-                placeholder="https://youtube.com/@creator"
-                value={profileUrl}
-                onChange={(e) => setProfileUrl(e.target.value)}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
-              />
-              {addCreator.error && (
-                <p className="mt-2 text-sm text-red-600">{addCreator.error.message}</p>
-              )}
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  onClick={() => {
-                    setShowAddModal(false);
-                    setProfileUrl("");
-                  }}
-                  className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => addCreator.mutate({ profileUrl })}
-                  disabled={!profileUrl || addCreator.isPending}
-                  className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {addCreator.isPending ? "Adding..." : "Add"}
-                </button>
-              </div>
-            </div>
+        <Modal
+          open={showAddModal}
+          onClose={() => {
+            setShowAddModal(false);
+            setProfileUrl("");
+          }}
+          title="Track a Creator"
+        >
+          <input
+            type="url"
+            placeholder="https://youtube.com/@creator"
+            value={profileUrl}
+            onChange={(e) => setProfileUrl(e.target.value)}
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-500 focus:outline-none"
+          />
+          {addCreator.error && (
+            <p className="mt-2 text-sm text-red-600">{addCreator.error.message}</p>
+          )}
+          <div className="mt-4 flex justify-end gap-2">
+            <button
+              onClick={() => {
+                setShowAddModal(false);
+                setProfileUrl("");
+              }}
+              className="rounded-md px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => addCreator.mutate({ profileUrl })}
+              disabled={!profileUrl || addCreator.isPending}
+              className="rounded-md bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+            >
+              {addCreator.isPending ? "Adding..." : "Add"}
+            </button>
           </div>
-        )}
+        </Modal>
 
         {/* Loading / Empty */}
         {isLoading ? (

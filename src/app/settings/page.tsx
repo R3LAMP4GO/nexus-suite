@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/trpc-client";
+import { FormField } from "@/components/ui/form-field";
 
 const CIRCUIT_COLORS: Record<string, string> = {
   CLOSED: "bg-green-100 text-green-800",
@@ -60,24 +61,22 @@ export default function SettingsPage() {
             <p className="text-gray-500">Loading...</p>
           ) : org.data ? (
             <div className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+              <FormField label="Name">
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Slug</label>
+              </FormField>
+              <FormField label="Slug">
                 <input
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
                   className="w-full rounded-md border px-3 py-2 text-sm"
                 />
-              </div>
+              </FormField>
               <div className="flex items-center gap-4 text-sm text-gray-500">
                 <span>Tier: {org.data.pricingTier}</span>
                 <span>Budget: ${(org.data.dailyLlmBudgetCents / 100).toFixed(2)}/day</span>
