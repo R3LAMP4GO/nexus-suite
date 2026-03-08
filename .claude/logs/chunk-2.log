@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Chunk 2 complete. Summary of changes to `posting.ts`:
 
 1. **Import** `getMetaAuth`, `getVideoUrl`, `isMockMode`, `mockPostResult` from `meta.ts`
@@ -7,3 +8,21 @@ Chunk 2 complete. Summary of changes to `posting.ts`:
 5. Both check `isMockMode()` first — returns mock success without hitting API
 
 Typecheck passes clean.
+=======
+Chunk 2 done. Summary of changes:
+
+**`src/server/services/browser-posting.ts`** (new) — Platform dispatch + TikTok upload flow:
+- `uploadViaPlatform()` switches on Platform enum, routes to per-platform fn
+- `uploadTikTok()` navigates to creator upload page, attaches video via file input, types caption human-like (35ms delay), clicks post, waits for success indicator, extracts post ID from URL
+- Other 5 platforms return graceful "not yet implemented" errors (Chunk 3 scope)
+
+**`src/server/services/posting.ts`** (modified) — `postViaBrowser` stub replaced:
+1. Loads account context via shared `loadAccountContext()`
+2. Launches Patchright browser via shared `launchBrowser()` (fingerprint + proxy + session restore)
+3. Downloads video from R2 to temp file
+4. Dispatches to `uploadViaPlatform()` for platform-specific UI automation
+5. Persists session back to R2 via `persistSession()`
+6. Cleans up browser + temp file in `finally` block
+
+Type-check passes clean.
+>>>>>>> r3lamp4go/feature-35

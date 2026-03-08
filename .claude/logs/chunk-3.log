@@ -1,1 +1,9 @@
-/Users/imorgado/nexus-suite/.claude/worktrees/feature-3/scripts/run-plan.sh: line 182: /Users/imorgado/.local/bin/claude: Argument list too long
+Chunk 3 complete. Changes to `src/server/services/browser-posting.ts`:
+
+- **Instagram**: Opens create-post modal → attaches video → navigates Next (crop) → Next (filter) → fills caption → clicks Share → waits for confirmation
+- **YouTube**: Studio upload flow → attaches video → fills title → "not for kids" → Next×3 → Public → Publish → extracts video ID
+- **X**: Compose post → attaches media → fills tweet text → clicks Post → waits for compose to close
+- **Facebook**: "What's on your mind" composer → Photo/video → attaches file → fills caption → posts → waits for dialog close
+- **LinkedIn**: "Start a post" → Media button → attaches video → fills caption → posts → waits for modal close
+
+All unsupported platforms still fall through to the `default` case with a graceful error. Typecheck passes clean.

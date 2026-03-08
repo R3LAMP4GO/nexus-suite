@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Chunk 1 done. Created `src/server/services/platform-apis/meta.ts` with:
 
 1. **`MetaAuthConfig`** type — access token, page ID, IG user ID
@@ -9,3 +10,13 @@ Chunk 1 done. Created `src/server/services/platform-apis/meta.ts` with:
 Typecheck passes clean. Phase line updated in CLAUDE.md.
 
 Phase 1 done. Resume: `gh issue view 52`, execute Chunk 2. Files: `src/server/services/platform-apis/meta.ts`, `src/server/services/posting.ts`. Issues: none.
+=======
+Chunk 1 done. Typecheck passes.
+
+**What was done:**
+- Created `src/server/services/browser-helpers.ts` — extracted `AccountContext` interface, `loadAccountContext()`, `launchBrowser()`, `persistSession()` from `warming/executor.ts`
+- Updated `warming/executor.ts` — removed ~130 lines of duplicated code, now imports from shared module
+- Same deps: patchright, Prisma, Infisical, session-manager
+
+Phase 1 done. Resume: `gh issue view 50`, execute Chunk 2. Files: `src/server/services/browser-helpers.ts`, `src/server/services/warming/executor.ts`. Issues: none.
+>>>>>>> r3lamp4go/feature-35

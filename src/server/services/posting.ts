@@ -1,8 +1,15 @@
+import { writeFile, unlink } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { randomUUID } from "node:crypto";
 import { Redis } from "ioredis";
 import { db } from "@/lib/db";
 import { fetchSecret } from "@/lib/infisical";
 import { recordSuccess, recordFailure } from "./circuit-breaker";
 import { getMetaAuth, getVideoUrl, isMockMode, mockPostResult } from "./platform-apis/meta";
+import { loadAccountContext, launchBrowser, persistSession } from "./browser-helpers";
+import { downloadFile } from "./r2-storage";
+import { uploadViaPlatform } from "./browser-posting";
 import type { Platform, AccountType } from "@prisma/client";
 
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
@@ -294,36 +301,32 @@ async function postViaBrowser(
   variation: VariationData,
   platform: Platform,
 ): Promise<PostResult> {
-  // Load browser profile fingerprint
   if (!account.fingerprintProfile) {
     return { success: false, errorMessage: "No fingerprint profile configured" };
   }
 
-  // Fetch proxy URL from Infisical if configured
-  let _proxyUrl: string | undefined;
-  if (account.infisicalProxyPath) {
-    _proxyUrl = await fetchSecret(
-      INFISICAL_PROJECT_ID,
-      INFISICAL_ENV,
-      account.infisicalProxyPath,
-      "proxy_url",
-    );
+  if (!variation.r2StorageKey) {
+    return { success: false, errorMessage: "No video file attached to variation" };
   }
 
-  // Fetch session storage path for persistent session
-  const _sessionPath = account.sessionStoragePath;
+  const ctx = await loadAccountContext(account.id);
+  const { browser, context, page } = await launchBrowser(ctx);
+  const tmpPath = join(tmpdir(), `nexus-upload-${randomUUID()}.mp4`);
 
-  // TODO: Patchright browser automation
-  // 1. Launch browser with fingerprint profile + proxy
-  // 2. Load persistent session from R2 (sessionStoragePath)
-  // 3. Navigate to platform upload page
-  // 4. Fill form with variation.caption
-  // 5. Upload file from R2 (variation.r2StorageKey)
-  // 6. Wait for confirmation
-  // 7. Save updated session back to R2
+  try {
+    // Download video from R2 to temp file
+    const videoBuffer = await downloadFile(variation.r2StorageKey);
+    await writeFile(tmpPath, videoBuffer);
 
-  void platform;
-  void variation;
+    // Dispatch to platform-specific upload
+    const result = await uploadViaPlatform(page, platform, tmpPath, variation.caption ?? null);
 
-  return { success: false, errorMessage: "Browser posting not yet implemented" };
+    // Persist updated session back to R2
+    await persistSession(context, ctx);
+
+    return result;
+  } finally {
+    await browser.close().catch(() => {});
+    await unlink(tmpPath).catch(() => {});
+  }
 }
