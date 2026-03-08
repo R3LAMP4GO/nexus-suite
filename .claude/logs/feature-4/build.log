@@ -1328,3 +1328,32 @@ Phase line updated to Chunk 2/4.
 [0;32m✓ Chunk 2 done[0m
 [0;36m  Quality gate after chunk 2...[0m
 [0;32m  ✓ Passed[0m
+[r3lamp4go/feature-4 06e65a25] checkpoint: chunk 2 — Rate limiting, proxy rotation, fingerprint rotation
+ 7 files changed, 1549 insertions(+), 1 deletion(-)
+ create mode 100644 .claude/logs/chunk-2.log
+ create mode 100644 .claude/logs/gate-2.log
+ create mode 100644 services/scraper-pool/src/fingerprint-rotator.ts
+ create mode 100644 services/scraper-pool/src/proxy-manager.ts
+ create mode 100644 services/scraper-pool/src/rate-limiter.ts
+[0;32m  ✓ Checkpoint commit[0m
+https://github.com/R3LAMP4GO/nexus-suite/issues/18
+[0;32m  ✓ Issue #18: Chunk 2 checked off[0m
+[0;34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[0m
+[1;33m▶ Chunk 3/4: Bypass decision chain (Turnstile, reCAPTCHA, Camoufox, Scrapling)[0m  Log: /Users/imorgado/nexus-suite/.claude/worktrees/feature-4/.claude/logs/chunk-3.log
+Chunk 3 complete. 7 files created, `tsc --noEmit` passes clean.
+
+**Files created:**
+- `bypass/cookie-cache.ts` — CF cookie Redis cache (30min TTL, set/get/invalidate)
+- `bypass/plain-http.ts` — plain fetch w/ rotating UA, CF/Turnstile/reCAPTCHA marker detection, cookie cache injection
+- `bypass/turnstile.ts` — native TS solver: iframe click → poll `cf-turnstile-response` token
+- `bypass/recaptcha.ts` — audio-first (Whisper via OpenRouter) + vision fallback (GPT-4o grid solver)
+- `bypass/camoufox.ts` — Firefox via Patchright (different fingerprint family from Chromium)
+- `bypass/scrapling-client.ts` — HTTP POST to `scrapling-sidecar:8000/scrape`
+- `bypass/chain.ts` — orchestrator: plain-http → patchright-stealth → camoufox → scrapling
+
+**Decision chain:** Each strategy returns `{success, html, cookies}` or throws to escalate. Solved cookies are cached in Redis for request mirroring on subsequent calls to same domain.
+
+Phase 3 done. Resume: `gh issue view 18`, execute phase 4. Files: `services/scraper-pool/src/bypass/*`. Issues: none.
+[0;32m✓ Chunk 3 done[0m
+[0;36m  Quality gate after chunk 3...[0m
+[0;32m  ✓ Passed[0m
