@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import type { WorkflowContext } from "./control-flow";
 import { trackLlmSpend } from "../services/llm-budget";
+import { CLIENT_PLUGIN_WHITELIST } from "@/agents/general/prepare-context";
 import type { WrappedToolResult } from "@/agents/general/cli-tool-wrappers";
 
 // AsyncLocalStorage to thread WorkflowContext through agent tool execution
@@ -125,24 +126,32 @@ async function loadClientPlugin(
   return entry;
 }
 
-async function resolveAgent(agentName: string, orgId: string): Promise<RegisteredAgent | null> {
+interface ResolvedAgent {
+  entry: RegisteredAgent;
+  isClientPlugin: boolean;
+}
+
+async function resolveAgent(agentName: string, orgId: string): Promise<ResolvedAgent | null> {
   // Resolution order:
   // 1. Client plugin: src/agents/clients/{orgId}/agents/{agentName}
   const clientPlugin = await loadClientPlugin(orgId, agentName);
-  if (clientPlugin) return clientPlugin;
+  if (clientPlugin) return { entry: clientPlugin, isClientPlugin: true };
 
   // 2. Platform sub-agent
   if (PLATFORM_SUBAGENTS.has(agentName)) {
-    return agentRegistry.get(agentName) ?? null;
+    const agent = agentRegistry.get(agentName);
+    return agent ? { entry: agent, isClientPlugin: false } : null;
   }
 
   // 3. Specialist agent
   if (SPECIALIST_AGENTS.has(agentName)) {
-    return agentRegistry.get(agentName) ?? null;
+    const agent = agentRegistry.get(agentName);
+    return agent ? { entry: agent, isClientPlugin: false } : null;
   }
 
   // 4. Global registry fallback
-  return agentRegistry.get(agentName) ?? null;
+  const agent = agentRegistry.get(agentName);
+  return agent ? { entry: agent, isClientPlugin: false } : null;
 }
 
 export async function executeAgentDelegate(
@@ -152,15 +161,27 @@ export async function executeAgentDelegate(
   model?: string,
   maxTokens?: number,
 ): Promise<unknown> {
-  const entry = await resolveAgent(agentName, context.organizationId);
+  const resolved = await resolveAgent(agentName, context.organizationId);
 
-  if (!entry) {
+  if (!resolved) {
     throw new Error(
       `Agent "${agentName}" not found. Available: [${Array.from(agentRegistry.keys()).join(", ")}]`,
     );
   }
 
-  const result = await workflowContextStorage.run(context, () =>
+  const { entry, isClientPlugin } = resolved;
+
+  // Client plugins receive a sandboxed context — only CLIENT_PLUGIN_WHITELIST keys.
+  // This prevents client code from accessing Infisical config, variables, or other sensitive data.
+  const sandboxedContext: WorkflowContext = isClientPlugin
+    ? (Object.fromEntries(
+        CLIENT_PLUGIN_WHITELIST
+          .filter((k) => k in context)
+          .map((k) => [k, context[k as keyof WorkflowContext]]),
+      ) as unknown as WorkflowContext)
+    : context;
+
+  const result = await workflowContextStorage.run(sandboxedContext, () =>
     entry.generateFn(prompt, { model, maxTokens }),
   );
 
