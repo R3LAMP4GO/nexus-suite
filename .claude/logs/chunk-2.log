@@ -1,0 +1,7 @@
+Chunk 2 complete. Three files created, all typecheck clean:
+
+- **`rate-limiter.ts`** — Token bucket per domain via Redis Lua script. `acquireToken(domain)` blocks until token available. Configurable tokens/interval per domain.
+- **`proxy-manager.ts`** — Loads proxy list from env. Sticky assignment per domain (Redis hash). Health tracking with auto-burn after 5 consecutive failures.
+- **`fingerprint-rotator.ts`** — Redis counter per context. After 50 tasks, triggers `pool.recycle()` for fresh `generateBrowserProfile()`.
+
+Phase line updated to Chunk 2/4.
