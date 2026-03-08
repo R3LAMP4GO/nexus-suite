@@ -1,0 +1,11 @@
+chunk: 4/4
+feature: 11
+status: done
+files:
+  - docker-compose.monitoring.yml (new)
+  - monitoring/prometheus.yml (new)
+  - monitoring/grafana/dashboards/nexus.json (new)
+  - monitoring/grafana/provisioning/datasources.yml (new)
+  - monitoring/grafana/provisioning/dashboards.yml (new)
+typecheck: n/a (no TS files in chunk)
+notes: Compose override adds Prometheus (scrapes /api/metrics @15s) + Grafana (port 3001, pre-provisioned). Dashboard panels: workflow throughput, LLM spend, post success rate, circuit breaker states, scrape volume. Added nexus-app healthcheck for Prometheus dependency.
