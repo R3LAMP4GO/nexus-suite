@@ -1,5 +1,8 @@
 import PgBoss from "pg-boss";
 import { uploadToR2 } from "./r2.js";
+import { download } from "./download.js";
+import { runPipeline, runRaw } from "./ffmpeg.js";
+import type { TransformConfig, TransformFragment } from "./transforms.js";
 
 const QUEUE_NAME = "media:task";
 
@@ -9,7 +12,7 @@ export interface MediaJob {
   sourceUrl?: string;
   localPath?: string;
   outputKey?: string;
-  transforms?: Record<string, unknown>;
+  transforms?: TransformConfig | TransformFragment;
 }
 
 export interface MediaJobResult {
@@ -19,25 +22,30 @@ export interface MediaJobResult {
 }
 
 async function handleDownload(job: MediaJob): Promise<MediaJobResult> {
-  // Chunk 2 implements yt-dlp wrapper — placeholder dispatch point
-  const { sourceUrl } = job;
+  const { sourceUrl, outputKey } = job;
   if (!sourceUrl) {
     return { success: false, error: "sourceUrl required for download job" };
   }
-  // Will call download(sourceUrl) from download.ts (Chunk 2)
-  // Then upload result to R2
-  return { success: false, error: "download handler not yet implemented" };
+
+  const result = await download({ url: sourceUrl });
+  const upload = await uploadToR2(result.localPath, outputKey);
+  return { success: true, r2Key: upload.key };
 }
 
 async function handleTransform(job: MediaJob): Promise<MediaJobResult> {
-  // Chunk 2 implements FFmpeg pipeline — placeholder dispatch point
-  const { localPath } = job;
+  const { localPath, outputKey, transforms } = job;
   if (!localPath) {
     return { success: false, error: "localPath required for transform job" };
   }
-  // Will call ffmpeg pipeline from ffmpeg.ts (Chunk 2)
-  // Then upload result to R2
-  return { success: false, error: "transform handler not yet implemented" };
+
+  // Support both TransformConfig (layer options) and raw TransformFragment
+  const isFragment = transforms && "videoFilters" in transforms;
+  const result = isFragment
+    ? await runRaw(localPath, transforms as TransformFragment)
+    : await runPipeline(localPath, transforms as TransformConfig | undefined);
+
+  const upload = await uploadToR2(result.outputPath, outputKey);
+  return { success: true, r2Key: upload.key };
 }
 
 async function processJob(job: MediaJob): Promise<MediaJobResult> {
