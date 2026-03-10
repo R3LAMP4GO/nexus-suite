@@ -62,10 +62,6 @@ const titleGeneratorAgent = new Agent({
   tools: { getTitlePerformance },
 });
 
-export function createAgent() {
-  return titleGeneratorAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

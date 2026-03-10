@@ -1,0 +1,42 @@
+name: game-night-engagement
+description: Monitor and respond to engagement during NBA game nights
+organizationId: saraiknowsball
+
+trigger:
+  type: cron
+  schedule: "0 23 * * *" # 7pm ET (UTC-4)
+
+steps:
+  - id: scan-platforms
+    type: parallel
+    steps:
+      - id: scan-tiktok
+        type: agent-delegate
+        agent: tiktok-main
+        prompt: "Scan recent TikTok comments and mentions for saraiknowsball. Prioritize high-engagement comments and basketball-related discussions."
+        outputAs: tiktokMentions
+
+      - id: scan-instagram
+        type: agent-delegate
+        agent: instagram-main
+        prompt: "Scan recent Instagram comments, DMs, and story replies. Prioritize questions about tonight's games."
+        outputAs: igMentions
+
+      - id: scan-x
+        type: agent-delegate
+        agent: x-main
+        prompt: "Scan X mentions, quote tweets, and replies. Focus on basketball debates and game night engagement."
+        outputAs: xMentions
+
+  - id: respond
+    type: agent-delegate
+    agent: engagement-responder
+    prompt: "Respond to high-priority mentions across platforms in saraiknowsball's voice — witty, knowledgeable basketball takes. TikTok: {{tiktokMentions}}, Instagram: {{igMentions}}, X: {{xMentions}}"
+    dependsOn: [scan-platforms]
+    outputAs: responses
+
+  - id: report
+    type: agent-delegate
+    agent: analytics-reporter
+    prompt: "Generate engagement summary: responses sent, top interactions, sentiment breakdown for tonight's game night."
+    dependsOn: [respond]

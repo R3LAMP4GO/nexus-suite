@@ -55,10 +55,6 @@ const contentRepurposerAgent = new Agent({
   tools: { getPlatformFormats },
 });
 
-export function createAgent() {
-  return contentRepurposerAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

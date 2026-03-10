@@ -151,6 +151,46 @@ async def feedback_bandit(req: BanditFeedbackRequest):
     return {"status": "ok", "arm": req.arm, "state": state[req.arm]}
 
 
+# ── hook selection (Thompson Sampling convenience) ────────────────
+class HookSelectionRequest(BaseModel):
+    org_id: str
+    hook_ids: list[str]
+
+
+class HookRewardRequest(BaseModel):
+    org_id: str
+    hook_id: str
+    views: int = 0
+
+
+@app.post("/hooks/select")
+async def select_best_hook(req: HookSelectionRequest):
+    """Select the best performing hook using Thompson Sampling."""
+    state = await _get_bandit_state(req.org_id, req.hook_ids)
+    scores: dict[str, float] = {}
+    for hook_id in req.hook_ids:
+        a = state[hook_id]["alpha"]
+        b = state[hook_id]["beta"]
+        scores[hook_id] = float(np.random.beta(a, b))
+    selected = max(scores, key=scores.get)
+    return {
+        "selected_hook": selected,
+        "scores": scores,
+        "state": {k: state[k] for k in req.hook_ids},
+    }
+
+
+@app.post("/hooks/reward")
+async def reward_hook(req: HookRewardRequest):
+    """Send a reward signal (views) to update hook weights."""
+    state = await _get_bandit_state(req.org_id, [req.hook_id])
+    # Each view counts as a success signal, capped to prevent extreme updates
+    reward_count = min(req.views, 100)
+    state[req.hook_id]["alpha"] += reward_count
+    await redis_client.set(_bandit_key(req.org_id), json.dumps(state))
+    return {"status": "ok", "hook_id": req.hook_id, "state": state[req.hook_id]}
+
+
 # ── adaptability ──────────────────────────────────────────────────────
 PLATFORMS = ["youtube", "tiktok", "instagram", "twitter", "linkedin", "other"]
 CONTENT_TYPES = ["video", "image", "text", "carousel", "story", "other"]

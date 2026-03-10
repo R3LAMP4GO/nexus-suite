@@ -1,7 +1,7 @@
 import type PgBoss from "pg-boss";
 import { db } from "@/lib/db";
 import type { ContentScheduleJob } from "../types.js";
-import type { Platform } from "@prisma/client";
+import type { Platform } from "@/generated/prisma/client";
 
 export async function handleContentSchedule(
   boss: PgBoss,

@@ -18,8 +18,8 @@ WORKDIR /app/standalone
 EXPOSE 3000
 CMD ["node", "server.js"]
 
-# ── Worker (pg-boss + BullMQ) ────────────────────────────────────
+# ── Worker (pg-boss) ─────────────────────────────────────────────
 FROM base AS worker
 COPY . .
 RUN npx prisma generate
-CMD ["node", "dist/server/worker/index.js"]
+CMD ["npx", "tsx", "src/server/worker/index.ts"]

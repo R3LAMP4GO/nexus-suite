@@ -61,10 +61,6 @@ const thumbnailCreatorAgent = new Agent({
   tools: { getThumbnailSpecs },
 });
 
-export function createAgent() {
-  return thumbnailCreatorAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

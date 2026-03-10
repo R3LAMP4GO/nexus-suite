@@ -6,6 +6,9 @@ import { generateWorkflows } from "./commands/generate-workflows";
 import { warmupStart } from "./commands/warmup-start";
 import { initPlugin } from "./commands/init-plugin";
 
+// dry-run-client is a standalone script (npx tsx src/cli/commands/dry-run-client.ts)
+// but we also register it as a CLI subcommand for discoverability.
+
 const program = new Command();
 
 program
@@ -55,6 +58,14 @@ program
   .argument("<agentName>", "Agent name (e.g., custom-writer)")
   .action(async (orgId: string, agentName: string) => {
     await initPlugin(orgId, agentName);
+  });
+
+program
+  .command("dry-run")
+  .description("Simulate end-to-end client provisioning (Fitness Coaching niche, mocked Stripe/Infisical)")
+  .action(async () => {
+    // Dynamic import to avoid loading DB eagerly for other commands
+    const { default: _ } = await import("./commands/dry-run-client.ts");
   });
 
 program.parse();

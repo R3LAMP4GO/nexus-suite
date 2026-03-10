@@ -1,20 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/trpc-client";
 import { FormField } from "@/components/ui/form-field";
+import { Button } from "@/components/ui/button";
 
-// ── Zod Schema ───────────────────────────────────────────────────
+/* ── Schema ─────────────────────────────────────────────────── */
 
 const onboardingSchema = z.object({
   niche: z.string().min(2, "Tell us your content niche").max(200),
   brandVoice: z.string().max(2000).optional(),
   tonePreferences: z.string().max(1000).optional(),
-  competitorUrls: z.string().optional(), // textarea, split on newlines
+  competitorUrls: z.string().optional(),
   platforms: z
     .array(z.enum(["YOUTUBE", "TIKTOK", "INSTAGRAM", "LINKEDIN", "X", "FACEBOOK"]))
     .min(1, "Select at least one platform"),
@@ -36,11 +37,15 @@ const PLATFORM_OPTIONS = [
   { value: "FACEBOOK", label: "Facebook" },
 ] as const;
 
+const INPUT_CLASS =
+  "w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-[var(--input-text)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]";
+
 export default function OnboardingPage() {
   const [step, setStep] = useState(0);
   const router = useRouter();
 
-  const { data: existing } = api.onboarding.get.useQuery();
+  const { data: existing, isLoading: existingLoading } =
+    api.onboarding.get.useQuery();
   const submit = api.onboarding.submit.useMutation({
     onSuccess: () => router.push("/provisioning"),
   });
@@ -51,26 +56,42 @@ export default function OnboardingPage() {
     watch,
     setValue,
     trigger,
+    reset,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      niche: existing?.niche ?? "",
-      brandVoice: existing?.brandVoice ?? "",
-      tonePreferences: existing?.tonePreferences ?? "",
-      competitorUrls:
-        (existing?.competitorUrls as string[] | undefined)?.join("\n") ?? "",
-      platforms: (existing?.platforms as string[] | undefined) as FormData["platforms"] ?? [],
-      postingFrequency: existing?.postingFrequency ?? "",
-      contentStyle: existing?.contentStyle ?? "",
-      additionalNotes: existing?.additionalNotes ?? "",
+      niche: "",
+      brandVoice: "",
+      tonePreferences: "",
+      competitorUrls: "",
+      platforms: [],
+      postingFrequency: "",
+      contentStyle: "",
+      additionalNotes: "",
     },
   });
+
+  useEffect(() => {
+    if (existing) {
+      reset({
+        niche: existing.niche ?? "",
+        brandVoice: existing.brandVoice ?? "",
+        tonePreferences: existing.tonePreferences ?? "",
+        competitorUrls:
+          (existing.competitorUrls as string[] | undefined)?.join("\n") ?? "",
+        platforms:
+          ((existing.platforms as string[] | undefined) as FormData["platforms"]) ?? [],
+        postingFrequency: existing.postingFrequency ?? "",
+        contentStyle: existing.contentStyle ?? "",
+        additionalNotes: existing.additionalNotes ?? "",
+      });
+    }
+  }, [existing, reset]);
 
   const selectedPlatforms = watch("platforms") ?? [];
 
   async function nextStep() {
-    // Validate current step fields before advancing
     const fieldsPerStep: (keyof FormData)[][] = [
       ["niche", "brandVoice", "tonePreferences"],
       ["competitorUrls"],
@@ -111,97 +132,101 @@ export default function OnboardingPage() {
     });
   }
 
+  if (existingLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[var(--border)] border-t-[var(--accent)]" />
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-2xl rounded-xl bg-white p-8 shadow-lg">
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-2xl rounded-xl bg-[var(--card-bg)] border border-[var(--card-border)] p-8 shadow-lg">
         {/* Progress bar */}
         <div className="mb-8">
-          <div className="mb-2 flex justify-between text-sm text-gray-500">
+          <div className="mb-2 flex justify-between text-sm text-[var(--text-muted)]">
             {STEPS.map((label, i) => (
               <span
                 key={label}
-                className={i <= step ? "font-medium text-gray-900" : ""}
+                className={
+                  i <= step
+                    ? "font-medium text-[var(--text-primary)]"
+                    : ""
+                }
               >
                 {label}
               </span>
             ))}
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-gray-200">
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-tertiary)]">
             <div
-              className="h-full rounded-full bg-blue-600 transition-all duration-300"
+              className="h-full rounded-full bg-[var(--accent)] transition-all duration-300"
               style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
             />
           </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)}>
-          {/* Step 1: Niche & Brand */}
+          {/* Step 1 */}
           {step === 0 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
                 Tell us about your brand
               </h2>
-
               <FormField label="Content Niche" required error={errors.niche?.message}>
                 <input
                   {...register("niche")}
-                  placeholder="e.g., Tech reviews, Fitness coaching, Real estate..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="e.g., Tech reviews, Fitness coaching..."
+                  className={INPUT_CLASS}
                 />
               </FormField>
-
               <FormField label="Brand Voice">
                 <textarea
                   {...register("brandVoice")}
                   rows={3}
-                  placeholder="Describe how your brand sounds — professional, casual, humorous, authoritative..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Professional, casual, humorous..."
+                  className={INPUT_CLASS}
                 />
               </FormField>
-
               <FormField label="Tone Preferences">
                 <input
                   {...register("tonePreferences")}
-                  placeholder="e.g., Friendly but expert, No slang, Always data-driven..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Friendly but expert, No slang..."
+                  className={INPUT_CLASS}
                 />
               </FormField>
             </div>
           )}
 
-          {/* Step 2: Competitors */}
+          {/* Step 2 */}
           {step === 1 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
                 Who are your competitors?
               </h2>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--text-muted)]">
                 Paste profile URLs of creators you want to track. One per line.
-                We'll monitor their content for outlier detection.
               </p>
-
               <FormField label="Competitor Profile URLs">
                 <textarea
                   {...register("competitorUrls")}
                   rows={6}
-                  placeholder={
-                    "https://youtube.com/@competitor1\nhttps://tiktok.com/@competitor2\nhttps://instagram.com/competitor3"
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 font-mono text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder={"https://youtube.com/@competitor1\nhttps://tiktok.com/@competitor2"}
+                  className={`${INPUT_CLASS} font-mono text-sm`}
                 />
               </FormField>
             </div>
           )}
 
-          {/* Step 3: Platforms & Style */}
+          {/* Step 3 */}
           {step === 2 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
                 Platforms & content style
               </h2>
-
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
+                <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]">
                   Target Platforms *
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -212,8 +237,8 @@ export default function OnboardingPage() {
                       onClick={() => togglePlatform(opt.value)}
                       className={`rounded-lg border-2 px-4 py-2.5 text-sm font-medium transition ${
                         selectedPlatforms.includes(opt.value)
-                          ? "border-blue-600 bg-blue-50 text-blue-700"
-                          : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                          ? "border-[var(--accent)] bg-blue-50 dark:bg-blue-900/20 text-[var(--accent)]"
+                          : "border-[var(--border)] bg-[var(--card-bg)] text-[var(--text-secondary)] hover:border-[var(--border-hover)]"
                       }`}
                     >
                       {opt.label}
@@ -221,28 +246,22 @@ export default function OnboardingPage() {
                   ))}
                 </div>
                 {errors.platforms && (
-                  <p className="mt-1 text-sm text-red-600">{errors.platforms.message}</p>
+                  <p className="mt-1 text-sm text-[var(--danger)]">
+                    {errors.platforms.message}
+                  </p>
                 )}
               </div>
-
               <FormField label="Posting Frequency">
-                <select
-                  {...register("postingFrequency")}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
+                <select {...register("postingFrequency")} className={INPUT_CLASS}>
                   <option value="">Select frequency...</option>
                   <option value="daily">Daily</option>
                   <option value="3x/week">3x per week</option>
                   <option value="weekly">Weekly</option>
-                  <option value="custom">Custom (tell us in notes)</option>
+                  <option value="custom">Custom</option>
                 </select>
               </FormField>
-
               <FormField label="Content Style">
-                <select
-                  {...register("contentStyle")}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
+                <select {...register("contentStyle")} className={INPUT_CLASS}>
                   <option value="">Select style...</option>
                   <option value="educational">Educational / How-to</option>
                   <option value="entertainment">Entertainment / Viral</option>
@@ -257,43 +276,37 @@ export default function OnboardingPage() {
           {/* Step 4: Review */}
           {step === 3 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-900">Review & submit</h2>
-              <p className="text-sm text-gray-500">
-                After submitting, our team will configure your AI agents, proxy
-                fleet, and content pipeline. This typically takes 24-48 hours.
+              <h2 className="text-xl font-semibold text-[var(--text-primary)]">
+                Review & submit
+              </h2>
+              <p className="text-sm text-[var(--text-muted)]">
+                After submitting, our team will configure your AI agents. This typically takes 24-48 hours.
               </p>
-
-              <div className="space-y-3 rounded-lg bg-gray-50 p-4 text-sm">
+              <div className="mx-auto max-w-md space-y-3 rounded-lg bg-[var(--bg-tertiary)] p-4 text-sm">
                 <Row label="Niche" value={watch("niche")} />
                 <Row label="Brand Voice" value={watch("brandVoice") || "—"} />
                 <Row label="Tone" value={watch("tonePreferences") || "—"} />
                 <Row
                   label="Competitors"
                   value={
-                    (watch("competitorUrls") ?? "")
-                      .split("\n")
-                      .filter(Boolean).length + " URLs"
+                    (watch("competitorUrls") ?? "").split("\n").filter(Boolean)
+                      .length + " URLs"
                   }
                 />
-                <Row
-                  label="Platforms"
-                  value={selectedPlatforms.join(", ") || "—"}
-                />
+                <Row label="Platforms" value={selectedPlatforms.join(", ") || "—"} />
                 <Row label="Frequency" value={watch("postingFrequency") || "—"} />
                 <Row label="Style" value={watch("contentStyle") || "—"} />
               </div>
-
               <FormField label="Additional Notes">
                 <textarea
                   {...register("additionalNotes")}
                   rows={3}
-                  placeholder="Anything else we should know about your content strategy..."
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Anything else we should know..."
+                  className={INPUT_CLASS}
                 />
               </FormField>
-
               {submit.error && (
-                <div className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+                <div className="rounded-md bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-400">
                   {submit.error.message}
                 </div>
               )}
@@ -302,31 +315,28 @@ export default function OnboardingPage() {
 
           {/* Navigation */}
           <div className="mt-8 flex justify-between">
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={prevStep}
               disabled={step === 0}
-              className="rounded-lg px-6 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 disabled:invisible"
+              className={step === 0 ? "invisible" : ""}
             >
               Back
-            </button>
-
+            </Button>
             {step < STEPS.length - 1 ? (
-              <button
-                type="button"
-                onClick={nextStep}
-                className="rounded-lg bg-blue-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
-              >
+              <Button type="button" onClick={nextStep}>
                 Continue
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="submit"
-                disabled={submit.isPending}
-                className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                loading={submit.isPending}
+                loadingText="Submitting..."
+                className="bg-[var(--success)] hover:opacity-90"
               >
-                {submit.isPending ? "Submitting..." : "Submit & Start Setup"}
-              </button>
+                Submit & Start Setup
+              </Button>
             )}
           </div>
         </form>
@@ -338,8 +348,8 @@ export default function OnboardingPage() {
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between">
-      <span className="font-medium text-gray-600">{label}</span>
-      <span className="text-gray-900">{value}</span>
+      <span className="font-medium text-[var(--text-muted)]">{label}</span>
+      <span className="text-[var(--text-primary)]">{value}</span>
     </div>
   );
 }

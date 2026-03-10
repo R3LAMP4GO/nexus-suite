@@ -1,0 +1,86 @@
+name: daily-content-pipeline
+description: Automated daily content creation and distribution for High-Performance Fitness Coaching
+organizationId: dryrun-8266986d
+
+trigger:
+  type: cron
+  schedule: "0 8 * * *"
+
+steps:
+  - id: discover-trends
+    type: agent-delegate
+    agent: trend-scout
+    prompt: "Find 3 trending topics in High-Performance Fitness Coaching from the last 24 hours"
+    outputAs: trends
+
+  - id: select-topic
+    type: agent-delegate
+    agent: nexus-orchestrator
+    prompt: "Pick the best topic from {{trends}} based on our content calendar and audience data"
+    outputAs: selectedTopic
+
+  - id: write-script
+    type: agent-delegate
+    agent: script-agent
+    prompt: "Write a video script about {{selectedTopic}} in our brand voice"
+    outputAs: script
+    dependsOn: [select-topic]
+
+  - id: generate-assets
+    type: parallel
+    dependsOn: [write-script]
+    steps:
+      - id: write-hooks
+        type: agent-delegate
+        agent: hook-writer
+        prompt: "Write 5 viral hooks for: {{selectedTopic}}"
+        outputAs: hooks
+
+      - id: generate-title
+        type: agent-delegate
+        agent: title-generator
+        prompt: "Generate 3 click-worthy titles for: {{selectedTopic}}"
+        outputAs: titles
+
+      - id: create-thumbnail
+        type: agent-delegate
+        agent: thumbnail-creator
+        prompt: "Design thumbnail for: {{selectedTopic}}"
+        outputAs: thumbnail
+
+  - id: quality-check
+    type: agent-delegate
+    agent: quality-scorer
+    prompt: "Score this content package: script={{script}}, hooks={{hooks}}, titles={{titles}}"
+    outputAs: qualityScore
+    dependsOn: [generate-assets]
+
+  - id: gate-quality
+    type: condition
+    condition: "{{qualityScore.score}} >= 7"
+    dependsOn: [quality-check]
+    onTrue:
+      - id: distribute
+        type: parallel
+        steps:
+          - id: post-youtube
+            type: agent-delegate
+            agent: youtube-agent
+            prompt: "Distribute content to YOUTUBE: {{script}}, {{hooks}}, {{titles}}, {{thumbnail}}"
+          - id: post-tiktok
+            type: agent-delegate
+            agent: tiktok-agent
+            prompt: "Distribute content to TIKTOK: {{script}}, {{hooks}}, {{titles}}, {{thumbnail}}"
+          - id: post-instagram
+            type: agent-delegate
+            agent: instagram-agent
+            prompt: "Distribute content to INSTAGRAM: {{script}}, {{hooks}}, {{titles}}, {{thumbnail}}"
+          - id: post-x
+            type: agent-delegate
+            agent: x-agent
+            prompt: "Distribute content to X: {{script}}, {{hooks}}, {{titles}}, {{thumbnail}}"
+    onFalse:
+      - id: revise
+        type: agent-delegate
+        agent: script-agent
+        prompt: "Revise script based on quality feedback: {{qualityScore.feedback}}"

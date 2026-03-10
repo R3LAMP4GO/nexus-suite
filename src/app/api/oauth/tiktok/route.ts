@@ -1,0 +1,21 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { auth } from "@/server/auth/config";
+
+export async function GET(_req: NextRequest) {
+  const session = await auth();
+  if (!session?.user?.organizationId) {
+    return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
+  }
+
+  const params = new URLSearchParams({
+    client_key: process.env.TIKTOK_CLIENT_KEY ?? "",
+    redirect_uri: `${process.env.NEXTAUTH_URL}/api/oauth/tiktok/callback`,
+    response_type: "code",
+    scope: "user.info.basic,video.upload,video.publish",
+    state: session.user.organizationId,
+  });
+
+  return NextResponse.redirect(
+    `https://www.tiktok.com/v2/auth/authorize/?${params.toString()}`,
+  );
+}

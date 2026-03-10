@@ -26,6 +26,8 @@ export interface WorkflowContext {
   input: Record<string, unknown>;
   aborted: boolean;
   abortReason?: string;
+  /** Brand voice loaded from clients/{orgId}/brand-prompt.md */
+  brandVoice?: string;
 }
 
 // ── Condition Step ───────────────────────────────────────────────

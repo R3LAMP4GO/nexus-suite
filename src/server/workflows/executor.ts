@@ -18,7 +18,12 @@ import { interpolate, interpolateParams } from "./interpolation";
 import { validateWorkflow } from "./validator";
 import { executeAgentDelegate } from "./agent-delegate";
 import { checkLlmBudget } from "../services/llm-budget";
+import { incrementUsage } from "../services/usage-tracking";
+import { sendScriptReadyEmail } from "../services/notifications";
+import { db } from "@/lib/db";
 import { randomUUID } from "crypto";
+import { loadBrandPrompt } from "@/agents/general/brand-loader";
+import { validateAgentOutput, buildRetryPrompt } from "@/agents/general/validate-output";
 
 export interface WorkflowRunResult {
   runId: string;
@@ -66,6 +71,9 @@ export async function executeWorkflow(
   const runId = randomUUID();
   const startedAt = new Date();
 
+  // Load brand voice from client plugin directory (if exists)
+  const brandVoice = loadBrandPrompt(workflow.organizationId);
+
   const context: WorkflowContext = {
     organizationId: workflow.organizationId,
     workflowName: workflow.name,
@@ -74,6 +82,7 @@ export async function executeWorkflow(
     config: (workflow.config ?? {}) as Record<string, unknown>,
     input: inputData ?? {},
     aborted: false,
+    brandVoice: brandVoice ?? undefined,
   };
 
   // Merge config and input into variables for interpolation access
@@ -147,12 +156,17 @@ export async function executeWorkflow(
 
   const completedAt = new Date();
   const hasErrors = allResults.some((r) => r.status === "error");
+  const finalStatus = context.aborted ? "aborted" : hasErrors ? "failed" : "completed";
 
-  return {
+  if (finalStatus === "completed") {
+    await incrementUsage(workflow.organizationId, "workflow_runs").catch(() => {});
+  }
+
+  const result: WorkflowRunResult = {
     runId,
     workflowName: workflow.name,
     organizationId: workflow.organizationId,
-    status: context.aborted ? "aborted" : hasErrors ? "failed" : "completed",
+    status: finalStatus,
     steps: allResults,
     variables: context.variables,
     startedAt,
@@ -160,6 +174,26 @@ export async function executeWorkflow(
     durationMs: completedAt.getTime() - startedAt.getTime(),
     error: context.abortReason,
   };
+
+  // Persist to WorkflowRunLog for observability
+  await db.workflowRunLog.create({
+    data: {
+      organizationId: workflow.organizationId,
+      runId,
+      workflowName: workflow.name,
+      status: finalStatus,
+      startedAt,
+      completedAt,
+      durationMs: result.durationMs,
+      error: result.error ?? null,
+      steps: allResults as unknown as any,
+      variables: context.variables as unknown as any,
+    },
+  }).catch((err) => {
+    console.error("[WorkflowRunLog] Failed to persist run log:", err);
+  });
+
+  return result;
 }
 
 // ── Step Dispatcher ──────────────────────────────────────────────
@@ -275,20 +309,58 @@ async function executeAgentDelegateStep(
   }
 
   const resolvedPrompt = interpolate(step.prompt, context.variables);
+  const maxValidationRetries = step.retries ?? 1; // Allow 1 retry for format issues
 
   try {
-    const output = await executeAgentDelegate(
-      step.agent,
-      resolvedPrompt,
-      context,
-      step.model,
-      step.maxTokens,
-    );
+    let currentPrompt = resolvedPrompt;
+    let output: unknown;
+    let validatedOutput: unknown;
+
+    for (let attempt = 0; attempt <= maxValidationRetries; attempt++) {
+      output = await executeAgentDelegate(
+        step.agent,
+        currentPrompt,
+        context,
+        step.model,
+        step.maxTokens,
+      );
+
+      // Extract text for validation
+      const outputText = output && typeof output === "object" && "text" in output
+        ? String((output as Record<string, unknown>).text)
+        : typeof output === "string" ? output : "";
+
+      const validation = validateAgentOutput(step.agent, outputText);
+
+      if (validation.valid) {
+        validatedOutput = validation.parsed;
+        break;
+      }
+
+      // Last attempt — return what we have with a warning
+      if (attempt >= maxValidationRetries) {
+        console.warn(
+          `[validation] Agent "${step.agent}" output failed schema validation after ${attempt + 1} attempts: ${validation.errors.join("; ")}`,
+        );
+        validatedOutput = output; // Use raw output as fallback
+        break;
+      }
+
+      // Retry with format correction prompt
+      currentPrompt = resolvedPrompt + buildRetryPrompt(step.agent, validation.errors);
+    }
+
+    // Notify org owner when script-agent generates a script successfully
+    if (step.agent === "script-agent") {
+      notifyScriptReady(context.organizationId, validatedOutput ?? output).catch((err) => {
+        console.error("[notifications] Failed to send script ready email:", err);
+      });
+    }
 
     return {
       stepId: step.id,
       status: "success",
-      output,
+      output: validatedOutput ?? output,
       durationMs: Date.now() - start,
     };
   } catch (err) {
@@ -351,4 +423,24 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// ── Notification Hooks ───────────────────────────────────────────
+
+async function notifyScriptReady(organizationId: string, output: unknown): Promise<void> {
+  // Extract script title from agent output
+  const title =
+    (output && typeof output === "object" && "title" in output
+      ? String((output as Record<string, unknown>).title)
+      : null) ?? "New Script";
+
+  // Look up org owner email
+  const owner = await db.orgMember.findFirst({
+    where: { organizationId, role: "OWNER" },
+    select: { user: { select: { email: true } } },
+  });
+
+  if (owner?.user?.email) {
+    await sendScriptReadyEmail(owner.user.email, title);
+  }
 }

@@ -23,7 +23,7 @@ export function getWorkflowContext(): WorkflowContext {
 // Populated at startup when Mastra agents are initialized
 type AgentGenerateFn = (
   prompt: string,
-  opts?: { model?: string; maxTokens?: number },
+  opts?: { model?: string; maxTokens?: number; brandVoice?: string },
 ) => Promise<AgentResult>;
 
 // Mastra tool shape (from createTool)
@@ -111,7 +111,8 @@ async function loadClientPlugin(
 
   if (!existsSync(pluginPath)) return null;
 
-  const mod: Record<string, unknown> = await import(pluginPath);
+  // Dynamic import of org-specific client plugins — intentional dynamic path
+  const mod: Record<string, unknown> = await import(/* webpackIgnore: true */ pluginPath);
 
   if (typeof mod.generate !== "function") {
     throw new Error(
@@ -202,7 +203,7 @@ export async function executeAgentDelegate(
     : context;
 
   const result = await workflowContextStorage.run(sandboxedContext, () =>
-    entry.generateFn(prompt, { model, maxTokens }),
+    entry.generateFn(prompt, { model, maxTokens, brandVoice: context.brandVoice }),
   );
 
   // Track LLM spend if usage data is available

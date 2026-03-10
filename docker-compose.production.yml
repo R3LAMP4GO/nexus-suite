@@ -1,0 +1,81 @@
+# Production overrides — use with:
+#   docker compose -f docker-compose.yml -f docker-compose.production.yml -f docker-compose.monitoring.yml up -d
+#
+# Sets production NODE_ENV and structured logging limits.
+# In production, configure your firewall (ufw/iptables) to only expose
+# ports 80/443 (reverse proxy) and 22 (SSH). Internal service ports
+# (5432, 6379, 8080, 8001, 8002) should be blocked at the firewall level.
+
+services:
+  nexus-app:
+    environment:
+      NODE_ENV: production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  nexus-worker:
+    environment:
+      NODE_ENV: production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  scraper-pool:
+    environment:
+      NODE_ENV: production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  warming-service:
+    environment:
+      NODE_ENV: production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  media-engine:
+    environment:
+      NODE_ENV: production
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  ml-sidecar:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  scrapling-sidecar:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"
+
+  db:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  redis:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"

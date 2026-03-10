@@ -1,37 +1,186 @@
 "use client";
 
-import { Suspense } from "react";
-import { useSession } from "next-auth/react";
-import { signIn } from "next-auth/react";
+import { Suspense, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { redirect, useSearchParams } from "next/navigation";
+
+const ERROR_MESSAGES: Record<string, string> = {
+  OAuthAccountNotLinked:
+    "This email is already associated with another sign-in method.",
+  NotInvited:
+    "This email hasn't been invited yet. Ask your admin for an invitation.",
+  Verification:
+    "The magic link has expired or has already been used. Please request a new one.",
+  Default: "Something went wrong. Please try again.",
+};
 
 function LoginForm() {
   const { status } = useSession();
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
+  const [email, setEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
   if (status === "authenticated") {
     redirect("/dashboard");
   }
 
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="w-full max-w-sm space-y-6 rounded-lg bg-white p-8 shadow-md">
-        <h1 className="text-center text-2xl font-bold text-gray-900">
-          Sign in to Nexus Suite
-        </h1>
+  async function handleEmailSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setEmailError("");
 
-        {error && (
-          <div className="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error === "OAuthAccountNotLinked"
-              ? "This email is already associated with another account."
-              : `Authentication error: ${error}`}
+    if (!email || !email.includes("@")) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await signIn("resend", {
+        email,
+        redirect: false,
+        callbackUrl: "/dashboard",
+      });
+
+      if (result?.error) {
+        setEmailError(
+          result.error === "EmailSignin"
+            ? "Failed to send verification email. Please try again."
+            : result.error,
+        );
+      } else {
+        setEmailSent(true);
+      }
+    } catch {
+      setEmailError("An unexpected error occurred. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const errorMessage = error
+    ? ERROR_MESSAGES[error] ?? ERROR_MESSAGES.Default
+    : null;
+
+  // ── Email sent confirmation screen ──────────────────────────────
+  if (emailSent) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-950 to-gray-900 p-4">
+        <div className="w-full max-w-sm space-y-6 rounded-2xl border border-gray-800 bg-gray-900 p-8 shadow-2xl">
+          <div className="flex flex-col items-center gap-4">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-green-600/20 text-3xl">
+              ✉️
+            </div>
+            <h1 className="text-xl font-bold text-white">Check your email</h1>
+            <p className="text-center text-sm text-gray-400">
+              We sent a sign-in link to{" "}
+              <span className="font-medium text-white">{email}</span>.
+              <br />
+              Click the link in the email to sign in.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-gray-800 bg-gray-800/50 p-3">
+            <p className="text-center text-xs text-gray-500">
+              Didn't receive it? Check your spam folder, or{" "}
+              <button
+                onClick={() => {
+                  setEmailSent(false);
+                  setEmail("");
+                }}
+                className="text-blue-400 hover:underline"
+              >
+                try a different email
+              </button>
+              .
+            </p>
+          </div>
+
+          <button
+            onClick={() => setEmailSent(false)}
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm font-medium text-gray-300 transition hover:bg-gray-700"
+          >
+            ← Back to sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Main login form ─────────────────────────────────────────────
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-gray-950 to-gray-900 p-4">
+      <div className="w-full max-w-sm space-y-6 rounded-2xl border border-gray-800 bg-gray-900 p-8 shadow-2xl">
+        {/* Logo + heading */}
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 shadow-lg shadow-blue-600/30">
+            <span className="text-2xl font-bold text-white">N</span>
+          </div>
+          <h1 className="text-xl font-bold text-white">
+            Sign in to Nexus Suite
+          </h1>
+          <p className="text-sm text-gray-500">
+            AI-powered social media management
+          </p>
+        </div>
+
+        {/* Error banner */}
+        {errorMessage && (
+          <div className="rounded-lg border border-red-800 bg-red-900/30 px-4 py-3 text-sm text-red-400">
+            {errorMessage}
           </div>
         )}
 
+        {/* Email form */}
+        <form onSubmit={handleEmailSubmit} className="space-y-3">
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1.5 block text-sm font-medium text-gray-300"
+            >
+              Email address
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="you@company.com"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setEmailError("");
+              }}
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm text-gray-200 placeholder-gray-500 outline-none transition focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+              autoComplete="email"
+              autoFocus
+            />
+            {emailError && (
+              <p className="mt-1.5 text-xs text-red-400">{emailError}</p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSubmitting ? "Sending link..." : "Continue with Email"}
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <div className="h-px flex-1 bg-gray-800" />
+          <span className="text-xs text-gray-600">or</span>
+          <div className="h-px flex-1 bg-gray-800" />
+        </div>
+
+        {/* Google OAuth */}
         <button
-          onClick={() => signIn("google")}
-          className="flex w-full items-center justify-center gap-3 rounded-md border border-gray-300 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+          className="flex w-full items-center justify-center gap-3 rounded-lg border border-gray-700 bg-gray-800 px-4 py-2.5 text-sm font-medium text-gray-300 shadow-sm transition hover:bg-gray-700"
         >
           <svg className="h-5 w-5" viewBox="0 0 24 24">
             <path
@@ -53,6 +202,37 @@ function LoginForm() {
           </svg>
           Continue with Google
         </button>
+
+        {/* Dev login */}
+        {process.env.NODE_ENV === "development" && (
+          <>
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-800" />
+              <span className="text-xs text-gray-600">dev only</span>
+              <div className="h-px flex-1 bg-gray-800" />
+            </div>
+            <button
+              onClick={() =>
+                signIn("credentials", {
+                  email: "admin@nexus-suite.com",
+                  callbackUrl: "/dashboard",
+                })
+              }
+              className="w-full rounded-lg border border-yellow-700 bg-yellow-900/30 px-4 py-2.5 text-sm font-medium text-yellow-400 transition hover:bg-yellow-900/50"
+            >
+              Dev Login (Test Admin)
+            </button>
+          </>
+        )}
+
+        {/* Info note */}
+        <div className="rounded-lg border border-gray-800 bg-gray-800/50 p-3">
+          <p className="text-center text-xs text-gray-500">
+            Only pre-approved email addresses can sign in.
+            <br />
+            Contact your admin if you need access.
+          </p>
+        </div>
       </div>
     </div>
   );

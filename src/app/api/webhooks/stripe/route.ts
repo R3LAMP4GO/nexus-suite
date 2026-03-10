@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { type SubscriptionStatus } from "@prisma/client";
+import { type SubscriptionStatus } from "@/generated/prisma/client";
 import { stripe, resolveTierFromPriceId, PRICING } from "@/lib/stripe";
 import { db } from "@/lib/db";
 

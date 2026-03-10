@@ -1,0 +1,69 @@
+name: content-multiply
+description: Generate video variations and distribute across burner fleet
+organizationId: dryrun-8266986d
+
+trigger:
+  type: manual
+
+input:
+  sourceVideoUrl: string
+  variationCount: number
+  targetPlatforms: string[]
+
+steps:
+  - id: download-source
+    type: action
+    action: media-engine.download
+    params:
+      url: "{{input.sourceVideoUrl}}"
+    outputAs: sourceVideo
+
+  - id: analyze-audio
+    type: action
+    action: media-engine.analyzeAudio
+    params:
+      videoKey: "{{sourceVideo.r2Key}}"
+    outputAs: audioAnalysis
+
+  - id: generate-variations
+    type: forEach
+    collection: "{{range(1, input.variationCount)}}"
+    as: variationIndex
+    steps:
+      - id: create-variation
+        type: action
+        action: media-engine.createVariation
+        params:
+          sourceKey: "{{sourceVideo.r2Key}}"
+          index: "{{variationIndex}}"
+          audioContainsCopyrightedMusic: "{{audioAnalysis.hasCopyrightedMusic}}"
+        outputAs: variation
+
+  - id: verify-uniqueness
+    type: action
+    action: media-engine.verifyHashUniqueness
+    params:
+      variations: "{{variations}}"
+      minHammingDistance: 5
+    dependsOn: [generate-variations]
+
+  - id: generate-captions
+    type: forEach
+    collection: "{{variations}}"
+    as: variation
+    dependsOn: [verify-uniqueness]
+    steps:
+      - id: write-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write a unique caption for variation {{variation.index}} on {{variation.targetPlatform}}"
+        outputAs: caption
+
+  - id: schedule-distribution
+    type: action
+    action: distribution.scheduleStaggered
+    params:
+      variations: "{{variations}}"
+      captions: "{{captions}}"
+      platforms: "{{input.targetPlatforms}}"
+    dependsOn: [generate-captions]

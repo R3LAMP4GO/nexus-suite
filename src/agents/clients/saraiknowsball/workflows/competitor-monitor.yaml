@@ -1,0 +1,50 @@
+name: competitor-monitor
+description: Track basketball content creators for outlier viral content
+organizationId: saraiknowsball
+
+trigger:
+  type: cron
+  schedule: "*/15 * * * *"
+
+config:
+  competitors: []
+  outlierThreshold: 3.0
+
+steps:
+  - id: poll-competitors
+    type: forEach
+    collection: "{{config.competitors}}"
+    as: competitorUrl
+    steps:
+      - id: scrape-profile
+        type: action
+        action: scraper-pool.scrape
+        params:
+          url: "{{competitorUrl}}"
+          type: profile-posts
+        outputAs: posts
+
+      - id: detect-outliers
+        type: action
+        action: analytics.detectOutlier
+        params:
+          posts: "{{posts}}"
+          threshold: "{{config.outlierThreshold}}"
+        outputAs: outliers
+
+  - id: process-outliers
+    type: condition
+    condition: "{{outliers.length}} > 0"
+    dependsOn: [poll-competitors]
+    onTrue:
+      - id: analyze-outlier
+        type: agent-delegate
+        agent: viral-teardown-agent
+        prompt: "Analyze this viral basketball content and generate a Viral Recipe — what made it blow up, what's the hook, what angle can saraiknowsball take: {{outliers[0]}}"
+        outputAs: viralRecipe
+
+      - id: reproduce
+        type: agent-delegate
+        agent: nexus-orchestrator
+        prompt: "Create saraiknowsball's version based on this viral recipe. Keep her voice authentic — don't copy, put her spin on it: {{viralRecipe}}"
+        dependsOn: [analyze-outlier]

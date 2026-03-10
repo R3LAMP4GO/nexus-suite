@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
 
 // ── Per-Model Pricing (cents per 1M tokens) ──────────────────────
-// Cached in Redis for fast lookups. Prices from OpenRouter.
+// Cached in Redis for fast lookups. Prices from Z.ai / bigmodel.cn.
 // Key: model identifier → { promptCentsPerMillion, completionCentsPerMillion }
 
 interface ModelPricing {
@@ -15,8 +15,18 @@ interface ModelPricing {
 const MODEL_PRICING_CACHE_KEY = "llm:pricing";
 const MODEL_PRICING_TTL = 86400; // 24h cache
 
-// Default pricing table — updated periodically or fetched from OpenRouter
+// Default pricing table — Zhipu GLM primary, others for reference.
+// Prices in cents per 1M tokens (from Z.ai / bigmodel.cn pricing pages).
 const DEFAULT_PRICING: Record<string, ModelPricing> = {
+  // ── Zhipu AI / Z.ai GLM (primary provider) ──────────────────────
+  "glm-4.5":                     { promptCentsPerMillion: 60, completionCentsPerMillion: 60 },
+  "glm-4.5-air":                 { promptCentsPerMillion: 11, completionCentsPerMillion: 11 },
+  "glm-4.6v":                    { promptCentsPerMillion: 60, completionCentsPerMillion: 60 },
+  "glm-4.6v-flash":              { promptCentsPerMillion: 11, completionCentsPerMillion: 11 },
+  "glm-4v-plus":                 { promptCentsPerMillion: 60, completionCentsPerMillion: 60 },
+  "glm-4.7":                     { promptCentsPerMillion: 60, completionCentsPerMillion: 60 },
+  "glm-5":                       { promptCentsPerMillion: 100, completionCentsPerMillion: 100 },
+  // ── Fallback / reference pricing ─────────────────────────────────
   // Anthropic
   "anthropic/claude-opus-4-6":    { promptCentsPerMillion: 1500, completionCentsPerMillion: 7500 },
   "anthropic/claude-sonnet-4-6":  { promptCentsPerMillion: 300, completionCentsPerMillion: 1500 },
@@ -24,16 +34,6 @@ const DEFAULT_PRICING: Record<string, ModelPricing> = {
   // OpenAI
   "openai/gpt-4o":               { promptCentsPerMillion: 250, completionCentsPerMillion: 1000 },
   "openai/gpt-4o-mini":          { promptCentsPerMillion: 15, completionCentsPerMillion: 60 },
-  "openai/gpt-4.1":              { promptCentsPerMillion: 200, completionCentsPerMillion: 800 },
-  "openai/gpt-4.1-mini":         { promptCentsPerMillion: 40, completionCentsPerMillion: 160 },
-  "openai/o3":                   { promptCentsPerMillion: 1000, completionCentsPerMillion: 4000 },
-  "openai/o4-mini":              { promptCentsPerMillion: 110, completionCentsPerMillion: 440 },
-  // Google
-  "google/gemini-2.5-pro":       { promptCentsPerMillion: 125, completionCentsPerMillion: 1000 },
-  "google/gemini-2.5-flash":     { promptCentsPerMillion: 15, completionCentsPerMillion: 60 },
-  // Meta
-  "meta-llama/llama-4-maverick": { promptCentsPerMillion: 20, completionCentsPerMillion: 60 },
-  "meta-llama/llama-4-scout":    { promptCentsPerMillion: 15, completionCentsPerMillion: 60 },
   // DeepSeek
   "deepseek/deepseek-r1":        { promptCentsPerMillion: 55, completionCentsPerMillion: 220 },
   "deepseek/deepseek-chat-v3":   { promptCentsPerMillion: 27, completionCentsPerMillion: 110 },

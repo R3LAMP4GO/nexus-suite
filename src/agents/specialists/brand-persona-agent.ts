@@ -58,10 +58,6 @@ const brandPersonaAgent = new Agent({
   tools: { getBrandProfile },
 });
 
-export function createAgent() {
-  return brandPersonaAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

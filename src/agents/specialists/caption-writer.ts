@@ -5,6 +5,7 @@ import { wrapToolHandler } from "@/agents/general";
 import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
+import { loadBrandPrompt } from "../general/brand-loader";
 import type { RawAgentContext } from "../general/types";
 
 const INSTRUCTIONS = `You are the Caption Writer for Nexus Suite.
@@ -38,13 +39,19 @@ const getCharLimits = createTool({
     const { platform } = executionContext.context;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string }) => {
-        const limits: Record<string, number> = {
-          instagram: 2200, tiktok: 2200, twitter: 280, linkedin: 3000, facebook: 63206, youtube: 5000,
+        const limits: Record<string, { charLimit: number; hashtagLimit: number; emojiAdvice: string }> = {
+          instagram: { charLimit: 2200, hashtagLimit: 30, emojiAdvice: "Moderate use (3-5), platform loves them" },
+          tiktok: { charLimit: 2200, hashtagLimit: 5, emojiAdvice: "Minimal (1-2), keep it clean" },
+          twitter: { charLimit: 280, hashtagLimit: 2, emojiAdvice: "Sparingly (0-2)" },
+          x: { charLimit: 280, hashtagLimit: 2, emojiAdvice: "Sparingly (0-2)" },
+          linkedin: { charLimit: 3000, hashtagLimit: 5, emojiAdvice: "Professional only (0-2)" },
+          facebook: { charLimit: 63206, hashtagLimit: 10, emojiAdvice: "Moderate (2-4)" },
+          youtube: { charLimit: 5000, hashtagLimit: 15, emojiAdvice: "Moderate (2-5)" },
         };
+        const config = limits[input.platform.toLowerCase()] ?? { charLimit: 2200, hashtagLimit: 10, emojiAdvice: "Moderate" };
         return {
           platform: input.platform,
-          charLimit: limits[input.platform] ?? 2200,
-          status: "pending-integration" as const,
+          ...config,
         };
       },
       { agentName: AGENT_NAME, toolName: "getCharLimits" },
@@ -62,13 +69,15 @@ const getBrandVoice = createTool({
   execute: async (executionContext) => {
     const { organizationId } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { organizationId?: string }) => ({
-        organizationId: input.organizationId ?? "default",
-        tone: "professional",
-        personality: [] as string[],
-        avoidWords: [] as string[],
-        status: "pending-integration" as const,
-      }),
+      async (input: { organizationId?: string }) => {
+        const orgId = input.organizationId ?? "default";
+        const brandPrompt = orgId !== "default" ? loadBrandPrompt(orgId) : null;
+        return {
+          organizationId: orgId,
+          brandPrompt: brandPrompt ?? "Use a professional, engaging tone.",
+          loaded: !!brandPrompt,
+        };
+      },
       { agentName: AGENT_NAME, toolName: "getBrandVoice" },
     );
     return wrappedFn({ organizationId });
@@ -81,10 +90,6 @@ const captionWriterAgent = new Agent({
   model: modelConfig.tier25,
   tools: { getCharLimits, getBrandVoice },
 });
-
-export function createAgent() {
-  return captionWriterAgent;
-}
 
 export async function generate(
   prompt: string,

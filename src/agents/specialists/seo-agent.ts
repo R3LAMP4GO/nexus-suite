@@ -101,10 +101,6 @@ const seoAgent = new Agent({
   tools: { tavilySearch, youtubeSearch, getKeywordMetrics },
 });
 
-export function createAgent() {
-  return seoAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

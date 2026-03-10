@@ -2,7 +2,7 @@ import type PgBoss from "pg-boss";
 import { db } from "@/lib/db";
 import { postContent } from "@/server/services/posting";
 import type { ContentPublishJob } from "../types.js";
-import type { Platform } from "@prisma/client";
+import type { Platform } from "@/generated/prisma/client";
 
 export async function handleContentPublish(
   job: PgBoss.Job<ContentPublishJob>,

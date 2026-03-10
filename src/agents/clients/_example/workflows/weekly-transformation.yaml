@@ -1,0 +1,57 @@
+# Example: client-specific YAML workflow template.
+# Custom workflows are stored per-org and executed by the BullMQ workflow engine.
+# They follow the same schema as built-in templates but can reference
+# client-specific agents and tools.
+
+name: weekly-transformation-content
+description: Weekly content pipeline for fitness transformation posts
+organizationId: "{{input.organizationId}}"
+trigger:
+  type: cron
+  schedule: "0 9 * * 1" # Every Monday at 9am
+
+steps:
+  - id: find-trending-fitness
+    type: agent-delegate
+    agent: trend-scout
+    prompt: "Find 3 trending fitness transformation topics this week"
+    outputAs: trends
+
+  - id: write-hooks
+    type: agent-delegate
+    agent: hook-writer
+    prompt: "Write 5 viral hooks for fitness transformation content based on: {{trends}}"
+    outputAs: hooks
+
+  - id: write-scripts
+    type: agent-delegate
+    agent: script-agent
+    prompt: "Write a 60-second reel script using the best hook from: {{hooks}}"
+    outputAs: script
+
+  - id: generate-captions
+    type: parallel
+    steps:
+      - id: ig-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write an Instagram caption for: {{script}}"
+        outputAs: ig_caption
+
+      - id: tiktok-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write a TikTok caption for: {{script}}"
+        outputAs: tiktok_caption
+
+      - id: fb-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write a Facebook caption for: {{script}}"
+        outputAs: fb_caption
+
+  - id: quality-check
+    type: agent-delegate
+    agent: quality-scorer
+    prompt: "Score this content package: hook={{hooks}}, script={{script}}, captions={{ig_caption}}, {{tiktok_caption}}, {{fb_caption}}"
+    outputAs: quality_score

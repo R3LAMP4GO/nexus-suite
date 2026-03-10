@@ -58,10 +58,6 @@ const engagementResponderAgent = new Agent({
   tools: { getRecentComments },
 });
 
-export function createAgent() {
-  return engagementResponderAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

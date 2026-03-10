@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@/lib/trpc-client";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const METRIC_LABELS: Record<string, string> = {
   accounts: "Social Accounts",
@@ -8,26 +9,32 @@ const METRIC_LABELS: Record<string, string> = {
   videos: "Videos",
 };
 
-const STATUS_COLORS = {
-  green: "bg-green-500",
-  yellow: "bg-yellow-500",
-  red: "bg-red-500",
-} as const;
-
-function UsageBar({ label, current, limit, percentUsed }: {
+function UsageBar({
+  label,
+  current,
+  limit,
+  percentUsed,
+}: {
   label: string;
   current: number;
   limit: number;
   percentUsed: number;
 }) {
-  const color = percentUsed >= 90 ? "bg-red-500" : percentUsed >= 70 ? "bg-yellow-500" : "bg-blue-500";
+  const color =
+    percentUsed >= 90
+      ? "bg-red-500"
+      : percentUsed >= 70
+        ? "bg-yellow-500"
+        : "bg-blue-500";
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-sm">
-        <span className="font-medium text-gray-700">{label}</span>
-        <span className="text-gray-500">{current} / {limit}</span>
+        <span className="font-medium text-[var(--text-secondary)]">{label}</span>
+        <span className="text-[var(--text-muted)]">
+          {current} / {limit}
+        </span>
       </div>
-      <div className="h-2.5 w-full rounded-full bg-gray-200">
+      <div className="h-2.5 w-full rounded-full bg-[var(--bg-tertiary)]">
         <div
           className={`h-2.5 rounded-full ${color} transition-all`}
           style={{ width: `${Math.min(percentUsed, 100)}%` }}
@@ -44,8 +51,10 @@ function SparkLine({ data }: { data: { date: string; spentCents: number }[] }) {
       {data.map((d) => (
         <div
           key={d.date}
-          className="flex-1 rounded-t bg-indigo-400 hover:bg-indigo-600 transition-colors"
-          style={{ height: `${Math.max((d.spentCents / max) * 100, 2)}%` }}
+          className="flex-1 rounded-t bg-indigo-400 hover:bg-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400 transition-colors"
+          style={{
+            height: `${Math.max((d.spentCents / max) * 100, 2)}%`,
+          }}
           title={`${d.date}: $${(d.spentCents / 100).toFixed(2)}`}
         />
       ))}
@@ -53,13 +62,44 @@ function SparkLine({ data }: { data: { date: string; spentCents: number }[] }) {
   );
 }
 
+const STATUS_COLORS = {
+  green: "bg-green-500",
+  yellow: "bg-yellow-500",
+  red: "bg-red-500",
+} as const;
+
 const TIER_FEATURES = [
-  { label: "Social Accounts", pro: "5", multiplier: "20", enterprise: "Unlimited" },
-  { label: "Workflow Runs / mo", pro: "500", multiplier: "5,000", enterprise: "Unlimited" },
-  { label: "Videos / mo", pro: "50", multiplier: "500", enterprise: "Unlimited" },
-  { label: "Daily LLM Budget", pro: "$5", multiplier: "$25", enterprise: "Custom" },
+  {
+    label: "Social Accounts",
+    pro: "5",
+    multiplier: "20",
+    enterprise: "Unlimited",
+  },
+  {
+    label: "Workflow Runs / mo",
+    pro: "500",
+    multiplier: "5,000",
+    enterprise: "Unlimited",
+  },
+  {
+    label: "Videos / mo",
+    pro: "50",
+    multiplier: "500",
+    enterprise: "Unlimited",
+  },
+  {
+    label: "Daily LLM Budget",
+    pro: "$5",
+    multiplier: "$25",
+    enterprise: "Custom",
+  },
   { label: "ML Features", pro: "No", multiplier: "Yes", enterprise: "Yes" },
-  { label: "Multiplier Engine", pro: "No", multiplier: "Yes", enterprise: "Yes" },
+  {
+    label: "Multiplier Engine",
+    pro: "No",
+    multiplier: "Yes",
+    enterprise: "Yes",
+  },
 ];
 
 export default function UsagePage() {
@@ -67,22 +107,32 @@ export default function UsagePage() {
   const llm = api.usage.getLlmSpend.useQuery();
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen p-8">
       <div className="mx-auto max-w-4xl space-y-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Usage & Limits</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            Usage & Limits
+          </h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
             Monitor your resource consumption and plan limits
           </p>
         </div>
 
         {/* Usage Bars */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Resource Usage</h2>
+        <div className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+            Resource Usage
+          </h2>
           {summary.isLoading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <div className="space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
           ) : summary.error ? (
-            <p className="text-sm text-red-600">{summary.error.message}</p>
+            <p className="text-sm text-[var(--danger)]">
+              {summary.error.message}
+            </p>
           ) : (
             <div className="space-y-4">
               {summary.data?.map((item) => (
@@ -99,40 +149,52 @@ export default function UsagePage() {
         </div>
 
         {/* LLM Spend */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">LLM Spend</h2>
+        <div className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+            LLM Spend
+          </h2>
           {llm.isLoading ? (
-            <p className="text-sm text-gray-500">Loading...</p>
+            <div className="space-y-3">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
           ) : llm.error ? (
-            <p className="text-sm text-red-600">{llm.error.message}</p>
+            <p className="text-sm text-[var(--danger)]">{llm.error.message}</p>
           ) : llm.data ? (
             <div className="space-y-6">
-              {/* Today's budget bar */}
               <div className="space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span className="font-medium text-gray-700">
+                  <span className="font-medium text-[var(--text-secondary)]">
                     Today&apos;s Budget
-                    <span className={`ml-2 inline-block h-2 w-2 rounded-full ${STATUS_COLORS[llm.data.today.status]}`} />
+                    <span
+                      className={`ml-2 inline-block h-2 w-2 rounded-full ${STATUS_COLORS[llm.data.today.status]}`}
+                    />
                   </span>
-                  <span className="text-gray-500">
-                    ${(llm.data.today.spentCents / 100).toFixed(2)} / ${(llm.data.today.budgetCents / 100).toFixed(2)}
+                  <span className="text-[var(--text-muted)]">
+                    ${(llm.data.today.spentCents / 100).toFixed(2)} / $
+                    {(llm.data.today.budgetCents / 100).toFixed(2)}
                   </span>
                 </div>
-                <div className="h-2.5 w-full rounded-full bg-gray-200">
+                <div className="h-2.5 w-full rounded-full bg-[var(--bg-tertiary)]">
                   <div
                     className={`h-2.5 rounded-full ${STATUS_COLORS[llm.data.today.status]} transition-all`}
-                    style={{ width: `${Math.min(llm.data.today.percentUsed, 100)}%` }}
+                    style={{
+                      width: `${Math.min(llm.data.today.percentUsed, 100)}%`,
+                    }}
                   />
                 </div>
               </div>
 
-              {/* 30-day sparkline */}
               <div>
-                <h3 className="mb-2 text-sm font-medium text-gray-700">Last 30 Days</h3>
+                <h3 className="mb-2 text-sm font-medium text-[var(--text-secondary)]">
+                  Last 30 Days
+                </h3>
                 <SparkLine data={llm.data.history} />
-                <div className="mt-1 flex justify-between text-xs text-gray-400">
+                <div className="mt-1 flex justify-between text-xs text-[var(--text-muted)]">
                   <span>{llm.data.history[0]?.date}</span>
-                  <span>{llm.data.history[llm.data.history.length - 1]?.date}</span>
+                  <span>
+                    {llm.data.history[llm.data.history.length - 1]?.date}
+                  </span>
                 </div>
               </div>
             </div>
@@ -140,25 +202,43 @@ export default function UsagePage() {
         </div>
 
         {/* Tier Comparison */}
-        <div className="rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Plan Comparison</h2>
-          <div className="overflow-hidden rounded-md border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50">
+        <div className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+            Plan Comparison
+          </h2>
+          <div className="overflow-hidden rounded-md border border-[var(--border)]">
+            <table className="min-w-full divide-y divide-[var(--border)] text-sm">
+              <thead className="bg-[var(--bg-tertiary)]">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500">Feature</th>
-                  <th className="px-4 py-2 text-center font-medium text-gray-500">Pro</th>
-                  <th className="px-4 py-2 text-center font-medium text-gray-500">Multiplier</th>
-                  <th className="px-4 py-2 text-center font-medium text-gray-500">Enterprise</th>
+                  <th className="px-4 py-2 text-left font-medium text-[var(--text-muted)]">
+                    Feature
+                  </th>
+                  <th className="px-4 py-2 text-center font-medium text-[var(--text-muted)]">
+                    Pro
+                  </th>
+                  <th className="px-4 py-2 text-center font-medium text-[var(--text-muted)]">
+                    Multiplier
+                  </th>
+                  <th className="px-4 py-2 text-center font-medium text-[var(--text-muted)]">
+                    Enterprise
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-[var(--border)]">
                 {TIER_FEATURES.map((row) => (
                   <tr key={row.label}>
-                    <td className="px-4 py-2 text-gray-700">{row.label}</td>
-                    <td className="px-4 py-2 text-center text-gray-600">{row.pro}</td>
-                    <td className="px-4 py-2 text-center text-gray-600">{row.multiplier}</td>
-                    <td className="px-4 py-2 text-center text-gray-600">{row.enterprise}</td>
+                    <td className="px-4 py-2 text-[var(--text-secondary)]">
+                      {row.label}
+                    </td>
+                    <td className="px-4 py-2 text-center text-[var(--text-muted)]">
+                      {row.pro}
+                    </td>
+                    <td className="px-4 py-2 text-center text-[var(--text-muted)]">
+                      {row.multiplier}
+                    </td>
+                    <td className="px-4 py-2 text-center text-[var(--text-muted)]">
+                      {row.enterprise}
+                    </td>
                   </tr>
                 ))}
               </tbody>

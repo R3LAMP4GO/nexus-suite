@@ -5,7 +5,7 @@
  */
 
 import type { Page } from "patchright";
-import type { Platform } from "@prisma/client";
+import type { Platform } from "@/generated/prisma/client";
 
 interface PostResult {
   success: boolean;

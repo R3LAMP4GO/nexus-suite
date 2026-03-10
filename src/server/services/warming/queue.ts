@@ -1,28 +1,5 @@
-import PgBoss from "pg-boss";
+import { getBoss, stopBoss } from "@/lib/pg-boss";
 import { recordAction } from "./health-tracker";
-
-// ── pg-boss instance (singleton) ────────────────────────────────
-
-let boss: PgBoss | null = null;
-
-export async function getBoss(): Promise<PgBoss> {
-  if (boss) return boss;
-
-  boss = new PgBoss({
-    connectionString: process.env.DATABASE_URL!,
-    schema: "pgboss",
-    retryLimit: 3,
-    retryDelay: 30, // seconds
-    expireInHours: 24,
-    archiveCompletedAfterSeconds: 7 * 86400, // 7 days
-    deleteAfterDays: 30,
-  });
-
-  boss.on("error", (err) => console.error("[pg-boss] error:", err));
-
-  await boss.start();
-  return boss;
-}
 
 // ── Task shape ──────────────────────────────────────────────────
 
@@ -83,9 +60,4 @@ export async function enqueueWarmTask(
   });
 }
 
-export async function stopBoss(): Promise<void> {
-  if (boss) {
-    await boss.stop({ graceful: true, timeout: 10_000 });
-    boss = null;
-  }
-}
+export { getBoss, stopBoss } from "@/lib/pg-boss";

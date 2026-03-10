@@ -91,4 +91,24 @@ export const onboardingRouter = createTRPCRouter({
       where: { organizationId: ctx.organizationId },
     });
   }),
+
+  // Provisioning status — polled by /provisioning page
+  getProvisioningStatus: authedProcedure.query(async ({ ctx }) => {
+    if (!ctx.organizationId) return null;
+
+    const org = await ctx.db.organization.findUnique({
+      where: { id: ctx.organizationId },
+      select: {
+        onboardingStatus: true,
+        _count: { select: { platformTokens: true } },
+      },
+    });
+
+    if (!org) return null;
+
+    return {
+      onboardingStatus: org.onboardingStatus,
+      accountCount: org._count.platformTokens,
+    };
+  }),
 });

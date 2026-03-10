@@ -62,6 +62,10 @@ const enforceAuth = t.middleware(async ({ ctx, next }) => {
       session: ctx.session,
       userId: ctx.session.user.id,
       organizationId: ctx.session.user.organizationId,
+      subscriptionStatus: ctx.session.user.subscriptionStatus,
+      onboardingStatus: ctx.session.user.onboardingStatus,
+      role: ctx.session.user.role,
+      features: ctx.session.user.features,
     },
   });
 });
@@ -70,34 +74,29 @@ export const authedProcedure = t.procedure.use(enforceAuth);
 
 // ── Layer 3: Subscribed Procedure ────────────────────────────────
 // Requires ACTIVE or PAUSED subscription — blocks PAST_DUE, CANCELED, etc.
-// Also enforces per-route feature gates
 
 const enforceSubscription = t.middleware(async ({ ctx, next }) => {
-  const { organizationId } = ctx as unknown as { organizationId?: string };
-
-  if (!organizationId) {
+  if (!ctx.organizationId) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "No organization found. Complete checkout first.",
     });
   }
 
-  const status = (ctx as { session: { user: { subscriptionStatus?: string } } })
-    .session.user.subscriptionStatus;
   const allowedStatuses = ["ACTIVE", "PAUSED"];
 
-  if (!status || !allowedStatuses.includes(status)) {
+  if (!ctx.subscriptionStatus || !allowedStatuses.includes(ctx.subscriptionStatus)) {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: `Subscription status "${status}" does not allow access. Please update your billing.`,
+      message: `Subscription status "${ctx.subscriptionStatus}" does not allow access. Please update your billing.`,
     });
   }
 
   return next({
     ctx: {
       ...ctx,
-      organizationId: organizationId as string,
-      subscriptionStatus: status,
+      organizationId: ctx.organizationId,
+      subscriptionStatus: ctx.subscriptionStatus,
     },
   });
 });
@@ -110,17 +109,13 @@ export const subscribedProcedure = authedProcedure.use(enforceSubscription);
 // the main dashboard, agents, workflows, or any tool routes
 
 const enforceOnboarded = t.middleware(async ({ ctx, next }) => {
-  const onboardingStatus = (
-    ctx as { session: { user: { onboardingStatus?: string } } }
-  ).session.user.onboardingStatus;
-
-  if (onboardingStatus !== "ACTIVE") {
+  if (ctx.onboardingStatus !== "ACTIVE") {
     throw new TRPCError({
       code: "FORBIDDEN",
       message:
-        onboardingStatus === "PENDING_SETUP"
+        ctx.onboardingStatus === "PENDING_SETUP"
           ? "Your account is being provisioned. Our team is configuring your AI agents."
-          : onboardingStatus === "PENDING_PAYMENT"
+          : ctx.onboardingStatus === "PENDING_PAYMENT"
             ? "Please complete payment to continue."
             : "Your account has been suspended. Contact support.",
     });
@@ -135,10 +130,7 @@ export const onboardedProcedure = subscribedProcedure.use(enforceOnboarded);
 // Requires OWNER or ADMIN role on the org
 
 const enforceAdmin = t.middleware(async ({ ctx, next }) => {
-  const role = (ctx as { session: { user: { role?: string } } }).session.user
-    .role;
-
-  if (!role || !["OWNER", "ADMIN"].includes(role)) {
+  if (!ctx.role || !["OWNER", "ADMIN"].includes(ctx.role)) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required",
@@ -169,11 +161,7 @@ const NUMERIC_GATES = new Set<string>(Object.keys(GATE_TO_METRIC));
 
 export function tierGatedProcedure(feature: FeatureGate) {
   const enforceTierGate = t.middleware(async ({ ctx, next }) => {
-    const features = (ctx as { session: { user: { features?: Record<string, unknown> } } })
-      .session.user.features;
-    const orgId = (ctx as unknown as { organizationId: string }).organizationId;
-
-    if (!features) {
+    if (!ctx.features) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "No feature gates found. Contact support.",
@@ -182,7 +170,7 @@ export function tierGatedProcedure(feature: FeatureGate) {
 
     if (NUMERIC_GATES.has(feature)) {
       const metric = GATE_TO_METRIC[feature as NumericGate];
-      const result = await checkUsageLimit(orgId, metric);
+      const result = await checkUsageLimit(ctx.organizationId, metric);
       if (!result.allowed) {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -191,7 +179,7 @@ export function tierGatedProcedure(feature: FeatureGate) {
       }
     } else {
       // Boolean gate
-      if (!features[feature]) {
+      if (!ctx.features[feature]) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: `Feature "${feature}" is not available on your current plan.`,

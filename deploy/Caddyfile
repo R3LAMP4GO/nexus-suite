@@ -1,0 +1,83 @@
+# Nexus Suite — Caddy Reverse Proxy
+# Provides automatic HTTPS via Let's Encrypt.
+#
+# Usage:
+#   1. Install Caddy: https://caddyserver.com/docs/install
+#   2. Replace {$DOMAIN} with your actual domain (or set the env var)
+#   3. sudo caddy start --config /path/to/Caddyfile
+#
+# Ensure DNS A records point to your server IP before starting.
+
+{
+	email {$ACME_EMAIL:admin@example.com}
+}
+
+# ── Main Application ─────────────────────────────────────────────
+
+{$DOMAIN:app.example.com} {
+	reverse_proxy localhost:3000 {
+		# Health check — Caddy marks upstream unhealthy if this fails
+		health_uri /api/health
+		health_interval 30s
+		health_timeout 5s
+	}
+
+	# Security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		-Server
+	}
+
+	# Gzip compression
+	encode gzip
+
+	# Rate limit OAuth endpoints (prevent abuse)
+	@oauth path /api/oauth/*
+	rate_limit @oauth {
+		zone oauth_zone {
+			key {remote_host}
+			events 10
+			window 1m
+		}
+	}
+
+	# Request size limit (100MB for video uploads via URL)
+	request_body {
+		max_size 100MB
+	}
+
+	log {
+		output file /var/log/caddy/access.log {
+			roll_size 50mb
+			roll_keep 5
+		}
+	}
+}
+
+# ── Grafana Monitoring Dashboard ─────────────────────────────────
+
+{$GRAFANA_DOMAIN:grafana.example.com} {
+	reverse_proxy localhost:3001
+
+	# Basic auth for extra security on monitoring
+	# Generate hash: caddy hash-password
+	basicauth {
+		admin {$GRAFANA_BASIC_AUTH_HASH:JDJhJDE0JC5wbGFjZWhvbGRlcg==}
+	}
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		-Server
+	}
+
+	log {
+		output file /var/log/caddy/grafana.log {
+			roll_size 20mb
+			roll_keep 3
+		}
+	}
+}

@@ -1,0 +1,53 @@
+name: competitor-monitor
+description: Track competitor content and detect outliers
+organizationId: dryrun-8266986d
+
+trigger:
+  type: cron
+  schedule: "*/15 * * * *"
+
+config:
+  competitors:
+    - "https://www.youtube.com/@JeffNippard"
+    - "https://www.youtube.com/@JeremyEthier"
+    - "https://www.tiktok.com/@dr.mikeisraetel"
+  outlierThreshold: 3.0
+
+steps:
+  - id: poll-competitors
+    type: forEach
+    collection: "{{config.competitors}}"
+    as: competitorUrl
+    steps:
+      - id: scrape-profile
+        type: action
+        action: scraper-pool.scrape
+        params:
+          url: "{{competitorUrl}}"
+          type: profile-posts
+        outputAs: posts
+
+      - id: detect-outliers
+        type: action
+        action: analytics.detectOutlier
+        params:
+          posts: "{{posts}}"
+          threshold: "{{config.outlierThreshold}}"
+        outputAs: outliers
+
+  - id: process-outliers
+    type: condition
+    condition: "{{outliers.length}} > 0"
+    dependsOn: [poll-competitors]
+    onTrue:
+      - id: analyze-outlier
+        type: agent-delegate
+        agent: viral-teardown-agent
+        prompt: "Analyze this outlier content and generate a Viral Recipe: {{outliers[0]}}"
+        outputAs: viralRecipe
+
+      - id: reproduce
+        type: agent-delegate
+        agent: nexus-orchestrator
+        prompt: "Create our version based on this viral recipe: {{viralRecipe}}"
+        dependsOn: [analyze-outlier]

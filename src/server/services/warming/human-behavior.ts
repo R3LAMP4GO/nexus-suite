@@ -77,10 +77,10 @@ export async function humanMouseMove(page: Page, targetX: number, targetY: numbe
 
   const points = bezierCurve({ x: startX, y: startY }, { x: targetX, y: targetY }, steps);
 
-  for (const point of points) {
-    await page.mouse.move(point.x, point.y);
+  for (let i = 0; i < points.length; i++) {
+    await page.mouse.move(points[i].x, points[i].y);
     // Variable delay per step: faster in the middle, slower at start/end (ease in/out)
-    const progress = points.indexOf(point) / points.length;
+    const progress = i / points.length;
     const easeDelay = progress < 0.2 || progress > 0.8 ? rand(5, 15) : rand(1, 5);
     await new Promise((r) => setTimeout(r, easeDelay));
   }

@@ -1,0 +1,44 @@
+name: engagement-sweep
+description: Monitor and respond to engagement across all platforms
+organizationId: dryrun-8266986d
+
+trigger:
+  type: cron
+  schedule: "0 */4 * * *"
+
+steps:
+  - id: scan-mentions
+    type: parallel
+    steps:
+      - id: scan-youtube
+        type: agent-delegate
+        agent: youtube-agent
+        prompt: "Scan recent comments, mentions, and DMs on YOUTUBE. Prioritize by sentiment and reach."
+        outputAs: youtubeMentions
+      - id: scan-tiktok
+        type: agent-delegate
+        agent: tiktok-agent
+        prompt: "Scan recent comments, mentions, and DMs on TIKTOK. Prioritize by sentiment and reach."
+        outputAs: tiktokMentions
+      - id: scan-instagram
+        type: agent-delegate
+        agent: instagram-agent
+        prompt: "Scan recent comments, mentions, and DMs on INSTAGRAM. Prioritize by sentiment and reach."
+        outputAs: instagramMentions
+      - id: scan-x
+        type: agent-delegate
+        agent: x-agent
+        prompt: "Scan recent comments, mentions, and DMs on X. Prioritize by sentiment and reach."
+        outputAs: xMentions
+
+  - id: respond
+    type: agent-delegate
+    agent: engagement-responder
+    prompt: "Respond to high-priority mentions across platforms: {{mentions}}"
+    dependsOn: [scan-mentions]
+
+  - id: report
+    type: agent-delegate
+    agent: analytics-reporter
+    prompt: "Generate engagement summary for the last 4 hours"
+    dependsOn: [respond]

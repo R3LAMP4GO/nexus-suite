@@ -6,4 +6,6 @@ RUN corepack enable
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY . .
-CMD ["node", "dist/server/worker/index.js"]
+RUN npx prisma generate
+RUN npm run build
+CMD ["node", "dist/index.js"]

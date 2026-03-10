@@ -63,10 +63,6 @@ const scriptAgent = new Agent({
   tools: { getScriptTemplate },
 });
 
-export function createAgent() {
-  return scriptAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

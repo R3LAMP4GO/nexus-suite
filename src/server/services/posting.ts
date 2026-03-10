@@ -15,7 +15,7 @@ import { uploadViaPlatform } from "./browser-posting";
 import { postYouTubeApi } from "./platform-apis/youtube";
 import { postTikTokApi } from "./platform-apis/tiktok";
 import { postXApi } from "./platform-apis/x";
-import type { Platform, AccountType } from "@prisma/client";
+import type { Platform, AccountType } from "@/generated/prisma/client";
 
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
 

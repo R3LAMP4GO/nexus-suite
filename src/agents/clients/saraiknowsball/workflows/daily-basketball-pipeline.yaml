@@ -1,0 +1,95 @@
+name: daily-basketball-pipeline
+description: Daily content pipeline — discover trending basketball topics, write scripts, generate captions, quality check, schedule
+organizationId: saraiknowsball
+
+trigger:
+  type: cron
+  schedule: "0 14 * * *" # 10am ET (UTC-4)
+
+steps:
+  - id: discover-trends
+    type: agent-delegate
+    agent: trend-scout
+    prompt: "Find 3 trending basketball topics from the last 24 hours — NBA games, player news, trade rumors, viral moments. Return the top trends with title, angle, and talking points."
+    outputAs: trends
+    retries: 2
+    timeoutMs: 60000
+
+  - id: select-topic
+    type: agent-delegate
+    agent: nexus-orchestrator
+    prompt: "Pick the best basketball topic from {{trends}} for saraiknowsball's audience. Consider virality, engagement potential, and uniqueness."
+    outputAs: selectedTopic
+    dependsOn: [discover-trends]
+
+  - id: write-script
+    type: agent-delegate
+    agent: script-agent
+    prompt: "Write a 60-second video script about {{selectedTopic}} in saraiknowsball's brand voice — confident, witty basketball commentary. Include a punchy hook (first 3 seconds), main body with takes/analysis, and a CTA."
+    outputAs: script
+    dependsOn: [select-topic]
+    retries: 2
+
+  - id: generate-hooks
+    type: agent-delegate
+    agent: hook-writer
+    prompt: "Write 5 viral hooks for a basketball video about {{selectedTopic}}. Use patterns like 'This is why X is the GOAT', 'Nobody is talking about this...', 'I was wrong about X'. Make them scroll-stopping."
+    outputAs: hooks
+    dependsOn: [select-topic]
+
+  - id: generate-captions
+    type: parallel
+    dependsOn: [write-script]
+    steps:
+      - id: tiktok-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write a TikTok caption for a basketball video: {{script}}. Use basketball slang, trending hashtags, and keep it punchy. Max 150 characters of text + hashtags."
+        outputAs: tiktokCaption
+
+      - id: ig-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write an Instagram Reel caption for: {{script}}. Slightly longer than TikTok, include a question for engagement, basketball hashtags."
+        outputAs: igCaption
+
+      - id: x-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write an X/Twitter post for: {{script}}. Hot take format, max 280 chars, include 1-2 relevant hashtags."
+        outputAs: xCaption
+
+  - id: quality-check
+    type: agent-delegate
+    agent: quality-scorer
+    prompt: "Score this content package 1-10: script={{script}}, hooks={{hooks}}, captions={{tiktokCaption}}, {{igCaption}}, {{xCaption}}. Check for: brand voice alignment, engagement potential, basketball accuracy."
+    outputAs: quality
+    dependsOn: [generate-captions, generate-hooks]
+
+  - id: quality-gate
+    type: condition
+    condition: "{{quality.score}} >= 7"
+    dependsOn: [quality-check]
+    onTrue:
+      - id: schedule-posts
+        type: parallel
+        steps:
+          - id: post-tiktok
+            type: agent-delegate
+            agent: tiktok-main
+            prompt: "Schedule TikTok post: script={{script}}, caption={{tiktokCaption}}, hooks={{hooks}}"
+
+          - id: post-instagram
+            type: agent-delegate
+            agent: instagram-main
+            prompt: "Schedule Instagram Reel: script={{script}}, caption={{igCaption}}, hooks={{hooks}}"
+
+          - id: post-x
+            type: agent-delegate
+            agent: x-main
+            prompt: "Schedule X post: {{xCaption}}"
+    onFalse:
+      - id: revise
+        type: agent-delegate
+        agent: script-agent
+        prompt: "Revise the script. Quality feedback: {{quality.feedback}}. Original: {{script}}"

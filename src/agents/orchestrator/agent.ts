@@ -8,6 +8,7 @@ import { z } from "zod";
 import { wrapToolHandler } from "@/agents/general";
 import { executeAgentDelegate, getWorkflowContext } from "@/server/workflows/agent-delegate";
 import type { WorkflowContext } from "@/server/workflows/control-flow";
+import { modelConfig } from "@/agents/platforms/model-config";
 
 const PLATFORM_AGENTS: Record<string, string> = {
   youtube: "youtube-main",
@@ -15,6 +16,7 @@ const PLATFORM_AGENTS: Record<string, string> = {
   instagram: "instagram-main",
   linkedin: "linkedin-main",
   x: "x-main",
+  facebook: "facebook-agent",
 };
 
 const delegateToPlatform = createTool({
@@ -22,7 +24,7 @@ const delegateToPlatform = createTool({
   description:
     "Delegate a task to a platform-specific main agent (youtube-main, tiktok-main, instagram-main, linkedin-main, x-main)",
   inputSchema: z.object({
-    platform: z.enum(["youtube", "tiktok", "instagram", "linkedin", "x"]).describe("Target platform"),
+    platform: z.enum(["youtube", "tiktok", "instagram", "linkedin", "x", "facebook"]).describe("Target platform"),
     prompt: z.string().describe("Task prompt for the platform agent"),
   }),
   execute: async (executionContext) => {
@@ -59,11 +61,15 @@ const delegateToSpecialist = createTool({
   execute: async (executionContext) => {
     const { specialistName, prompt } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { specialistName: string; prompt: string }) => ({
-        delegatedTo: input.specialistName,
-        prompt: input.prompt,
-        status: "pending-wiring" as const,
-      }),
+      async (input: { specialistName: string; prompt: string }) => {
+        const workflowContext = getWorkflowContext();
+        const result = await executeAgentDelegate(input.specialistName, input.prompt, workflowContext);
+        return {
+          delegatedTo: input.specialistName,
+          result,
+          status: "delegated" as const,
+        };
+      },
       { agentName: "orchestrator", toolName: "delegateToSpecialist" },
     );
     return wrappedFn({ specialistName, prompt });
@@ -84,7 +90,7 @@ Platform agents: youtube-main, tiktok-main, instagram-main, linkedin-main, x-mai
 Specialists: trend-scout, seo-agent, hook-writer, title-generator, caption-writer, hashtag-optimizer, quality-scorer
 
 Always delegate — never generate platform-specific content directly.`,
-  model: { provider: "openai", name: "gpt-4o" } as unknown as import("ai").LanguageModelV1,
+  model: modelConfig.tier1,
   tools: { delegateToPlatform, delegateToSpecialist },
 });
 

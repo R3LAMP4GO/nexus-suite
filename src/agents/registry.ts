@@ -1,5 +1,5 @@
 import { registerAgent } from "../server/workflows/agent-delegate";
-import { executeOrchestrator } from "./orchestrator/agent";
+import { orchestratorAgent } from "./orchestrator/agent";
 import { generateWorkflow } from "./orchestrator/workflow-agent";
 // Platform agents — export Agent instances, not generate functions
 import { youtubeMainAgent } from "./platforms/youtube/agent";
@@ -45,18 +45,14 @@ import { generate as generateViralTeardown } from "./specialists/viral-teardown-
  */
 export function bootstrapAgents(): void {
   // Tier 1: Orchestration (2)
-  registerAgent("nexus-orchestrator", async (prompt) => {
-    const result = await executeOrchestrator(prompt, {
-      organizationId: "",
-      workflowName: "",
-      runId: "",
-      variables: {},
-      config: {},
-      input: { userPrompt: prompt },
-      aborted: false,
-    });
-    return result as { text: string };
-  });
+  // Register under both names: "nexus-orchestrator" (canonical) and "orchestrator" (agent name)
+  // The Agent object uses name "orchestrator", and delegateToSpecialist resolves by registry key.
+  const orchestratorFn = async (prompt: string) => {
+    const result = await orchestratorAgent.generate(prompt, {});
+    return { text: result.text, usage: result.usage ? { promptTokens: result.usage.promptTokens, completionTokens: result.usage.completionTokens, model: "default" } : undefined };
+  };
+  registerAgent("nexus-orchestrator", orchestratorFn);
+  registerAgent("orchestrator", orchestratorFn);
   registerAgent("workflow-agent", (prompt, opts) =>
     generateWorkflow(prompt, { organizationId: "", userPrompt: prompt }, opts),
   );
@@ -133,56 +129,63 @@ export function bootstrapAgents(): void {
   });
 
   // Tier 3: Specialist agents (17)
+  // Brand voice and organizationId are injected from the workflow context via opts
+  const buildCtx = (prompt: string, opts?: { brandVoice?: string }) => ({
+    organizationId: "", // Populated by workflow context at runtime
+    userPrompt: prompt,
+    brandVoice: opts?.brandVoice,
+  });
+
   registerAgent("seo-agent", (prompt, opts) =>
-    generateSeo(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateSeo(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("hook-writer", (prompt, opts) =>
-    generateHookWriter(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateHookWriter(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("title-generator", (prompt, opts) =>
-    generateTitleGenerator(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateTitleGenerator(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("thumbnail-creator", (prompt, opts) =>
-    generateThumbnailCreator(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateThumbnailCreator(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("script-agent", (prompt, opts) =>
-    generateScriptAgent(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateScriptAgent(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("caption-writer", (prompt, opts) =>
-    generateCaptionWriter(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateCaptionWriter(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("hashtag-optimizer", (prompt, opts) =>
-    generateHashtagOptimizer(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateHashtagOptimizer(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("thread-writer", (prompt, opts) =>
-    generateThreadWriter(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateThreadWriter(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("article-writer", (prompt, opts) =>
-    generateArticleWriter(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateArticleWriter(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("trend-scout", async (prompt, opts) => {
     const result = await trendScoutAgent.generate(prompt, { maxTokens: opts?.maxTokens });
     return { text: result.text };
   });
   registerAgent("engagement-responder", (prompt, opts) =>
-    generateEngagementResponder(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateEngagementResponder(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("analytics-reporter", (prompt, opts) =>
-    generateAnalyticsReporter(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateAnalyticsReporter(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("content-repurposer", (prompt, opts) =>
-    generateContentRepurposer(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateContentRepurposer(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("quality-scorer", (prompt, opts) =>
-    generateQualityScorer(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateQualityScorer(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("variation-orchestrator", (prompt, opts) =>
-    generateVariationOrchestrator(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateVariationOrchestrator(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("brand-persona-agent", (prompt, opts) =>
-    generateBrandPersona(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateBrandPersona(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("viral-teardown-agent", (prompt, opts) =>
-    generateViralTeardown(prompt, { organizationId: "", userPrompt: prompt }, opts),
+    generateViralTeardown(prompt, buildCtx(prompt, opts), opts),
   );
 }

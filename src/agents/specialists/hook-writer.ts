@@ -99,10 +99,6 @@ const hookWriterAgent = new Agent({
   tools: { searchViralPatterns, getWinnerLogs, getPlatformTemplates },
 });
 
-export function createAgent() {
-  return hookWriterAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

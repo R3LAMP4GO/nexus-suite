@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { generateBrowserProfile } from "@/lib/fingerprint";
 import { storeSecret } from "@/lib/infisical";
+import { incrementUsage } from "@/server/services/usage-tracking";
 
 const INFISICAL_PROJECT_ID = process.env.INFISICAL_PROJECT_ID!;
 const INFISICAL_ENV = process.env.INFISICAL_ENV ?? "dev";
@@ -106,6 +107,8 @@ export async function provision(orgId: string, burnerCount: number) {
 
       return { token, browserProfile };
     });
+
+    await incrementUsage(orgId, "accounts");
 
     console.log(`  [${i + 1}/${toCreate}] Created ${label}`);
     console.log(`    Platform: ${platform}`);

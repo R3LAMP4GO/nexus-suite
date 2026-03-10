@@ -59,10 +59,6 @@ const viralTeardownAgent = new Agent({
   tools: { fetchViralContent },
 });
 
-export function createAgent() {
-  return viralTeardownAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

@@ -1,7 +1,8 @@
-import PgBoss from "pg-boss";
+import type PgBoss from "pg-boss";
 import { randomUUID } from "node:crypto";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { getBoss } from "@/lib/pg-boss";
 import { generate as viralTeardown } from "@/agents/specialists/viral-teardown-agent";
 import { generate as scriptAgent } from "@/agents/specialists/script-agent";
 import { generate as captionWriter } from "@/agents/specialists/caption-writer";
@@ -30,16 +31,6 @@ interface ScrapeResult {
 const QUEUE_NAME = "competitor:task";
 const SCRAPE_TASK_QUEUE = "scrape:task";
 const SCRAPE_RESULT_QUEUE = "scrape:result";
-
-let boss: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!boss) {
-    boss = new PgBoss(process.env.DATABASE_URL!);
-    await boss.start();
-  }
-  return boss;
-}
 
 // ── Scrape result correlation ─────────────────────────────────
 
@@ -214,8 +205,5 @@ export async function startCompetitorWorker(): Promise<void> {
 }
 
 export async function stopCompetitorWorker(): Promise<void> {
-  if (boss) {
-    await boss.stop();
-    boss = null;
-  }
+  // No-op: pg-boss lifecycle is managed by the shared singleton in src/lib/pg-boss.ts
 }

@@ -1,19 +1,94 @@
 import NextAuth from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import Resend from "next-auth/providers/resend";
+import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import { authConfig } from "./auth.config";
+
+const devCredentials =
+  process.env.NODE_ENV === "development"
+    ? [
+        Credentials({
+          name: "Dev Login",
+          credentials: {
+            email: { label: "Email", type: "email" },
+          },
+          async authorize(credentials) {
+            const email = credentials?.email as string;
+            if (!email) return null;
+            const user = await db.user.findUnique({ where: { email } });
+            return user;
+          },
+        }),
+      ]
+    : [];
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   adapter: PrismaAdapter(db),
+  session: { strategy: "jwt" },
+  providers: [
+    ...authConfig.providers,
+    Resend({
+      apiKey: process.env.RESEND_API_KEY!,
+      from: process.env.EMAIL_FROM ?? "Nexus Suite <noreply@nexus-suite.com>",
+    }),
+    ...devCredentials,
+  ],
   callbacks: {
     ...authConfig.callbacks,
+    // Gate sign-in: only allow users whose email already exists in the DB
+    // (pre-registered by admin). Google OAuth and magic link both pass through here.
+    async signIn({ user, account }) {
+      if (!user.email) return false;
+
+      const existingUser = await db.user.findUnique({
+        where: { email: user.email },
+      });
+
+      // First-time Google sign-in: allow if email is pre-registered OR
+      // if there are no users yet (first-ever admin bootstrap)
+      if (!existingUser) {
+        const userCount = await db.user.count();
+        if (userCount === 0) return true; // Bootstrap: first user is always allowed
+        return "/login?error=NotInvited";
+      }
+
+      return true;
+    },
+    async jwt({ token, user, trigger }) {
+      if (user) token.id = user.id;
+
+      // Refresh org state on every sign-in and periodically on session update
+      const userId = token.id as string | undefined;
+      if (userId && (user || trigger === "update")) {
+        const membership = await db.orgMember.findFirst({
+          where: { userId },
+          include: {
+            organization: {
+              select: {
+                onboardingStatus: true,
+                subscriptionStatus: true,
+              },
+            },
+          },
+          orderBy: { createdAt: "asc" },
+        });
+        token.onboardingStatus = membership?.organization.onboardingStatus ?? null;
+        token.subscriptionStatus = membership?.organization.subscriptionStatus ?? null;
+        token.hasOrg = !!membership;
+      }
+
+      return token;
+    },
     // Layer 2: Session callback — inject org status into session
     // Blocks login entirely if subscription is CANCELED/INACTIVE
-    async session({ session, user }) {
+    async session({ session, token, user }) {
+      const userId = (token?.id as string | undefined) ?? user?.id;
+      if (!userId) return session;
       // Find user's org membership (primary = first OWNER membership)
       const membership = await db.orgMember.findFirst({
-        where: { userId: user.id },
+        where: { userId },
         include: {
           organization: {
             select: {
@@ -35,7 +110,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         orderBy: { createdAt: "asc" },
       });
 
-      session.user.id = user.id;
+      session.user.id = userId;
 
       if (membership) {
         const org = membership.organization;

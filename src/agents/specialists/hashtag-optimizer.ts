@@ -77,10 +77,6 @@ const hashtagOptimizerAgent = new Agent({
   tools: { getTrending, getHashtagAnalytics },
 });
 
-export function createAgent() {
-  return hashtagOptimizerAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

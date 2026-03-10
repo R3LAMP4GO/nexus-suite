@@ -1,7 +1,7 @@
-import PgBoss from "pg-boss";
 import { db } from "@/lib/db";
+import { getBoss } from "@/lib/pg-boss";
 import { canPost } from "./circuit-breaker";
-import type { Platform } from "@prisma/client";
+import type { Platform } from "@/generated/prisma/client";
 
 // ── Constants ────────────────────────────────────────────────────
 
@@ -15,18 +15,6 @@ const BASE_INTERVAL_MIN = 30; // minutes
 const BASE_INTERVAL_MAX = 120;
 const JITTER_MINUTES = 15;
 const SKIP_PROBABILITY = 0.1;
-
-// ── pg-boss singleton ────────────────────────────────────────────
-
-let bossInstance: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!bossInstance) {
-    bossInstance = new PgBoss(process.env.DATABASE_URL!);
-    await bossInstance.start();
-  }
-  return bossInstance;
-}
 
 // ── Helpers ──────────────────────────────────────────────────────
 
@@ -138,7 +126,7 @@ export async function scheduleDistribution(
     // Calculate staggered time: base interval + jitter
     const intervalMinutes = randomBetween(BASE_INTERVAL_MIN, BASE_INTERVAL_MAX);
     const jitter = randomBetween(-JITTER_MINUTES, JITTER_MINUTES);
-    slotOffset += intervalMinutes + jitter;
+    slotOffset += Math.max(15, intervalMinutes + jitter);
 
     const scheduledAt = new Date(Date.now() + slotOffset * 60000);
 

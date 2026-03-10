@@ -1,22 +1,10 @@
 import { z } from "zod";
 import { createTRPCRouter, onboardedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { Platform } from "@prisma/client";
-import PgBoss from "pg-boss";
-
-// ── pg-boss singleton ────────────────────────────────────────
+import { Platform } from "@/generated/prisma/client";
+import { getBoss } from "@/lib/pg-boss";
 
 const COMPETITOR_QUEUE = "competitor:task";
-
-let boss: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!boss) {
-    boss = new PgBoss(process.env.DATABASE_URL!);
-    await boss.start();
-  }
-  return boss;
-}
 
 // ── Helpers ─────────────────────────────────────────────────────
 

@@ -1,14 +1,11 @@
-import PgBoss from "pg-boss";
+import { createBoss } from "@/lib/pg-boss";
 import { registerJobHandlers } from "./jobs/index.js";
 import { startCompetitorWorker, stopCompetitorWorker } from "../workers/competitor-worker.js";
 import { startPostWorker, stopPostWorker } from "../workers/post-worker.js";
 import { startCompetitorPollingWorker, stopCompetitorPollingWorker } from "../workers/competitor-polling-worker.js";
+import { startMediaCompletionWorker, stopMediaCompletionWorker } from "../workers/media-completion-worker.js";
 
-const DATABASE_URL = process.env.DATABASE_URL;
-
-if (!DATABASE_URL) throw new Error("DATABASE_URL is required");
-
-const boss = new PgBoss(DATABASE_URL);
+const boss = createBoss();
 
 async function start(): Promise<void> {
   console.log("[worker] starting pg-boss...");
@@ -24,6 +21,9 @@ async function start(): Promise<void> {
   console.log("[worker] starting competitor polling worker...");
   await startCompetitorPollingWorker();
 
+  console.log("[worker] starting media completion worker...");
+  await startMediaCompletionWorker();
+
   console.log("[worker] ready");
 }
 
@@ -32,6 +32,7 @@ async function shutdown(): Promise<void> {
   await stopCompetitorWorker();
   await stopCompetitorPollingWorker();
   await stopPostWorker();
+  await stopMediaCompletionWorker();
   await boss.stop();
   console.log("[worker] stopped");
   process.exit(0);

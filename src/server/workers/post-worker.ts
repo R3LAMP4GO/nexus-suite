@@ -1,7 +1,7 @@
-import PgBoss from "pg-boss";
 import { postContent } from "@/server/services/posting";
 import { db } from "@/lib/db";
-import type { Platform } from "@prisma/client";
+import { getBoss } from "@/lib/pg-boss";
+import type { Platform } from "@/generated/prisma/client";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -16,16 +16,6 @@ interface PostTaskPayload {
 // ── Worker ────────────────────────────────────────────────────
 
 const QUEUE_NAME = "post:task";
-
-let boss: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!boss) {
-    boss = new PgBoss(process.env.DATABASE_URL!);
-    await boss.start();
-  }
-  return boss;
-}
 
 export async function startPostWorker(): Promise<void> {
   const b = await getBoss();
@@ -51,8 +41,5 @@ export async function startPostWorker(): Promise<void> {
 }
 
 export async function stopPostWorker(): Promise<void> {
-  if (boss) {
-    await boss.stop();
-    boss = null;
-  }
+  // No-op: pg-boss lifecycle is managed by the shared singleton in src/lib/pg-boss.ts
 }

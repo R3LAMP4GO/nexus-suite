@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useCallback, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { Skeleton } from "./skeleton";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,18 +45,14 @@ export function DataTable<T extends Record<string, unknown>>({
 }: DataTableProps<T>) {
   const [sort, setSort] = useState<SortState | null>(null);
 
-  const toggleSort = useCallback(
-    (key: string) => {
-      setSort((prev) => {
-        if (prev?.key !== key) return { key, dir: "asc" };
-        if (prev.dir === "asc") return { key, dir: "desc" };
-        return null; // third click clears
-      });
-    },
-    [],
-  );
+  const toggleSort = useCallback((key: string) => {
+    setSort((prev) => {
+      if (prev?.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  }, []);
 
-  // Sort data
   const sorted = sort
     ? [...data].sort((a, b) => {
         const av = a[sort.key];
@@ -62,16 +60,17 @@ export function DataTable<T extends Record<string, unknown>>({
         if (av == null && bv == null) return 0;
         if (av == null) return 1;
         if (bv == null) return -1;
-        const cmp = String(av).localeCompare(String(bv), undefined, { numeric: true });
+        const cmp = String(av).localeCompare(String(bv), undefined, {
+          numeric: true,
+        });
         return sort.dir === "asc" ? cmp : -cmp;
       })
     : data;
 
   return (
-    <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
-      <table className="min-w-full divide-y divide-gray-200">
-        {/* Header */}
-        <thead className="bg-gray-50">
+    <div className="overflow-hidden rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] shadow">
+      <table className="min-w-full divide-y divide-[var(--border)]" role="grid">
+        <thead className="bg-[var(--bg-tertiary)]">
           <tr>
             {columns.map((col) => {
               const sortable = col.sortable !== false;
@@ -79,15 +78,24 @@ export function DataTable<T extends Record<string, unknown>>({
               return (
                 <th
                   key={col.accessorKey}
-                  className={`px-4 py-3 text-left text-xs font-medium uppercase text-gray-500${
-                    sortable ? " cursor-pointer select-none hover:text-gray-700" : ""
-                  }`}
+                  scope="col"
+                  aria-sort={
+                    isActive
+                      ? sort!.dir === "asc"
+                        ? "ascending"
+                        : "descending"
+                      : "none"
+                  }
+                  className={cn(
+                    "px-4 py-3 text-left text-xs font-medium uppercase text-[var(--text-muted)]",
+                    sortable && "cursor-pointer select-none hover:text-[var(--text-secondary)]",
+                  )}
                   onClick={sortable ? () => toggleSort(col.accessorKey) : undefined}
                 >
                   <span className="inline-flex items-center gap-1">
                     {col.header}
                     {sortable && isActive && (
-                      <span className="text-gray-900">
+                      <span className="text-[var(--text-primary)]">
                         {sort!.dir === "asc" ? "▲" : "▼"}
                       </span>
                     )}
@@ -98,14 +106,13 @@ export function DataTable<T extends Record<string, unknown>>({
           </tr>
         </thead>
 
-        {/* Body */}
-        <tbody className="divide-y divide-gray-200">
+        <tbody className="divide-y divide-[var(--border)]">
           {isLoading
             ? Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
                     <td key={col.accessorKey} className="whitespace-nowrap px-4 py-3">
-                      <div className="h-4 w-24 animate-pulse rounded bg-gray-200" />
+                      <Skeleton className="h-4 w-24" />
                     </td>
                   ))}
                 </tr>
@@ -115,7 +122,7 @@ export function DataTable<T extends Record<string, unknown>>({
                   <tr>
                     <td
                       colSpan={columns.length}
-                      className="px-4 py-12 text-center text-sm text-gray-500"
+                      className="px-4 py-12 text-center text-sm text-[var(--text-muted)]"
                     >
                       {emptyMessage}
                     </td>
@@ -124,15 +131,21 @@ export function DataTable<T extends Record<string, unknown>>({
               : sorted.map((row, idx) => (
                   <tr
                     key={idx}
-                    className={`hover:bg-gray-50${onRowClick ? " cursor-pointer" : ""}${rowClassName ? ` ${rowClassName(row) ?? ""}` : ""}`}
+                    className={cn(
+                      "hover:bg-[var(--bg-tertiary)]",
+                      onRowClick && "cursor-pointer",
+                      rowClassName?.(row),
+                    )}
                     onClick={onRowClick ? () => onRowClick(row) : undefined}
                   >
                     {columns.map((col) => (
                       <td
                         key={col.accessorKey}
-                        className="whitespace-nowrap px-4 py-3 text-sm text-gray-600"
+                        className="whitespace-nowrap px-4 py-3 text-sm text-[var(--text-secondary)]"
                       >
-                        {col.cell ? col.cell(row) : String(row[col.accessorKey] ?? "")}
+                        {col.cell
+                          ? col.cell(row)
+                          : String(row[col.accessorKey] ?? "")}
                       </td>
                     ))}
                   </tr>

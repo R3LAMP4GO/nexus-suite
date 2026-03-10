@@ -4,21 +4,9 @@ import { TRPCError } from "@trpc/server";
 import { readdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { parse as parseYaml } from "yaml";
-import PgBoss from "pg-boss";
-
-// ── pg-boss singleton ────────────────────────────────────────
+import { getBoss } from "@/lib/pg-boss";
 
 const WORKFLOW_QUEUE = "workflow:run";
-
-let boss: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!boss) {
-    boss = new PgBoss(process.env.DATABASE_URL!);
-    await boss.start();
-  }
-  return boss;
-}
 
 // ── Helpers ─────────────────────────────────────────────────────
 
@@ -63,17 +51,20 @@ export const workflowsRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { cursor, limit = 25 } = input ?? {};
 
-      const records = await ctx.db.postRecord.findMany({
+      const records = await ctx.db.workflowRunLog.findMany({
         where: { organizationId: ctx.organizationId },
         take: limit + 1,
         cursor: cursor ? { id: cursor } : undefined,
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
-          platform: true,
+          runId: true,
+          workflowName: true,
           status: true,
-          scheduledAt: true,
-          postedAt: true,
+          startedAt: true,
+          completedAt: true,
+          durationMs: true,
+          error: true,
           createdAt: true,
         },
       });
@@ -85,6 +76,20 @@ export const workflowsRouter = createTRPCRouter({
       }
 
       return { records, nextCursor };
+    }),
+
+  getRunDetails: onboardedProcedure
+    .input(z.object({ runId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const run = await ctx.db.workflowRunLog.findUnique({
+        where: { runId: input.runId },
+      });
+
+      if (!run || run.organizationId !== ctx.organizationId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Workflow run not found" });
+      }
+
+      return run;
     }),
 
   runNow: tierGatedProcedure("maxWorkflowRuns")

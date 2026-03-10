@@ -1,8 +1,23 @@
 import { z } from "zod";
 import { createTRPCRouter, adminProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
+import { sendActivationEmail } from "@/server/services/notifications";
+
+// ── System health check helpers ───────────────────────────────────
+
+interface HealthEntry {
+  name: string;
+  key: string;
+  configured: boolean;
+}
+
+function checkEnvVar(name: string, key: string): HealthEntry {
+  return { name, key, configured: !!process.env[key] };
+}
 
 export const adminRouter = createTRPCRouter({
+  // ── Organizations ─────────────────────────────────────────────
+
   // List all orgs with status info for admin data table
   listOrgs: adminProcedure
     .input(
@@ -98,6 +113,233 @@ export const adminRouter = createTRPCRouter({
         data: { onboardingStatus: input.status },
       });
 
+      // Send activation email when transitioning to ACTIVE
+      if (input.status === "ACTIVE" && org.onboardingStatus !== "ACTIVE") {
+        const owner = await ctx.db.orgMember.findFirst({
+          where: { organizationId: input.orgId, role: "OWNER" },
+          include: { user: { select: { email: true } } },
+        });
+        if (owner?.user.email) {
+          // Fire-and-forget — don't block the admin response on email delivery
+          sendActivationEmail(owner.user.email, org.name).catch((err) => {
+            console.error("[admin] Failed to send activation email:", err);
+          });
+        }
+      }
+
       return { success: true, orgId: input.orgId, newStatus: input.status };
     }),
+
+  // ── Users ─────────────────────────────────────────────────────
+
+  listAllUsers: adminProcedure
+    .input(
+      z
+        .object({
+          cursor: z.string().optional(),
+          limit: z.number().min(1).max(100).default(50),
+          search: z.string().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const { cursor, limit = 50, search } = input ?? {};
+
+      const where = search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { email: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {};
+
+      const users = await ctx.db.user.findMany({
+        where,
+        take: limit + 1,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+          createdAt: true,
+          memberships: {
+            select: {
+              id: true,
+              role: true,
+              organization: { select: { id: true, name: true, slug: true } },
+            },
+          },
+        },
+      });
+
+      let nextCursor: string | undefined;
+      if (users.length > limit) {
+        const next = users.pop();
+        nextCursor = next?.id;
+      }
+
+      return {
+        users: users.map((u) => ({
+          id: u.id,
+          name: u.name ?? "—",
+          email: u.email,
+          image: u.image,
+          createdAt: u.createdAt,
+          memberships: u.memberships.map((m) => ({
+            membershipId: m.id,
+            role: m.role,
+            orgId: m.organization.id,
+            orgName: m.organization.name,
+            orgSlug: m.organization.slug,
+          })),
+        })),
+        nextCursor,
+      };
+    }),
+
+  updateUserRole: adminProcedure
+    .input(
+      z.object({
+        membershipId: z.string(),
+        role: z.enum(["OWNER", "ADMIN", "MEMBER"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const membership = await ctx.db.orgMember.findUnique({
+        where: { id: input.membershipId },
+      });
+
+      if (!membership) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Membership not found" });
+      }
+
+      await ctx.db.orgMember.update({
+        where: { id: input.membershipId },
+        data: { role: input.role },
+      });
+
+      return { success: true, membershipId: input.membershipId, newRole: input.role };
+    }),
+
+  suspendUser: adminProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        action: z.enum(["SUSPEND", "RESTORE"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.userId },
+        include: { memberships: true },
+      });
+
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      }
+
+      if (input.action === "SUSPEND") {
+        // Remove all memberships → effectively removes access
+        await ctx.db.orgMember.deleteMany({
+          where: { userId: input.userId },
+        });
+        // Delete active sessions to force immediate logout
+        await ctx.db.session.deleteMany({
+          where: { userId: input.userId },
+        });
+        return { success: true, userId: input.userId, action: "SUSPENDED" as const };
+      }
+
+      // RESTORE: no-op at membership level — admin must re-add user to orgs manually
+      return { success: true, userId: input.userId, action: "RESTORED" as const };
+    }),
+
+  // ── User Invitations ───────────────────────────────────────────
+
+  inviteUser: adminProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        name: z.string().optional(),
+        organizationId: z.string().optional(),
+        role: z.enum(["OWNER", "ADMIN", "MEMBER"]).default("MEMBER"),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Check if user already exists
+      const existing = await ctx.db.user.findUnique({
+        where: { email: input.email },
+      });
+
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "A user with this email already exists",
+        });
+      }
+
+      // Pre-create the user record — this whitelists their email for sign-in
+      const user = await ctx.db.user.create({
+        data: {
+          email: input.email,
+          name: input.name ?? null,
+        },
+      });
+
+      // Optionally add them to an org immediately
+      if (input.organizationId) {
+        const org = await ctx.db.organization.findUnique({
+          where: { id: input.organizationId },
+        });
+        if (!org) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Organization not found" });
+        }
+        await ctx.db.orgMember.create({
+          data: {
+            userId: user.id,
+            organizationId: input.organizationId,
+            role: input.role,
+          },
+        });
+      }
+
+      return { success: true, userId: user.id, email: input.email };
+    }),
+
+  // ── System Health ─────────────────────────────────────────────
+
+  getSystemHealth: adminProcedure.query(async ({ ctx }) => {
+    const checks: HealthEntry[] = [
+      checkEnvVar("Zhipu AI (GLM) API", "ZHIPU_API_KEY"),
+      checkEnvVar("Stripe Secret", "STRIPE_SECRET_KEY"),
+      checkEnvVar("Stripe Webhook Secret", "STRIPE_WEBHOOK_SECRET"),
+      checkEnvVar("Infisical Client ID", "INFISICAL_CLIENT_ID"),
+      checkEnvVar("Infisical Client Secret", "INFISICAL_CLIENT_SECRET"),
+      checkEnvVar("Cloudflare R2 Access Key", "R2_ACCESS_KEY_ID"),
+      checkEnvVar("Cloudflare R2 Secret Key", "R2_SECRET_ACCESS_KEY"),
+      checkEnvVar("Cloudflare R2 Bucket", "R2_BUCKET_NAME"),
+      checkEnvVar("IPRoyal API Key", "IPROYAL_API_KEY"),
+      checkEnvVar("Database URL", "DATABASE_URL"),
+      checkEnvVar("Redis URL", "REDIS_URL"),
+      checkEnvVar("NextAuth Secret", "NEXTAUTH_SECRET"),
+    ];
+
+    // Quick DB ping
+    let dbConnected = false;
+    try {
+      await ctx.db.$queryRaw`SELECT 1`;
+      dbConnected = true;
+    } catch {
+      dbConnected = false;
+    }
+
+    return {
+      checks,
+      dbConnected,
+      timestamp: new Date().toISOString(),
+    };
+  }),
 });

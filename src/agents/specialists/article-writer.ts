@@ -65,10 +65,6 @@ const articleWriterAgent = new Agent({
   tools: { getArticleOutline },
 });
 
-export function createAgent() {
-  return articleWriterAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

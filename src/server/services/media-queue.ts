@@ -1,16 +1,5 @@
-import PgBoss from "pg-boss";
-
-// ── pg-boss singleton ────────────────────────────────────────────
-
-let bossInstance: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!bossInstance) {
-    bossInstance = new PgBoss(process.env.DATABASE_URL!);
-    await bossInstance.start();
-  }
-  return bossInstance;
-}
+import type PgBoss from "pg-boss";
+import { getBoss } from "@/lib/pg-boss";
 
 // ── Types (mirror consumer's MediaJob) ───────────────────────────
 

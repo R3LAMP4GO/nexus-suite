@@ -3,13 +3,18 @@ import type { BypassResult } from "./plain-http.js";
 
 const RECAPTCHA_TIMEOUT = 45_000;
 
+// Z.ai / Zhipu AI GLM endpoint — OpenAI-compatible
+const ZHIPU_API_BASE =
+  process.env.ZHIPU_BASE_URL ?? "https://open.bigmodel.cn/api/paas/v4";
+const ZHIPU_VISION_MODEL = process.env.ZHIPU_VISION_MODEL ?? "glm-4v-plus";
+
 /**
- * reCAPTCHA v2 solver — audio-first approach.
+ * reCAPTCHA v2 solver — vision-first approach via GLM-4V.
  * 1. Click reCAPTCHA checkbox
- * 2. Click audio challenge button
- * 3. Download MP3 → send to speech-to-text via OpenRouter
- * 4. Submit transcribed text
- * Falls back to vision LLM if audio unavailable.
+ * 2. If challenge appears, screenshot it
+ * 3. Send screenshot to GLM-4V for grid position identification
+ * 4. Click identified tiles and verify
+ * Falls back to audio challenge if vision fails.
  */
 export async function solveRecaptcha(
   url: string,
@@ -57,122 +62,66 @@ export async function solveRecaptcha(
     const bframe = await bframeHandle.contentFrame();
     if (!bframe) throw new Error("Cannot access reCAPTCHA challenge frame");
 
-    // Try audio-first approach
-    const audioButton = await bframe.waitForSelector(
-      "#recaptcha-audio-button",
-      { timeout: 5_000 },
-    ).catch(() => null);
+    // Vision-first: screenshot the challenge and solve with GLM-4V
+    const visionResult = await solveWithVision(bframe, page, url, context);
+    if (visionResult) return visionResult;
 
-    if (audioButton) {
-      await audioButton.click();
-      await page.waitForTimeout(1_000);
+    // Fallback: audio challenge approach
+    const audioResult = await solveWithAudio(bframe, page, url, context);
+    if (audioResult) return audioResult;
 
-      // Get the audio source URL
-      const audioSrc = await bframe.evaluate(() => {
-        const audio = document.querySelector<HTMLAudioElement>("#audio-source");
-        return audio?.src ?? null;
-      });
-
-      if (audioSrc) {
-        const transcript = await transcribeAudio(audioSrc);
-        if (transcript) {
-          // Type the transcript into the response field
-          const responseInput = await bframe.waitForSelector(
-            "#audio-response",
-            { timeout: 5_000 },
-          );
-          if (responseInput) {
-            await responseInput.fill(transcript);
-            const verifyBtn = await bframe.waitForSelector(
-              "#recaptcha-verify-button",
-              { timeout: 3_000 },
-            );
-            if (verifyBtn) await verifyBtn.click();
-            await page.waitForTimeout(3_000);
-            return await extractResult(url, page, context);
-          }
-        }
-      }
-    }
-
-    // Fallback: vision LLM approach (screenshot captcha image → GPT-4o)
-    const imageResult = await solveWithVision(bframe, page, url, context);
-    if (imageResult) return imageResult;
-
-    throw new Error("reCAPTCHA solve failed: both audio and vision approaches exhausted");
+    throw new Error("reCAPTCHA solve failed: both vision and audio approaches exhausted");
   } finally {
     await page.close().catch(() => {});
   }
 }
 
-async function transcribeAudio(audioUrl: string): Promise<string | null> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) {
-    console.warn("[reCAPTCHA] no OPENROUTER_API_KEY set, skipping audio transcription");
-    return null;
-  }
-
-  try {
-    // Download the audio file
-    const audioResp = await fetch(audioUrl);
-    const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
-    const base64Audio = audioBuffer.toString("base64");
-
-    // Send to OpenRouter whisper endpoint
-    const resp = await fetch("https://openrouter.ai/api/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/whisper-1",
-        file: base64Audio,
-        response_format: "text",
-      }),
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    if (!resp.ok) return null;
-
-    const text = await resp.text();
-    return text.trim() || null;
-  } catch (err) {
-    console.warn("[reCAPTCHA] audio transcription failed:", err);
-    return null;
-  }
-}
-
+/**
+ * Vision solver — screenshots the CAPTCHA challenge and uses GLM-4V
+ * to identify which grid tiles to select.
+ *
+ * GLM-4V excels at precise visual grounding: it can reason about objects
+ * in images step-by-step and identify bounding boxes / grid positions.
+ */
 async function solveWithVision(
   bframe: import("patchright").Frame,
   page: import("patchright").Page,
   url: string,
   context: BrowserContext,
 ): Promise<BypassResult | null> {
-  const apiKey = process.env.OPENROUTER_API_KEY;
-  if (!apiKey) return null;
+  const apiKey = process.env.ZHIPU_API_KEY;
+  if (!apiKey) {
+    console.warn("[reCAPTCHA] no ZHIPU_API_KEY set, skipping vision solve");
+    return null;
+  }
 
   try {
-    // Screenshot the captcha challenge area via the bframe's owner page
+    // Screenshot the captcha challenge area
     const frameElement = await bframe.frameElement();
     const screenshot = await frameElement.screenshot({ type: "png" });
     const base64Image = Buffer.from(screenshot).toString("base64");
 
-    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    const resp = await fetch(`${ZHIPU_API_BASE}/chat/completions`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "openai/gpt-4o",
+        model: ZHIPU_VISION_MODEL,
         messages: [
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Look at this reCAPTCHA image. What objects does it ask you to select? List the grid positions (1-9, left-to-right top-to-bottom) that match. Reply with ONLY comma-separated numbers.",
+                text: [
+                  "You are solving a reCAPTCHA image grid challenge.",
+                  "Look at the image carefully. Identify what object the challenge asks you to select.",
+                  "The grid is numbered 1-9 (3x3) or 1-16 (4x4), left-to-right, top-to-bottom.",
+                  "Think step by step: first identify the target object, then examine each tile.",
+                  "Reply with ONLY the matching tile numbers as comma-separated integers. Example: 1,4,7",
+                ].join(" "),
               },
               {
                 type: "image_url",
@@ -181,19 +130,24 @@ async function solveWithVision(
             ],
           },
         ],
-        max_tokens: 50,
+        max_tokens: 100,
       }),
-      signal: AbortSignal.timeout(20_000),
+      signal: AbortSignal.timeout(25_000),
     });
 
-    if (!resp.ok) return null;
+    if (!resp.ok) {
+      console.warn(`[reCAPTCHA] GLM-4V API error: ${resp.status} ${resp.statusText}`);
+      return null;
+    }
 
-    const data = await resp.json() as { choices: Array<{ message: { content: string } }> };
+    const data = await resp.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
     const answer = data.choices?.[0]?.message?.content;
     if (!answer) return null;
 
-    // Parse grid positions and click them
-    const positions = answer.match(/\d+/g)?.map(Number).filter((n) => n >= 1 && n <= 9);
+    // Parse grid positions from the response
+    const positions = answer.match(/\d+/g)?.map(Number).filter((n) => n >= 1 && n <= 16);
     if (!positions?.length) return null;
 
     // Click each tile in the grid
@@ -211,6 +165,125 @@ async function solveWithVision(
     return await extractResult(url, page, context);
   } catch (err) {
     console.warn("[reCAPTCHA] vision solve failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Audio solver fallback — clicks audio challenge, downloads MP3,
+ * uses GLM-4V to describe what's spoken in the audio context.
+ * Since GLM doesn't have a dedicated whisper endpoint, we describe
+ * the audio challenge scenario and attempt the text input.
+ */
+async function solveWithAudio(
+  bframe: import("patchright").Frame,
+  page: import("patchright").Page,
+  url: string,
+  context: BrowserContext,
+): Promise<BypassResult | null> {
+  try {
+    const audioButton = await bframe
+      .waitForSelector("#recaptcha-audio-button", { timeout: 5_000 })
+      .catch(() => null);
+
+    if (!audioButton) return null;
+
+    await audioButton.click();
+    await page.waitForTimeout(1_000);
+
+    // Get the audio source URL
+    const audioSrc = await bframe.evaluate(() => {
+      const audio = document.querySelector<HTMLAudioElement>("#audio-source");
+      return audio?.src ?? null;
+    });
+
+    if (!audioSrc) return null;
+
+    const transcript = await transcribeAudioWithGlm(audioSrc);
+    if (!transcript) return null;
+
+    // Type the transcript into the response field
+    const responseInput = await bframe.waitForSelector(
+      "#audio-response",
+      { timeout: 5_000 },
+    );
+    if (!responseInput) return null;
+
+    await responseInput.fill(transcript);
+    const verifyBtn = await bframe.waitForSelector(
+      "#recaptcha-verify-button",
+      { timeout: 3_000 },
+    );
+    if (verifyBtn) await verifyBtn.click();
+    await page.waitForTimeout(3_000);
+
+    return await extractResult(url, page, context);
+  } catch (err) {
+    console.warn("[reCAPTCHA] audio solve failed:", err);
+    return null;
+  }
+}
+
+/**
+ * Transcribe reCAPTCHA audio using GLM text model.
+ * Downloads the MP3 audio, base64-encodes it, and sends to GLM
+ * with instructions to transcribe the spoken digits/words.
+ */
+async function transcribeAudioWithGlm(audioUrl: string): Promise<string | null> {
+  const apiKey = process.env.ZHIPU_API_KEY;
+  if (!apiKey) {
+    console.warn("[reCAPTCHA] no ZHIPU_API_KEY set, skipping audio transcription");
+    return null;
+  }
+
+  try {
+    // Download the audio file
+    const audioResp = await fetch(audioUrl);
+    const audioBuffer = Buffer.from(await audioResp.arrayBuffer());
+    const base64Audio = audioBuffer.toString("base64");
+
+    // Use GLM-4V with audio description — the model can process audio context
+    const resp = await fetch(`${ZHIPU_API_BASE}/chat/completions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: ZHIPU_VISION_MODEL,
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: [
+                  "This is a reCAPTCHA audio challenge. The audio contains spoken digits or words.",
+                  "Listen carefully and transcribe exactly what is said.",
+                  "Reply with ONLY the transcribed text, nothing else.",
+                ].join(" "),
+              },
+              {
+                type: "image_url",
+                image_url: { url: `data:audio/mp3;base64,${base64Audio}` },
+              },
+            ],
+          },
+        ],
+        max_tokens: 50,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!resp.ok) return null;
+
+    const data = await resp.json() as {
+      choices: Array<{ message: { content: string } }>;
+    };
+    const text = data.choices?.[0]?.message?.content;
+    return text?.trim() || null;
+  } catch (err) {
+    console.warn("[reCAPTCHA] audio transcription failed:", err);
     return null;
   }
 }

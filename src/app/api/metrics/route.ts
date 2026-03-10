@@ -1,10 +1,16 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { Redis } from "ioredis";
 
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get("authorization");
+  const secret = process.env.METRICS_SECRET;
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+
   const lines: string[] = [];
 
   // ── circuit_breaker_state (gauge per account) ──────────────────
@@ -25,7 +31,8 @@ export async function GET() {
     lines.push("# TYPE circuit_breaker_state gauge");
     for (const t of tokens) {
       const val = stateMap[t.circuitState] ?? 0;
-      lines.push(`circuit_breaker_state{org="${t.organizationId}",platform="${t.platform}",account="${t.accountLabel}"} ${val}`);
+      const orgHash = t.organizationId.slice(0, 8);
+      lines.push(`circuit_breaker_state{org="${orgHash}",platform="${t.platform}",account="${t.accountLabel}"} ${val}`);
     }
   } catch {
     lines.push("# circuit_breaker_state unavailable");
@@ -58,9 +65,10 @@ export async function GET() {
       for (let i = 0; i < keys.length; i++) {
         // key format: llm:spend:{orgId}:{date}
         const orgId = keys[i].split(":")[2];
+        const orgHash = orgId.slice(0, 8);
         const hundredths = Number(values[i] ?? 0);
         const cents = Math.round(hundredths / 100);
-        lines.push(`llm_spend_cents{org="${orgId}"} ${cents}`);
+        lines.push(`llm_spend_cents{org="${orgHash}"} ${cents}`);
       }
     }
   } catch {

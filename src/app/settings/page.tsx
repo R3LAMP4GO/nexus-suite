@@ -1,14 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import { api } from "@/lib/trpc-client";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
-
-const CIRCUIT_COLORS: Record<string, string> = {
-  CLOSED: "bg-green-100 text-green-800",
-  HALF_OPEN: "bg-yellow-100 text-yellow-800",
-  OPEN: "bg-red-100 text-red-800",
-};
+import { Badge, Button, Skeleton } from "@/components/ui/index";
 
 type PlatformToken = {
   id: string;
@@ -28,7 +24,7 @@ const platformTokenColumns: ColumnDef<PlatformToken>[] = [
     accessorKey: "platform",
     header: "Platform / Label",
     cell: (row) => (
-      <span className="font-medium text-gray-900">
+      <span className="font-medium text-[var(--text-primary)]">
         {row.platform} — {row.accountLabel}
       </span>
     ),
@@ -39,9 +35,11 @@ const platformTokenColumns: ColumnDef<PlatformToken>[] = [
     header: "Warmup",
     cell: (row) =>
       row.warmupStatus !== "READY" ? (
-        <span className="text-yellow-600">{row.warmupStatus}</span>
+        <span className="text-yellow-600 dark:text-yellow-400">
+          {row.warmupStatus}
+        </span>
       ) : (
-        <span className="text-gray-400">READY</span>
+        <span className="text-[var(--text-muted)]">READY</span>
       ),
   },
   {
@@ -49,13 +47,13 @@ const platformTokenColumns: ColumnDef<PlatformToken>[] = [
     header: "Health",
     cell: (row) => (
       <div className="flex items-center gap-1">
-        <div className="h-2 w-16 overflow-hidden rounded-full bg-gray-200">
+        <div className="h-2 w-16 overflow-hidden rounded-full bg-[var(--bg-tertiary)]">
           <div
             className="h-full rounded-full bg-green-500"
             style={{ width: `${row.healthScore * 100}%` }}
           />
         </div>
-        <span className="text-xs text-gray-500">
+        <span className="text-xs text-[var(--text-muted)]">
           {(row.healthScore * 100).toFixed(0)}%
         </span>
       </div>
@@ -64,15 +62,7 @@ const platformTokenColumns: ColumnDef<PlatformToken>[] = [
   {
     accessorKey: "circuitState",
     header: "Circuit State",
-    cell: (row) => (
-      <span
-        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-          CIRCUIT_COLORS[row.circuitState] ?? "bg-gray-100 text-gray-800"
-        }`}
-      >
-        {row.circuitState}
-      </span>
-    ),
+    cell: (row) => <Badge colorMap="circuit" value={row.circuitState} />,
   },
 ];
 
@@ -84,15 +74,19 @@ export default function SettingsPage() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [brandJson, setBrandJson] = useState("");
-  const [nameInitialized, setNameInitialized] = useState(false);
+  const [brandJsonError, setBrandJsonError] = useState<string | null>(null);
 
-  // Initialize form state from fetched data
-  if (org.data && !nameInitialized) {
-    setName(org.data.name);
-    setSlug(org.data.slug);
-    setBrandJson(org.data.brandConfig ? JSON.stringify(org.data.brandConfig, null, 2) : "{}");
-    setNameInitialized(true);
-  }
+  useEffect(() => {
+    if (org.data) {
+      setName(org.data.name);
+      setSlug(org.data.slug);
+      setBrandJson(
+        org.data.brandConfig
+          ? JSON.stringify(org.data.brandConfig, null, 2)
+          : "{}",
+      );
+    }
+  }, [org.data]);
 
   const updateOrg = api.settings.updateOrgDetails.useMutation({
     onSuccess: () => utils.settings.getOrgDetails.invalidate(),
@@ -109,64 +103,90 @@ export default function SettingsPage() {
   function handleSaveBrand() {
     try {
       const parsed = JSON.parse(brandJson);
+      setBrandJsonError(null);
       updateBrand.mutate({ brandConfig: parsed });
     } catch {
-      alert("Invalid JSON");
+      setBrandJsonError("Invalid JSON — please check syntax");
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen p-8">
       <div className="mx-auto max-w-4xl">
-        <h1 className="mb-8 text-2xl font-bold text-gray-900">Settings</h1>
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">
+            Settings
+          </h1>
+          <Link
+            href="/settings/usage"
+            className="rounded-md bg-[var(--bg-tertiary)] px-3 py-1.5 text-sm font-medium text-[var(--text-secondary)] transition hover:bg-[var(--border)]"
+          >
+            View Usage
+          </Link>
+        </div>
 
         {/* Org Details */}
-        <section className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Organization</h2>
+        <section className="mb-8 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+            Organization
+          </h2>
           {org.isLoading ? (
-            <p className="text-gray-500">Loading...</p>
+            <div className="space-y-3">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           ) : org.data ? (
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Name</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+                  Name
+                </label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)]"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-sm font-medium text-gray-700">Slug</label>
+                <label className="mb-1 block text-sm font-medium text-[var(--text-secondary)]">
+                  Slug
+                </label>
                 <input
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value)}
-                  className="w-full rounded-md border px-3 py-2 text-sm"
+                  className="w-full rounded-md border border-[var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-sm text-[var(--input-text)]"
                 />
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
+              <div className="flex items-center gap-4 text-sm text-[var(--text-muted)]">
                 <span>Tier: {org.data.pricingTier}</span>
-                <span>Budget: ${(org.data.dailyLlmBudgetCents / 100).toFixed(2)}/day</span>
+                <span>
+                  Budget: ${(org.data.dailyLlmBudgetCents / 100).toFixed(2)}/day
+                </span>
                 <span>Max Accounts: {org.data.maxAccounts}</span>
               </div>
-              <button
+              <Button
                 onClick={handleSaveOrg}
-                disabled={updateOrg.isPending}
-                className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+                loading={updateOrg.isPending}
+                loadingText="Saving..."
               >
-                {updateOrg.isPending ? "Saving..." : "Save"}
-              </button>
+                Save
+              </Button>
               {updateOrg.error && (
-                <p className="text-sm text-red-600">{updateOrg.error.message}</p>
+                <p className="text-sm text-[var(--danger)]">
+                  {updateOrg.error.message}
+                </p>
               )}
             </div>
           ) : null}
         </section>
 
         {/* Platform Connections */}
-        <section className="mb-8 rounded-lg border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Platform Connections</h2>
+        <section className="mb-8 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+            Platform Connections
+          </h2>
           <DataTable
             columns={platformTokenColumns}
             data={(tokens.data ?? []) as PlatformToken[]}
@@ -176,24 +196,41 @@ export default function SettingsPage() {
         </section>
 
         {/* Brand Config */}
-        <section className="rounded-lg border bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Brand Configuration</h2>
+        <section className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-[var(--text-primary)]">
+            Brand Configuration
+          </h2>
           <textarea
             value={brandJson}
-            onChange={(e) => setBrandJson(e.target.value)}
+            onChange={(e) => {
+              setBrandJson(e.target.value);
+              setBrandJsonError(null);
+            }}
             rows={10}
-            className="w-full rounded-md border px-3 py-2 font-mono text-sm"
+            className={`w-full rounded-md border bg-[var(--input-bg)] px-3 py-2 font-mono text-sm text-[var(--input-text)] ${
+              brandJsonError
+                ? "border-[var(--danger)]"
+                : "border-[var(--input-border)]"
+            }`}
             placeholder='{"voice": "professional", "tone": "friendly"}'
           />
-          <button
+          {brandJsonError && (
+            <p className="mt-1 text-sm text-[var(--danger)]">
+              {brandJsonError}
+            </p>
+          )}
+          <Button
             onClick={handleSaveBrand}
-            disabled={updateBrand.isPending}
-            className="mt-3 rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+            loading={updateBrand.isPending}
+            loadingText="Saving..."
+            className="mt-3"
           >
-            {updateBrand.isPending ? "Saving..." : "Save Brand Config"}
-          </button>
+            Save Brand Config
+          </Button>
           {updateBrand.error && (
-            <p className="mt-2 text-sm text-red-600">{updateBrand.error.message}</p>
+            <p className="mt-2 text-sm text-[var(--danger)]">
+              {updateBrand.error.message}
+            </p>
           )}
         </section>
       </div>

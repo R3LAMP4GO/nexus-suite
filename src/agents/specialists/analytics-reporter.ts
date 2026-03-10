@@ -58,10 +58,6 @@ const analyticsReporterAgent = new Agent({
   tools: { queryAnalytics },
 });
 
-export function createAgent() {
-  return analyticsReporterAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

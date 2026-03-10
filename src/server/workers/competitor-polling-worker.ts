@@ -1,5 +1,6 @@
-import PgBoss from "pg-boss";
+import type PgBoss from "pg-boss";
 import { db } from "@/lib/db";
+import { getBoss } from "@/lib/pg-boss";
 
 // ── Config ───────────────────────────────────────────────────
 
@@ -50,16 +51,6 @@ function deriveExternalId(post: ScrapedPost, index: number): string {
 }
 
 // ── Worker ───────────────────────────────────────────────────
-
-let boss: PgBoss | null = null;
-
-async function getBoss(): Promise<PgBoss> {
-  if (!boss) {
-    boss = new PgBoss(process.env.DATABASE_URL!);
-    await boss.start();
-  }
-  return boss;
-}
 
 const TASK_QUEUE = "competitor:task";
 
@@ -288,9 +279,7 @@ export async function startCompetitorPollingWorker(): Promise<void> {
 }
 
 export async function stopCompetitorPollingWorker(): Promise<void> {
-  if (boss) {
-    await boss.unschedule(CRON_NAME);
-    await boss.stop();
-    boss = null;
-  }
+  // Unschedule cron via shared boss — lifecycle managed by src/lib/pg-boss.ts
+  const b = await getBoss();
+  await b.unschedule(CRON_NAME);
 }

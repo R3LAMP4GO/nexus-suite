@@ -56,10 +56,6 @@ const variationOrchestratorAgent = new Agent({
   tools: { getTransformPresets },
 });
 
-export function createAgent() {
-  return variationOrchestratorAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

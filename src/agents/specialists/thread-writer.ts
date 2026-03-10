@@ -63,10 +63,6 @@ const threadWriterAgent = new Agent({
   tools: { getThreadStructure },
 });
 
-export function createAgent() {
-  return threadWriterAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

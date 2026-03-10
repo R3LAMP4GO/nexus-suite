@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createTRPCRouter, onboardedProcedure, publicProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { stripe } from "@/lib/stripe";
+import { Platform } from "@/generated/prisma/client";
 
 export const settingsRouter = createTRPCRouter({
   // Org details (name, slug, tier, limits)
@@ -127,4 +128,41 @@ export const settingsRouter = createTRPCRouter({
 
     return { url: portalSession.url };
   }),
+
+  // Primary social account connections
+  getConnections: onboardedProcedure.query(async ({ ctx }) => {
+    const tokens = await ctx.db.orgPlatformToken.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        accountType: "PRIMARY",
+      },
+      select: {
+        platform: true,
+        accountLabel: true,
+        createdAt: true,
+      },
+    });
+
+    return tokens.map((t) => ({
+      platform: t.platform,
+      accountLabel: t.accountLabel,
+      connected: true as const,
+      connectedAt: t.createdAt,
+    }));
+  }),
+
+  // Disconnect a primary social account
+  disconnectPlatform: onboardedProcedure
+    .input(z.object({ platform: z.nativeEnum(Platform) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.orgPlatformToken.deleteMany({
+        where: {
+          organizationId: ctx.organizationId,
+          platform: input.platform,
+          accountType: "PRIMARY",
+        },
+      });
+
+      return { success: true };
+    }),
 });

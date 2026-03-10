@@ -108,10 +108,6 @@ const qualityScorerAgent = new Agent({
   tools: { getEditingRules, getQualityThresholds, scoreContent },
 });
 
-export function createAgent() {
-  return qualityScorerAgent;
-}
-
 export async function generate(
   prompt: string,
   rawContext: RawAgentContext,

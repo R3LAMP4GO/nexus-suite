@@ -1,5 +1,6 @@
 generator client {
-  provider        = "prisma-client-js"
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
   previewFeatures = ["postgresqlExtensions"]
 }
 
@@ -70,6 +71,12 @@ enum PricingTier {
   PRO
   MULTIPLIER
   ENTERPRISE
+}
+
+enum ScriptStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
 }
 
 // ── Auth (NextAuth v5) ───────────────────────────────────────────
@@ -159,6 +166,7 @@ model Organization {
   trackedCreators      TrackedCreator[]
   sourceVideos         SourceVideo[]
   postRecords          PostRecord[]
+  scripts              Script[]
 }
 
 // ── Multi-Tenant: Membership ─────────────────────────────────────
@@ -384,13 +392,16 @@ model SourceVideo {
   r2StorageKey   String?
   duration       Int?     // seconds
   metadata       Json?
+  scriptId       String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   variations   VideoVariation[]
+  script       Script?          @relation(fields: [scriptId], references: [id])
 
   @@index([organizationId])
+  @@index([scriptId])
 }
 
 // ── Video Variation ─────────────────────────────────────────────
@@ -469,4 +480,44 @@ model ProxyAllocation {
 
   @@index([status])
   @@index([assignedAccountId])
+}
+
+// ── Script (Teleprompter Content) ────────────────────────────────
+
+model Script {
+  id             String       @id @default(cuid())
+  organizationId String
+  title          String
+  hookText       String       @db.Text // 0-3s opening hook
+  bodyText       String       @db.Text // main body
+  ctaText        String       @db.Text // call to action
+  status         ScriptStatus @default(DRAFT)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceVideos SourceVideo[]
+
+  @@index([organizationId, status])
+}
+
+// ── Workflow Run Log (Agent Observability) ─────────────────────────
+
+model WorkflowRunLog {
+  id             String   @id @default(cuid())
+  organizationId String
+  runId          String   @unique
+  workflowName   String
+  status         String   // completed, failed, aborted
+  startedAt      DateTime
+  completedAt    DateTime
+  durationMs     Int
+  error          String?  @db.Text
+  steps          Json     // Array of StepResult with prompts + outputs
+  variables      Json?    // Final workflow variables
+
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([status])
 }

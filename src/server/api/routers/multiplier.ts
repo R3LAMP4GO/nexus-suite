@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { createTRPCRouter, onboardedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
-import { Platform, Prisma } from "@prisma/client";
+import { Platform, Prisma } from "@/generated/prisma/client";
 import { composeTransforms } from "../../../../services/media-engine/src/transforms";
 import { sendMediaJob } from "@/server/services/media-queue";
+import { incrementUsage } from "@/server/services/usage-tracking";
 
 async function assertMultiplierEnabled(ctx: { db: any; organizationId: string }) {
   const org = await ctx.db.organization.findUnique({
@@ -83,6 +84,10 @@ export const multiplierRouter = createTRPCRouter({
           }),
         ),
       );
+
+      for (let i = 0; i < variations.length; i++) {
+        await incrementUsage(ctx.organizationId, "videos");
+      }
 
       return variations;
     }),
