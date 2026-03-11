@@ -4,9 +4,11 @@
 // This is for YOUR account (the platform operator), not client accounts.
 // Client accounts are created via Stripe checkout → webhook.
 
-import { PrismaClient } from "../src/generated/prisma/client";
+import { PrismaClient } from "../src/generated/prisma/client.js";
+import { PrismaPg } from "@prisma/adapter-pg";
 
-const db = new PrismaClient();
+const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL! });
+const db = new PrismaClient({ adapter });
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@nexus-suite.com";
 const ADMIN_NAME = process.env.ADMIN_NAME ?? "Nexus Admin";

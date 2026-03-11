@@ -6,7 +6,7 @@
 //   3. specialists/{name}
 
 import { Agent } from "@mastra/core/agent";
-import { modelConfig } from "@/agents/platforms/model-config";
+import { modelConfig } from "@/agents/platforms/model-config.js";
 
 export const customHookWriterAgent = new Agent({
   name: "hook-writer",

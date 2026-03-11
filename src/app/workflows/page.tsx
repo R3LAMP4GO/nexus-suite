@@ -117,20 +117,20 @@ export default function WorkflowsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border)]">
-                  {history.records.map((r) => (
-                    <tr key={r.id}>
+                  {history.records.map((r: Record<string, unknown>) => (
+                    <tr key={r.id as string}>
                       <td className="px-4 py-2">
-                        <Badge colorMap="status" value={r.status} />
+                        <Badge colorMap="status" value={r.status as string} />
                       </td>
                       <td className="px-4 py-2 text-[var(--text-secondary)]">
-                        {r.platform}
+                        {(r.platform as string) ?? r.workflowName as string}
                       </td>
                       <td className="px-4 py-2 text-[var(--text-muted)]">
-                        {new Date(r.scheduledAt).toLocaleString()}
+                        {new Date((r.scheduledAt ?? r.startedAt) as string).toLocaleString()}
                       </td>
                       <td className="px-4 py-2 text-[var(--text-muted)]">
-                        {r.postedAt
-                          ? new Date(r.postedAt).toLocaleString()
+                        {(r.postedAt ?? r.completedAt)
+                          ? new Date((r.postedAt ?? r.completedAt) as string).toLocaleString()
                           : "—"}
                       </td>
                     </tr>

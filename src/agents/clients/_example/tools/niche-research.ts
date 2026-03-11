@@ -5,7 +5,7 @@
 
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { wrapToolHandler } from "@/agents/general";
+import { wrapToolHandler } from "@/agents/general/index.js";
 
 /** Example niche-specific tool: search fitness supplement databases. */
 export const searchSupplementDb = createTool({

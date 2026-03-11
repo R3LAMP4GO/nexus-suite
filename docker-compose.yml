@@ -4,7 +4,7 @@ services:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5500}:5432"
     environment:
       POSTGRES_USER: nexus
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexus_dev}
@@ -21,7 +21,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6400}:6379"
     command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redisdata:/data

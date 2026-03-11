@@ -118,7 +118,7 @@ export default function WorkflowRunPage() {
     );
   }
 
-  const steps = (run.steps as StepData[]) ?? [];
+  const steps = (run.steps as unknown as StepData[]) ?? [];
 
   return (
     <div className="min-h-screen p-8">
