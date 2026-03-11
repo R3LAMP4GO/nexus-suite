@@ -29,7 +29,7 @@ export const authConfig = {
         session.user.onboardingStatus = token.onboardingStatus as string | undefined;
         session.user.subscriptionStatus = token.subscriptionStatus as string | undefined;
         session.user.organizationId = token.organizationId as string | undefined;
-        (session as Record<string, unknown>).hasOrg = token.hasOrg;
+        (session as unknown as Record<string, unknown>).hasOrg = token.hasOrg;
       }
       return session;
     },

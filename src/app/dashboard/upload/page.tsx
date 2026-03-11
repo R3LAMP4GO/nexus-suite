@@ -13,7 +13,11 @@ export default function UploadPage() {
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [platform, setPlatform] = useState<string>("TIKTOK");
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const scripts = api.scripts.list.useQuery({ status: "APPROVED" });
+  const presignMutation = api.upload.getPresignedUploadUrl.useMutation();
   const uploadMutation = api.upload.uploadAndMultiply.useMutation({
     onSuccess: () => setUploadState("success"),
     onError: (err) => {
@@ -39,14 +43,42 @@ export default function UploadPage() {
     [handleFile],
   );
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) return;
     setUploadState("uploading");
-    uploadMutation.mutate({
-      url: `https://storage.placeholder.dev/${encodeURIComponent(file.name)}`,
-      platform: "TIKTOK",
-      scriptId: scriptId || undefined,
-    });
+    setUploadProgress(0);
+
+    try {
+      // 1. Get presigned URL from backend
+      setUploadProgress(10);
+      const { url: presignedUrl, key } = await presignMutation.mutateAsync({
+        filename: file.name,
+        contentType: file.type,
+      });
+
+      // 2. Upload file directly to R2 via presigned URL
+      setUploadProgress(20);
+      const uploadRes = await fetch(presignedUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Upload failed: ${uploadRes.statusText}`);
+      }
+
+      // 3. Tell backend to create variations from the uploaded file
+      setUploadProgress(80);
+      uploadMutation.mutate({
+        url: key,
+        platform: platform as "TIKTOK" | "YOUTUBE" | "INSTAGRAM" | "LINKEDIN" | "X" | "FACEBOOK",
+        scriptId: scriptId || undefined,
+      });
+    } catch (err) {
+      setUploadState("error");
+      setErrorMessage(err instanceof Error ? err.message : "Upload failed");
+    }
   };
 
   const reset = () => {
@@ -179,6 +211,25 @@ export default function UploadPage() {
                   </label>
                 </>
               )}
+            </div>
+
+            {/* Platform */}
+            <div className="mt-6">
+              <label className="mb-2 block text-sm font-medium text-[var(--text-secondary)]">
+                Target Platform
+              </label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value)}
+                className="w-full rounded-lg border border-[var(--input-border)] bg-[var(--input-bg)] px-4 py-2.5 text-sm text-[var(--input-text)] shadow-sm focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]"
+              >
+                <option value="TIKTOK">TikTok</option>
+                <option value="YOUTUBE">YouTube</option>
+                <option value="INSTAGRAM">Instagram</option>
+                <option value="LINKEDIN">LinkedIn</option>
+                <option value="X">X (Twitter)</option>
+                <option value="FACEBOOK">Facebook</option>
+              </select>
             </div>
 
             {/* Link to Script */}

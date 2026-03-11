@@ -12,17 +12,18 @@ export const pricingRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const tierConfig = PRICING[input.tier as PricingTier];
+      const user = ctx.session!.user;
 
       // Derive org name: explicit input > user's name > email prefix
       const orgName =
         input.orgName ??
-        (ctx.session.user.name
-          ? `${ctx.session.user.name}'s Organization`
-          : `${(ctx.session.user.email ?? "user").split("@")[0]}'s Organization`);
+        (user.name
+          ? `${user.name}'s Organization`
+          : `${(user.email ?? "user").split("@")[0]}'s Organization`);
 
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
-        customer_email: ctx.session.user.email ?? undefined,
+        customer_email: user.email ?? undefined,
         metadata: {
           userId: ctx.userId,
           tier: input.tier,

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/server/auth/config";
+import { validateOAuthState } from "../../_lib/oauth-state";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
 
@@ -15,7 +17,7 @@ export async function GET(req: NextRequest) {
   const stateParam = req.nextUrl.searchParams.get("state");
   const error = req.nextUrl.searchParams.get("error");
 
-  if (error || !code || !stateParam) {
+  if (error || !code) {
     return NextResponse.redirect(
       new URL(
         `/dashboard/settings/connections?error=${error ?? "no_code"}`,
@@ -24,16 +26,27 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  let codeVerifier: string;
+  // Validate CSRF state
   try {
-    const parsed = JSON.parse(
-      Buffer.from(stateParam, "base64url").toString(),
-    );
-    codeVerifier = parsed.cv;
+    await validateOAuthState(stateParam);
   } catch {
     return NextResponse.redirect(
       new URL(
         "/dashboard/settings/connections?error=invalid_state",
+        REDIRECT_BASE,
+      ),
+    );
+  }
+
+  // Retrieve PKCE verifier from cookie
+  const cookieStore = await cookies();
+  const codeVerifier = cookieStore.get("x_code_verifier")?.value;
+  cookieStore.delete("x_code_verifier");
+
+  if (!codeVerifier) {
+    return NextResponse.redirect(
+      new URL(
+        "/dashboard/settings/connections?error=missing_verifier",
         REDIRECT_BASE,
       ),
     );

@@ -7,9 +7,13 @@ import {
 import type { WorkflowDefinition } from "./workflow-schema";
 
 // Mock the agent-delegate, llm-budget, and notifications modules
-vi.mock("./agent-delegate", () => ({
-  executeAgentDelegate: vi.fn(async () => ({ result: "agent-output" })),
-}));
+vi.mock("./agent-delegate", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./agent-delegate")>();
+  return {
+    ...actual,
+    executeAgentDelegate: vi.fn(async () => ({ result: "agent-output" })),
+  };
+});
 
 vi.mock("../services/llm-budget", () => ({
   checkLlmBudget: vi.fn(async () => ({

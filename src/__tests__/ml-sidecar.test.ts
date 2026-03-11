@@ -1,11 +1,20 @@
 // Integration test — requires ML sidecar running: docker compose up ml-sidecar
 // The ML sidecar must be accessible at http://localhost:8000
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 
 const ML_SIDECAR_URL = "http://localhost:8000";
 
-describe("ML Sidecar Integration", () => {
+async function isSidecarRunning(): Promise<boolean> {
+  try {
+    await fetch(`${ML_SIDECAR_URL}/health`, { signal: AbortSignal.timeout(1000) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe.runIf(await isSidecarRunning())("ML Sidecar Integration", () => {
   it("health check returns status", async () => {
     const res = await fetch(`${ML_SIDECAR_URL}/health`);
     const data = await res.json();

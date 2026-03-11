@@ -32,7 +32,7 @@ export async function handleAnalyticsSync(
   );
 
   // Platform-specific analytics fetch
-  // TODO: expand per-platform once AnalyticsMetric model exists in schema
+  // Note: metrics are logged until AnalyticsMetric model is added to schema
   const from = encodeURIComponent(dateRange.from);
   const to = encodeURIComponent(dateRange.to);
 

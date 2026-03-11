@@ -67,7 +67,20 @@ export const competitorsRouter = createTRPCRouter({
           },
         });
 
-        // TODO: queue scraper-pool job for profile extraction (Chunk 3)
+        // Queue scraper-pool job for profile extraction
+        try {
+          const boss = await getBoss();
+          await boss.send("scraper-run", {
+            type: "scraper-run",
+            organizationId: ctx.organizationId,
+            targetUrl: input.profileUrl,
+            profileId: creator.id,
+            createdAt: new Date().toISOString(),
+          });
+        } catch (err) {
+          // Non-fatal: creator is saved, scraping will be retried by polling worker
+          console.error("[competitors] Failed to queue scraper job:", err);
+        }
 
         return creator;
       } catch (e) {

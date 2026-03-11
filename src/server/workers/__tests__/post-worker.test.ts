@@ -25,10 +25,31 @@ vi.mock("@/lib/pg-boss", () => ({
 const dbMock = {
   postRecord: {
     findUnique: vi.fn(),
+    update: vi.fn(),
+  },
+  orgPlatformToken: {
+    findUnique: vi.fn(),
   },
 };
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
+
+// ── Mock circuit breaker ────────────────────────────────────────
+const mockCanPost = vi.fn().mockResolvedValue({ allowed: true });
+vi.mock("@/server/services/circuit-breaker", () => ({
+  canPost: (...args: unknown[]) => mockCanPost(...args),
+}));
+
+// ── Mock SSE broadcaster ────────────────────────────────────────
+vi.mock("@/server/services/sse-broadcaster", () => ({
+  publishSSE: vi.fn().mockResolvedValue(undefined),
+}));
+
+// ── Mock metrics ────────────────────────────────────────────────
+vi.mock("@/lib/metrics", () => ({
+  incCounter: vi.fn().mockResolvedValue(undefined),
+  observeHistogram: vi.fn().mockResolvedValue(undefined),
+}));
 
 // ── Mock posting service ────────────────────────────────────────
 const mockPostContent = vi.fn();

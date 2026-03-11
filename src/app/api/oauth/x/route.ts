@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/server/auth/config";
+import { generateOAuthState } from "../_lib/oauth-state";
 import crypto from "crypto";
 
 /**
@@ -12,6 +14,8 @@ export async function GET(_req: NextRequest) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
 
+  const state = await generateOAuthState(session.user.organizationId);
+
   // PKCE challenge
   const codeVerifier = crypto.randomBytes(32).toString("base64url");
   const codeChallenge = crypto
@@ -19,10 +23,15 @@ export async function GET(_req: NextRequest) {
     .update(codeVerifier)
     .digest("base64url");
 
-  // Encode org ID + verifier in state so callback can use both
-  const state = Buffer.from(
-    JSON.stringify({ orgId: session.user.organizationId, cv: codeVerifier }),
-  ).toString("base64url");
+  // Store verifier in httpOnly cookie for the callback
+  const cookieStore = await cookies();
+  cookieStore.set("x_code_verifier", codeVerifier, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/api/oauth/x",
+  });
 
   const params = new URLSearchParams({
     response_type: "code",

@@ -43,7 +43,7 @@ export async function startPostWorker(): Promise<void> {
       if (!circuitCheck.allowed) {
         await db.postRecord.update({
           where: { id: postRecordId },
-          data: { status: "SKIPPED", failureReason: `Circuit breaker: ${circuitCheck.reason}` },
+          data: { status: "SKIPPED", errorMessage: `Circuit breaker: ${circuitCheck.reason}` },
         });
         return;
       }
