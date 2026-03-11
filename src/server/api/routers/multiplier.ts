@@ -211,6 +211,7 @@ export const multiplierRouter = createTRPCRouter({
       const posts = await ctx.db.postRecord.findMany({
         where,
         orderBy: { scheduledAt: "asc" },
+        take: 200,
         include: {
           variation: { select: { variationIndex: true, sourceVideoId: true } },
           account: { select: { accountLabel: true, platform: true } },

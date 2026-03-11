@@ -64,54 +64,90 @@ async function detectOutliers(
   autoReproduce: boolean,
   postIds: string[],
 ): Promise<void> {
+  if (postIds.length === 0) return;
+
+  // Batch-fetch all snapshots for all posts in one query
+  const allSnapshots = await db.postSnapshot.findMany({
+    where: { postId: { in: postIds } },
+    orderBy: { capturedAt: "asc" },
+    select: { postId: true, views: true },
+  });
+
+  // Group snapshots by postId
+  const snapshotsByPost = new Map<string, number[]>();
+  for (const s of allSnapshots) {
+    let arr = snapshotsByPost.get(s.postId);
+    if (!arr) {
+      arr = [];
+      snapshotsByPost.set(s.postId, arr);
+    }
+    arr.push(s.views);
+  }
+
+  // Calculate outlier status for each post
+  const outlierUpdates: { id: string; isOutlier: boolean; outlierScore: number | null }[] = [];
+  const outlierPostIds: string[] = [];
+
   for (const postId of postIds) {
-    const snapshots = await db.postSnapshot.findMany({
-      where: { postId },
-      orderBy: { capturedAt: "asc" },
-      select: { views: true },
-    });
+    const viewValues = snapshotsByPost.get(postId);
+    if (!viewValues || viewValues.length < 3) {
+      outlierUpdates.push({ id: postId, isOutlier: false, outlierScore: null });
+      continue;
+    }
 
-    // Need at least 3 snapshots for meaningful stats
-    if (snapshots.length < 3) continue;
-
-    const viewValues = snapshots.map((s) => s.views);
     const mean = viewValues.reduce((a, b) => a + b, 0) / viewValues.length;
     const variance =
       viewValues.reduce((sum, v) => sum + (v - mean) ** 2, 0) /
       viewValues.length;
     const stddev = Math.sqrt(variance);
 
-    // Avoid division by zero — if no variance, no outlier
-    if (stddev === 0) continue;
+    if (stddev === 0) {
+      outlierUpdates.push({ id: postId, isOutlier: false, outlierScore: null });
+      continue;
+    }
 
     const currentViews = viewValues[viewValues.length - 1];
     const zScore = (currentViews - mean) / stddev;
     const isOutlier = zScore > outlierThreshold;
 
-    await db.trackedPost.update({
-      where: { id: postId },
-      data: {
-        isOutlier,
-        outlierScore: isOutlier ? zScore : null,
-      },
+    outlierUpdates.push({
+      id: postId,
+      isOutlier,
+      outlierScore: isOutlier ? zScore : null,
     });
 
-    if (isOutlier && autoReproduce) {
-      const post = await db.trackedPost.findUnique({
-        where: { id: postId },
-        select: { reproduced: true, url: true },
-      });
+    if (isOutlier) outlierPostIds.push(postId);
+  }
 
-      if (post && !post.reproduced && post.url) {
+  // Batch-update all outlier statuses
+  await db.$transaction(
+    outlierUpdates.map((u) =>
+      db.trackedPost.update({
+        where: { id: u.id },
+        data: { isOutlier: u.isOutlier, outlierScore: u.outlierScore },
+      }),
+    ),
+  );
+
+  // Batch-fetch posts that need auto-reproduce check
+  if (autoReproduce && outlierPostIds.length > 0) {
+    const posts = await db.trackedPost.findMany({
+      where: { id: { in: outlierPostIds } },
+      select: { id: true, reproduced: true, url: true },
+    });
+
+    for (const post of posts) {
+      if (!post.reproduced && post.url) {
+        const update = outlierUpdates.find((u) => u.id === post.id);
         await boss.send(TASK_QUEUE, {
           jobType: "reproduce",
-          postId,
+          postId: post.id,
           url: post.url,
           organizationId,
         });
 
         console.log(
-          `[competitor-poll] outlier detected postId=${postId} z=${zScore.toFixed(2)} — enqueued reproduce`,
+          `[competitor-poll] outlier detected postId=${post.id} z=${update?.outlierScore?.toFixed(2)} — enqueued reproduce`,
         );
       }
     }
@@ -219,51 +255,73 @@ async function pollCreator(
   );
 }
 
+const POLL_BATCH_SIZE = 100;
+
 async function handlePollCron(): Promise<void> {
   const now = new Date();
   const b = await getBoss();
 
-  const dueCreators = await db.trackedCreator.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { lastPolledAt: null },
-        {
-          lastPolledAt: {
-            lt: new Date(now.getTime() - 1000), // placeholder, refined below
-          },
-        },
-      ],
-    },
-    select: {
-      id: true,
-      organizationId: true,
-      profileUrl: true,
-      platform: true,
-      pollInterval: true,
-      lastPolledAt: true,
-      outlierThreshold: true,
-      autoReproduce: true,
-    },
-  });
+  let cursor: string | undefined;
+  let totalDue = 0;
+  let totalFetched = 0;
 
-  // Filter by individual pollInterval
-  const due = dueCreators.filter((c) => {
-    if (!c.lastPolledAt) return true;
-    return c.lastPolledAt.getTime() + c.pollInterval * 1000 < now.getTime();
-  });
+  // Paginate through active creators in batches
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const batch = await db.trackedCreator.findMany({
+      where: {
+        isActive: true,
+        OR: [
+          { lastPolledAt: null },
+          {
+            lastPolledAt: {
+              lt: new Date(now.getTime() - 1000), // placeholder, refined below
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+        organizationId: true,
+        profileUrl: true,
+        platform: true,
+        pollInterval: true,
+        lastPolledAt: true,
+        outlierThreshold: true,
+        autoReproduce: true,
+      },
+      take: POLL_BATCH_SIZE,
+      ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+      orderBy: { id: "asc" },
+    });
+
+    if (batch.length === 0) break;
+
+    totalFetched += batch.length;
+    cursor = batch[batch.length - 1].id;
+
+    // Filter by individual pollInterval
+    const due = batch.filter((c) => {
+      if (!c.lastPolledAt) return true;
+      return c.lastPolledAt.getTime() + c.pollInterval * 1000 < now.getTime();
+    });
+
+    totalDue += due.length;
+
+    for (const creator of due) {
+      try {
+        await pollCreator(b, creator);
+      } catch (err) {
+        console.error(`[competitor-poll] error polling creator=${creator.id}:`, err);
+      }
+    }
+
+    if (batch.length < POLL_BATCH_SIZE) break;
+  }
 
   console.log(
-    `[competitor-poll] ${due.length}/${dueCreators.length} creators due`,
+    `[competitor-poll] ${totalDue}/${totalFetched} creators due`,
   );
-
-  for (const creator of due) {
-    try {
-      await pollCreator(b, creator);
-    } catch (err) {
-      console.error(`[competitor-poll] error polling creator=${creator.id}:`, err);
-    }
-  }
 }
 
 export async function startCompetitorPollingWorker(): Promise<void> {

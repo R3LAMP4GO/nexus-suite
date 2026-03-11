@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
 
 // ── Per-Model Pricing (cents per 1M tokens) ──────────────────────
-// Cached in Redis for fast lookups. Prices from Z.ai / bigmodel.cn.
+// In-memory constant — no need for Redis since pricing is static.
 // Key: model identifier → { promptCentsPerMillion, completionCentsPerMillion }
 
 interface ModelPricing {
@@ -12,12 +12,9 @@ interface ModelPricing {
   completionCentsPerMillion: number;
 }
 
-const MODEL_PRICING_CACHE_KEY = "llm:pricing";
-const MODEL_PRICING_TTL = 86400; // 24h cache
-
-// Default pricing table — Zhipu GLM primary, others for reference.
+// Pricing table — Zhipu GLM primary, others for reference.
 // Prices in cents per 1M tokens (from Z.ai / bigmodel.cn pricing pages).
-const DEFAULT_PRICING: Record<string, ModelPricing> = {
+const MODEL_PRICING: Record<string, ModelPricing> = {
   // ── Zhipu AI / Z.ai GLM (primary provider) ──────────────────────
   "glm-4.5":                     { promptCentsPerMillion: 60, completionCentsPerMillion: 60 },
   "glm-4.5-air":                 { promptCentsPerMillion: 11, completionCentsPerMillion: 11 },
@@ -39,22 +36,8 @@ const DEFAULT_PRICING: Record<string, ModelPricing> = {
   "deepseek/deepseek-chat-v3":   { promptCentsPerMillion: 27, completionCentsPerMillion: 110 },
 };
 
-async function getModelPricing(model: string): Promise<ModelPricing> {
-  // Check Redis cache first
-  const cached = await redis.hget(MODEL_PRICING_CACHE_KEY, model);
-  if (cached) return JSON.parse(cached);
-
-  // Fall back to default table
-  const pricing = DEFAULT_PRICING[model];
-  if (pricing) {
-    // Cache for future lookups
-    await redis.hset(MODEL_PRICING_CACHE_KEY, model, JSON.stringify(pricing));
-    await redis.expire(MODEL_PRICING_CACHE_KEY, MODEL_PRICING_TTL);
-    return pricing;
-  }
-
-  // Unknown model — use conservative estimate (GPT-4o pricing as ceiling)
-  return { promptCentsPerMillion: 250, completionCentsPerMillion: 1000 };
+function getModelPricing(model: string): ModelPricing {
+  return MODEL_PRICING[model] ?? { promptCentsPerMillion: 250, completionCentsPerMillion: 1000 };
 }
 
 // ── Spend Tracking ───────────────────────────────────────────────
@@ -82,7 +65,7 @@ export async function trackLlmSpend(
   promptTokens: number,
   completionTokens: number,
 ): Promise<{ spentCents: number; addedCents: number }> {
-  const pricing = await getModelPricing(model);
+  const pricing = getModelPricing(model);
 
   // Calculate cost in hundredths of a cent (integer math, no floats)
   // pricing is cents per 1M tokens → multiply by 100 for hundredths, then divide by 1M

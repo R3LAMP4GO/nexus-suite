@@ -157,12 +157,29 @@ export async function copyFile(
 
 /** Delete all files under a prefix (e.g. cleanup org data). */
 export async function deletePrefix(prefix: string): Promise<number> {
-  const files = await listFiles(prefix);
   let deleted = 0;
-  for (const file of files) {
-    await deleteFile(file.key);
-    deleted++;
-  }
+  let continuationToken: string | undefined;
+
+  do {
+    const result = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        MaxKeys: 1000,
+        ContinuationToken: continuationToken,
+      }),
+    );
+
+    for (const obj of result.Contents ?? []) {
+      if (obj.Key) {
+        await deleteFile(obj.Key);
+        deleted++;
+      }
+    }
+
+    continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined;
+  } while (continuationToken);
+
   return deleted;
 }
 
