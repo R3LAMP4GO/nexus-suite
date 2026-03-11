@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { provision } from "./commands/provision";
 import { assignProxy } from "./commands/assign-proxy";
 import { generateWorkflows } from "./commands/generate-workflows";
-import { warmupStart } from "./commands/warmup-start";
+import { warmupStart, type WarmupStartOpts } from "./commands/warmup-start";
 import { initPlugin } from "./commands/init-plugin";
 
 // dry-run-client is a standalone script (npx tsx src/cli/commands/dry-run-client.ts)
@@ -39,16 +39,42 @@ program
   .description("Scaffold custom YAML workflows + brand prompt for an org")
   .argument("<orgId>", "Organization ID")
   .option("--niche <niche>", "Content niche override (defaults to onboarding submission)")
-  .action(async (orgId: string, opts: { niche?: string }) => {
-    await generateWorkflows(orgId, opts.niche);
+  .option("--platforms <platforms>", "Comma-separated platforms (YOUTUBE,TIKTOK,INSTAGRAM,LINKEDIN,X,FACEBOOK)")
+  .option("--brand-voice <voice>", "Brand voice description")
+  .option("--tone <tone>", "Tone preferences")
+  .option("--posting-frequency <freq>", "Posting frequency (daily, twice-daily, weekly)")
+  .option("--competitors <urls>", "Comma-separated competitor URLs")
+  .action(async (orgId: string, opts: {
+    niche?: string;
+    platforms?: string;
+    brandVoice?: string;
+    tone?: string;
+    postingFrequency?: string;
+    competitors?: string;
+  }) => {
+    await generateWorkflows(orgId, {
+      niche: opts.niche,
+      platforms: opts.platforms?.split(",").map((s) => s.trim()),
+      brandVoice: opts.brandVoice,
+      tone: opts.tone,
+      postingFrequency: opts.postingFrequency,
+      competitors: opts.competitors?.split(",").map((s) => s.trim()),
+    });
   });
 
 program
   .command("warmup-start")
   .description("Start 4-phase warming schedule for a burner account")
   .argument("<accountId>", "OrgPlatformToken ID")
-  .action(async (accountId: string) => {
-    await warmupStart(accountId);
+  .option("--sessions-per-day <count>", "Sessions per day during active phases", parseInt)
+  .option("--time-window <range>", "Active time window, e.g. '8-22' for 8am-10pm")
+  .option("--phase-duration <days>", "Comma-separated phase durations in days, e.g. '3,4,3'")
+  .action(async (accountId: string, cmdOpts: { sessionsPerDay?: number; timeWindow?: string; phaseDuration?: string }) => {
+    const opts: WarmupStartOpts = {};
+    if (cmdOpts.sessionsPerDay != null) opts.sessionsPerDay = cmdOpts.sessionsPerDay;
+    if (cmdOpts.timeWindow) opts.timeWindow = cmdOpts.timeWindow;
+    if (cmdOpts.phaseDuration) opts.phaseDuration = cmdOpts.phaseDuration;
+    await warmupStart(accountId, opts);
   });
 
 program

@@ -1,5 +1,7 @@
 import type PgBoss from "pg-boss";
 import { db } from "@/lib/db";
+import { incCounter } from "@/lib/metrics";
+import { canPost } from "@/server/services/circuit-breaker";
 import type { ContentScheduleJob } from "../types.js";
 import type { Platform } from "@/generated/prisma/client";
 
@@ -48,6 +50,22 @@ export async function handleContentSchedule(
   }
 
   for (const account of accounts) {
+    // Runtime circuit-breaker check — state may have changed since query
+    const circuitCheck = await canPost(account.id);
+    if (!circuitCheck.allowed) {
+      await db.postRecord.create({
+        data: {
+          organizationId,
+          accountId: account.id,
+          variationId: variation.id,
+          platform: account.platform,
+          scheduledAt: scheduleDate,
+          status: "SKIPPED",
+        },
+      });
+      continue;
+    }
+
     // Create PostRecord with scheduledAt
     const postRecord = await db.postRecord.create({
       data: {
@@ -72,5 +90,7 @@ export async function handleContentSchedule(
       },
       { startAfter: scheduleDate },
     );
+
+    incCounter("content_scheduled_total", {}).catch(() => {});
   }
 }

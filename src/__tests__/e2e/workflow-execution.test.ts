@@ -20,6 +20,21 @@ vi.mock("@/server/workflows/agent-delegate", () => ({
     }),
   ),
   getWorkflowContext: vi.fn(() => ({})),
+  getRegisteredAgents: vi.fn(() => new Map()),
+  SPECIALIST_AGENTS: new Set([
+    "seo-agent", "hook-writer", "title-generator", "thumbnail-creator",
+    "script-agent", "caption-writer", "hashtag-optimizer", "thread-writer",
+    "article-writer", "trend-scout", "engagement-responder",
+    "analytics-reporter", "content-repurposer", "quality-scorer",
+    "variation-orchestrator", "brand-persona-agent", "viral-teardown-agent",
+  ]),
+  PLATFORM_SUBAGENTS: new Set([
+    "community-post-formatter", "shorts-optimizer",
+    "duet-stitch-logic", "sound-selector",
+    "carousel-sequencer", "story-formatter",
+    "professional-tone-adapter", "article-formatter",
+    "news-scout", "tone-translator", "x-engagement-responder",
+  ]),
 }));
 
 vi.mock("@/server/services/notifications", () => ({

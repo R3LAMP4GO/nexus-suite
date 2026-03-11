@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { getBoss } from "@/lib/pg-boss";
 import { sendVideoProcessedEmail } from "@/server/services/notifications";
+import { publishSSE } from "@/server/services/sse-broadcaster";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -25,7 +26,10 @@ export async function startMediaCompletionWorker(): Promise<void> {
     QUEUE_NAME,
     { batchSize: 1 },
     async ([job]) => {
-      const { organizationId, sourceVideoId } = job.data;
+      const { organizationId, sourceVideoId, variationId } = job.data;
+
+      // Notify dashboard that this variation finished processing
+      await publishSSE(organizationId, "media:complete", { variationId }).catch(() => {});
 
       // Check if ALL variations for this source video are complete
       const sourceVideo = await db.sourceVideo.findUnique({

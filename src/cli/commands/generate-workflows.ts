@@ -4,7 +4,16 @@ import { db } from "@/lib/db";
 
 const AGENTS_DIR = join(process.cwd(), "src", "agents", "clients");
 
-export async function generateWorkflows(orgId: string, nicheOverride?: string) {
+export interface GenerateWorkflowsOptions {
+  niche?: string;
+  platforms?: string[];
+  brandVoice?: string;
+  tone?: string;
+  postingFrequency?: string;
+  competitors?: string[];
+}
+
+export async function generateWorkflows(orgId: string, opts: GenerateWorkflowsOptions = {}) {
   console.log(`\n  Generating workflows for org: ${orgId}`);
 
   // 1. Load org + onboarding
@@ -19,17 +28,17 @@ export async function generateWorkflows(orgId: string, nicheOverride?: string) {
   }
 
   const submission = org.onboardingSubmission;
-  if (!submission && !nicheOverride) {
+  if (!submission && !opts.niche) {
     console.error(`  ERROR: No onboarding submission and no --niche flag provided`);
     process.exit(1);
   }
 
-  const niche = nicheOverride ?? submission!.niche;
-  const platforms = (submission?.platforms as string[]) ?? ["YOUTUBE", "TIKTOK"];
-  const brandVoice = submission?.brandVoice ?? "Professional and engaging";
-  const tonePreferences = submission?.tonePreferences ?? "";
-  const postingFrequency = submission?.postingFrequency ?? "daily";
-  const competitors = (submission?.competitorUrls as string[]) ?? [];
+  const niche = opts.niche ?? submission!.niche;
+  const platforms = opts.platforms ?? (submission?.platforms as string[]) ?? ["YOUTUBE", "TIKTOK"];
+  const brandVoice = opts.brandVoice ?? submission?.brandVoice ?? "Professional and engaging";
+  const tonePreferences = opts.tone ?? submission?.tonePreferences ?? "";
+  const postingFrequency = opts.postingFrequency ?? submission?.postingFrequency ?? "daily";
+  const competitors = opts.competitors ?? (submission?.competitorUrls as string[]) ?? [];
 
   console.log(`  Niche: ${niche}`);
   console.log(`  Platforms: ${platforms.join(", ")}`);

@@ -68,19 +68,27 @@ function pickWeightedAction(actions: PhaseAction[]): string {
 }
 
 /**
- * Generate a randomized Date offset within a day (between 8am-10pm).
+ * Generate a randomized Date offset within a day.
+ * @param windowStart - Start hour (default 8)
+ * @param windowEnd - End hour (default 22)
  */
-function randomTimeInDay(baseDate: Date, dayOffset: number): Date {
+function randomTimeInDay(baseDate: Date, dayOffset: number, windowStart = 8, windowEnd = 22): Date {
   const d = new Date(baseDate);
   d.setDate(d.getDate() + dayOffset);
-  // Random hour between 8:00 and 22:00
-  const hour = 8 + Math.floor(Math.random() * 14);
+  const span = windowEnd - windowStart;
+  const hour = windowStart + Math.floor(Math.random() * span);
   const minute = Math.floor(Math.random() * 60);
   d.setHours(hour, minute, 0, 0);
   return d;
 }
 
-export async function warmupStart(accountId: string) {
+export interface WarmupStartOpts {
+  sessionsPerDay?: number;
+  timeWindow?: string;
+  phaseDuration?: string;
+}
+
+export async function warmupStart(accountId: string, opts: WarmupStartOpts = {}) {
   console.log(`\n  Starting warmup for account: ${accountId}`);
 
   // 1. Load and validate account
@@ -122,14 +130,45 @@ export async function warmupStart(accountId: string) {
     process.exit(1);
   }
 
-  // 2. Enqueue Phase 1-3 jobs with staggered startAfter
+  // 2. Parse customization options
+  const [windowStart, windowEnd] = opts.timeWindow
+    ? opts.timeWindow.split("-").map(Number)
+    : [8, 22];
+
+  // Apply --phase-duration overrides to compute adjusted phases
+  const phaseDurations = opts.phaseDuration
+    ? opts.phaseDuration.split(",").map(Number)
+    : PHASES.map((p) => p.dayEnd - p.dayStart);
+
+  const phases: PhaseConfig[] = [];
+  let cumulativeDay = 0;
+  for (let i = 0; i < PHASES.length; i++) {
+    const duration = phaseDurations[i] ?? (PHASES[i].dayEnd - PHASES[i].dayStart);
+    phases.push({
+      ...PHASES[i],
+      dayStart: cumulativeDay,
+      dayEnd: cumulativeDay + duration,
+      sessionsPerDay: opts.sessionsPerDay ?? PHASES[i].sessionsPerDay,
+    });
+    cumulativeDay += duration;
+  }
+  const totalDays = cumulativeDay;
+
+  // Build params to attach to every task
+  const taskParams: Record<string, unknown> = {};
+  if (opts.sessionsPerDay != null) taskParams.sessionsPerDay = opts.sessionsPerDay;
+  if (opts.timeWindow) taskParams.timeWindow = opts.timeWindow;
+  if (opts.phaseDuration) taskParams.phaseDuration = opts.phaseDuration;
+  const hasParams = Object.keys(taskParams).length > 0;
+
+  // 3. Enqueue Phase 1-3 jobs with staggered startAfter
   const now = new Date();
   let totalJobs = 0;
 
   // Ensure pg-boss is initialized
   await getBoss();
 
-  for (const phase of PHASES) {
+  for (const phase of phases) {
     const days = phase.dayEnd - phase.dayStart;
 
     for (let day = 0; day < days; day++) {
@@ -137,7 +176,7 @@ export async function warmupStart(accountId: string) {
 
       for (let session = 0; session < phase.sessionsPerDay; session++) {
         const action = pickWeightedAction(phase.actions);
-        const startAfter = randomTimeInDay(now, actualDay);
+        const startAfter = randomTimeInDay(now, actualDay, windowStart, windowEnd);
         // Spread sessions within the day
         startAfter.setHours(startAfter.getHours() + session * 3);
 
@@ -146,6 +185,7 @@ export async function warmupStart(accountId: string) {
           organizationId: account.organizationId,
           action,
           phase: phase.phase,
+          ...(hasParams && { params: taskParams }),
         };
 
         await enqueueWarmTask(task, {
@@ -158,14 +198,15 @@ export async function warmupStart(accountId: string) {
     }
   }
 
-  // Phase 4: mark-ready job after day 11
-  const readyDate = randomTimeInDay(now, 11);
+  // Phase 4: mark-ready job after last phase day + 1
+  const readyDate = randomTimeInDay(now, totalDays + 1, windowStart, windowEnd);
   await enqueueWarmTask(
     {
       accountId,
       organizationId: account.organizationId,
       action: "mark-ready",
       phase: 4,
+      ...(hasParams && { params: taskParams }),
     },
     {
       startAfter: readyDate,

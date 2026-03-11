@@ -154,6 +154,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const org = membership.organization;
 
         // Layer 2 gate: block if subscription is dead
+        // INACTIVE = default for new orgs before first payment (see schema default)
         const blockedStatuses = ["CANCELED", "INACTIVE", "UNPAID"];
         if (blockedStatuses.includes(org.subscriptionStatus)) {
           // Return session without org — frontend redirects to /reactivate

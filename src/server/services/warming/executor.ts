@@ -10,7 +10,15 @@ import { type AccountContext, loadAccountContext, launchBrowser, persistSession 
 import { humanPause, humanScroll, humanClick, scrollFeed, watchVideo, humanType } from "./human-behavior";
 import { detectVerification, handleVerification, type VerificationType } from "./verification/detector";
 import { createVerificationProvider, type VerificationCodeProvider } from "./verification/provider";
-import { recordVerification } from "./health-tracker";
+import {
+  recordAction,
+  getHealth,
+  isStale,
+  isMarkedStale,
+  flagStale,
+  clearStale,
+  recordVerification,
+} from "./health-tracker";
 import type { WarmTask } from "./queue";
 
 // ── Verification Providers (per-type) ─────────────────────────────
@@ -186,12 +194,50 @@ const actions: Record<string, ActionFn> = {
   },
 };
 
+// ── Health Checks ─────────────────────────────────────────────────
+
+const MAX_VERIFICATION_FAILURES = 3;
+
+/**
+ * Check if an account is healthy enough to proceed with warming.
+ * Returns true if the session should be skipped.
+ */
+async function shouldSkipAccount(accountId: string): Promise<boolean> {
+  // Fast path: already flagged stale
+  if (await isMarkedStale(accountId)) {
+    console.log(`[executor] Account ${accountId} is marked stale — skipping`);
+    return true;
+  }
+
+  // Check staleness by last-action timestamp
+  if (await isStale(accountId)) {
+    console.log(`[executor] Account ${accountId} is stale (no recent activity) — flagging and skipping`);
+    await flagStale(accountId);
+    return true;
+  }
+
+  // Check health for excessive verification failures
+  const health = await getHealth(accountId);
+  if (health && health.verificationFailures >= MAX_VERIFICATION_FAILURES) {
+    console.log(`[executor] Account ${accountId} has ${health.verificationFailures} verification failures — flagging stale and skipping`);
+    await flagStale(accountId);
+    return true;
+  }
+
+  return false;
+}
+
 // ── Main Executor ─────────────────────────────────────────────────
 
 /**
  * Execute a warming task: launch browser, run action, persist session, close.
  */
 export async function executeWarmTask(task: WarmTask): Promise<void> {
+  // Pre-flight health check
+  if (await shouldSkipAccount(task.accountId)) {
+    return;
+  }
+
   const ctx = await loadAccountContext(task.accountId);
   console.log(`[executor] Starting ${task.action} for ${ctx.accountLabel} (phase ${task.phase})`);
 
@@ -205,9 +251,15 @@ export async function executeWarmTask(task: WarmTask): Promise<void> {
 
     await actionFn(page, ctx, task.params ?? {});
 
-    // Persist session state after every action
+    // Record successful action and persist session state
+    await recordAction(ctx.accountId, task.phase);
+    await clearStale(ctx.accountId);
     await persistSession(context, ctx);
     console.log(`[executor] Completed ${task.action} for ${ctx.accountLabel}`);
+  } catch (error) {
+    // Record action even on failure so health tracker stays current
+    await recordAction(ctx.accountId, task.phase);
+    throw error;
   } finally {
     await page.close().catch(() => {});
     await context.close().catch(() => {});

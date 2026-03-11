@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import type { WorkflowContext } from "./control-flow";
 import { trackLlmSpend } from "../services/llm-budget";
 import { CLIENT_PLUGIN_WHITELIST } from "@/agents/general/prepare-context";
+import { validateNoCredentials, stripPII, enforceToolScope } from "@/agents/general/safety";
+import { validateAgentOutput, buildRetryPrompt } from "@/agents/general/validate-output";
 import type { WrappedToolResult } from "@/agents/general/cli-tool-wrappers";
 import type { AudioAnalysis } from "../../../services/media-engine/src/audio-safety";
 
@@ -73,7 +75,7 @@ export function registerAgent(
 // 3. src/agents/specialists/{agentName}
 // 4. Global agent registry (registered at startup)
 // Known sub-agent names grouped by platform for resolution tier 2
-const PLATFORM_SUBAGENTS = new Set([
+export const PLATFORM_SUBAGENTS = new Set([
   "community-post-formatter", "shorts-optimizer",
   "duet-stitch-logic", "sound-selector",
   "carousel-sequencer", "story-formatter",
@@ -82,7 +84,7 @@ const PLATFORM_SUBAGENTS = new Set([
 ]);
 
 // Known specialist names for resolution tier 3
-const SPECIALIST_AGENTS = new Set([
+export const SPECIALIST_AGENTS = new Set([
   "seo-agent", "hook-writer", "title-generator", "thumbnail-creator",
   "script-agent", "caption-writer", "hashtag-optimizer", "thread-writer",
   "article-writer", "trend-scout", "engagement-responder",
@@ -192,6 +194,19 @@ export async function executeAgentDelegate(
 
   const { entry, isClientPlugin } = resolved;
 
+  // Safety: validate prompt doesn't contain leaked credentials and strip PII
+  validateNoCredentials(prompt);
+  const sanitizedPrompt = stripPII(prompt);
+
+  // Safety: enforce tool scope — wrap each tool's execute to check permissions
+  const scopedTools = entry.tools.map((tool) => ({
+    ...tool,
+    execute: (input: unknown) => {
+      enforceToolScope(agentName, tool.id);
+      return tool.execute(input);
+    },
+  }));
+
   // Client plugins receive a sandboxed context — only CLIENT_PLUGIN_WHITELIST keys.
   // This prevents client code from accessing Infisical config, variables, or other sensitive data.
   const sandboxedContext: WorkflowContext = isClientPlugin
@@ -202,9 +217,34 @@ export async function executeAgentDelegate(
       ) as unknown as WorkflowContext)
     : context;
 
-  const result = await workflowContextStorage.run(sandboxedContext, () =>
-    entry.generateFn(prompt, { model, maxTokens, brandVoice: context.brandVoice }),
+  const scopedEntry = { ...entry, tools: scopedTools };
+
+  let result = await workflowContextStorage.run(sandboxedContext, () =>
+    scopedEntry.generateFn(sanitizedPrompt, { model, maxTokens, brandVoice: context.brandVoice }),
   );
+
+  // Safety: validate agent output doesn't contain leaked credentials
+  validateNoCredentials(result.text);
+
+  // Validate structured output against the agent's registered schema.
+  // Agents without a schema pass through automatically.
+  // On validation failure, retry once with a format-correction prompt.
+  const MAX_OUTPUT_RETRIES = 1;
+  let outputText = result.text;
+
+  for (let attempt = 0; attempt < MAX_OUTPUT_RETRIES; attempt++) {
+    const validation = validateAgentOutput(agentName, outputText);
+    if (validation.valid) break;
+
+    const retryPrompt = sanitizedPrompt + buildRetryPrompt(agentName, validation.errors);
+    const retryResult = await workflowContextStorage.run(sandboxedContext, () =>
+      scopedEntry.generateFn(retryPrompt, { model, maxTokens, brandVoice: context.brandVoice }),
+    );
+
+    validateNoCredentials(retryResult.text);
+    outputText = retryResult.text;
+    result = retryResult;
+  }
 
   // Track LLM spend if usage data is available
   if (result.usage) {
@@ -217,13 +257,13 @@ export async function executeAgentDelegate(
   }
 
   // Attach tool metadata so callers know which tools were available
-  const toolsMeta = entry.tools.map((t) => ({
+  const toolsMeta = scopedEntry.tools.map((t) => ({
     id: t.id,
     description: t.description,
   }));
 
   return {
-    text: result.text,
+    text: outputText,
     toolCalls: result.toolCalls,
     toolsMeta,
   };

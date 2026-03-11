@@ -4,7 +4,13 @@ import { TRPCError } from "@trpc/server";
 import { Platform, Prisma } from "@/generated/prisma/client";
 import { composeTransforms } from "../../../../services/media-engine/src/transforms";
 import { sendMediaJob } from "@/server/services/media-queue";
+import type { TransformFragment } from "@/server/services/media-types";
 import { incrementUsage } from "@/server/services/usage-tracking";
+import {
+  getUploadSignedUrl,
+  fileExists,
+  getSignedUrl,
+} from "@/server/services/r2-storage";
 
 const DEFAULT_VARIATION_COUNT = 5;
 
@@ -63,7 +69,7 @@ export const uploadRouter = createTRPCRouter({
             type: "transform",
             organizationId: ctx.organizationId,
             sourceUrl: sourceVideo.url,
-            transforms: v.transforms as Record<string, unknown>,
+            transforms: v.transforms as unknown as TransformFragment,
             outputKey: `variations/${v.id}`,
           }),
         ),
@@ -78,6 +84,56 @@ export const uploadRouter = createTRPCRouter({
       // variations finish processing (not at queue time).
 
       return { sourceVideo, variations };
+    }),
+
+  /** Generate a presigned URL for direct client-side upload to R2. */
+  getPresignedUploadUrl: onboardedProcedure
+    .input(
+      z.object({
+        filename: z.string(),
+        contentType: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const key = `videos/${ctx.organizationId}/${crypto.randomUUID()}-${input.filename}`;
+      const url = await getUploadSignedUrl(key, input.contentType);
+      return { url, key };
+    }),
+
+  /** Confirm a client-side upload completed by checking the file exists in R2. */
+  confirmUpload: onboardedProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      // Ensure the key belongs to this organization
+      if (!input.key.startsWith(`videos/${ctx.organizationId}/`)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Key does not belong to this organization" });
+      }
+
+      const meta = await fileExists(input.key);
+      if (!meta) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "File not found in storage" });
+      }
+
+      return { key: input.key, contentLength: meta.contentLength, contentType: meta.contentType };
+    }),
+
+  /** Generate a signed download URL for a stored file. */
+  getDownloadUrl: onboardedProcedure
+    .input(
+      z.object({
+        key: z.string(),
+        expiresIn: z.number().min(60).max(86400).default(3600),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Ensure the key belongs to this organization
+      const orgPrefix = `${ctx.organizationId}/`;
+      if (!input.key.includes(orgPrefix)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Key does not belong to this organization" });
+      }
+
+      const url = await getSignedUrl(input.key, input.expiresIn);
+      return { url };
     }),
 
   getStatus: onboardedProcedure

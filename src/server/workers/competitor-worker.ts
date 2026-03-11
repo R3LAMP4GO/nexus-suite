@@ -3,12 +3,14 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getBoss } from "@/lib/pg-boss";
+import { incCounter } from "@/lib/metrics";
 import { generate as viralTeardown } from "@/agents/specialists/viral-teardown-agent";
 import { generate as scriptAgent } from "@/agents/specialists/script-agent";
 import { generate as captionWriter } from "@/agents/specialists/caption-writer";
 import { generate as variationOrchestrator } from "@/agents/specialists/variation-orchestrator";
 import { sendMediaJob } from "@/server/services/media-queue";
 import type { RawAgentContext } from "@/agents/general/types";
+import type { ScrapeResult } from "@/server/services/scrape-types";
 
 // ── Types ─────────────────────────────────────────────────────
 
@@ -17,13 +19,6 @@ interface CompetitorTaskPayload {
   postId: string;
   url: string;
   organizationId: string;
-}
-
-interface ScrapeResult {
-  taskId: string;
-  html: string;
-  cookies: Record<string, string>;
-  meta: { strategy: string; durationMs: number; url: string };
 }
 
 // ── Queues ────────────────────────────────────────────────────
@@ -105,6 +100,7 @@ async function analyzePost(
     },
   });
 
+  incCounter("outliers_detected_total", {}).catch(() => {});
   console.log(`[competitor-worker] analysis saved for postId=${postId}`);
 }
 
@@ -189,6 +185,8 @@ export async function startCompetitorWorker(): Promise<void> {
       console.log(
         `[competitor-worker] received ${jobType} job — postId=${postId} url=${url} org=${organizationId}`,
       );
+
+      incCounter("competitor_polls_total", { jobType }).catch(() => {});
 
       switch (jobType) {
         case "analyze":

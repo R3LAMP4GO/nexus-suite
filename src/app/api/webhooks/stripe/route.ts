@@ -4,6 +4,7 @@ import type Stripe from "stripe";
 import { type SubscriptionStatus } from "@/generated/prisma/client";
 import { stripe, resolveTierFromPriceId, PRICING } from "@/lib/stripe";
 import { db } from "@/lib/db";
+import { sendWelcomeEmail } from "@/server/services/notifications";
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -130,6 +131,11 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   await db.stripeEvent.update({
     where: { id: event.id },
     data: { organizationId: org.id },
+  });
+
+  // Fire-and-forget — don't block webhook response on email delivery
+  sendWelcomeEmail(customerEmail, org.name).catch((err) => {
+    console.error("[stripe-webhook] Failed to send welcome email:", err);
   });
 }
 

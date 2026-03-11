@@ -1,16 +1,9 @@
 import type PgBoss from "pg-boss";
 import { getBoss } from "@/lib/pg-boss";
+import type { MediaJobPayload } from "@/shared/queue-types";
 
-// ── Types (mirror consumer's MediaJob) ───────────────────────────
-
-export interface MediaJob {
-  type: "download" | "transform";
-  organizationId: string;
-  sourceUrl?: string;
-  localPath?: string;
-  outputKey?: string;
-  transforms?: Record<string, unknown>;
-}
+// Re-export so existing consumers keep working
+export type MediaJob = MediaJobPayload;
 
 // ── Sender ───────────────────────────────────────────────────────
 

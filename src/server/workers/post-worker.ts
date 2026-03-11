@@ -1,4 +1,7 @@
 import { postContent } from "@/server/services/posting";
+import { canPost } from "@/server/services/circuit-breaker";
+import { publishSSE } from "@/server/services/sse-broadcaster";
+import { incCounter, observeHistogram } from "@/lib/metrics";
 import { db } from "@/lib/db";
 import { getBoss } from "@/lib/pg-boss";
 import type { Platform } from "@/generated/prisma/client";
@@ -35,7 +38,30 @@ export async function startPostWorker(): Promise<void> {
       if (!record) return;
       if (record.status !== "SCHEDULED") return;
 
-      await postContent(orgId, accountId, variationId, platform, postRecordId);
+      // Check circuit breaker state before posting — state may have changed since scheduling
+      const circuitCheck = await canPost(accountId);
+      if (!circuitCheck.allowed) {
+        await db.postRecord.update({
+          where: { id: postRecordId },
+          data: { status: "SKIPPED", failureReason: `Circuit breaker: ${circuitCheck.reason}` },
+        });
+        return;
+      }
+
+      const startMs = Date.now();
+      incCounter("posts_attempted_total", { platform }).catch(() => {});
+
+      try {
+        await postContent(orgId, accountId, variationId, platform, postRecordId);
+        incCounter("posts_succeeded_total", { platform }).catch(() => {});
+        await publishSSE(orgId, "post:complete", { postRecordId, status: "success" }).catch(() => {});
+      } catch (err) {
+        incCounter("posts_failed_total", { platform }).catch(() => {});
+        await publishSSE(orgId, "post:complete", { postRecordId, status: "failed" }).catch(() => {});
+        throw err;
+      } finally {
+        observeHistogram("post_duration_seconds", {}, (Date.now() - startMs) / 1000).catch(() => {});
+      }
     },
   );
 }

@@ -1,16 +1,26 @@
 import { createBoss } from "@/lib/pg-boss";
+import { bootstrapAgents } from "@/agents/registry";
 import { registerJobHandlers } from "./jobs/index.js";
+import { registerCronWorkflows } from "@/server/workflows/cron-scheduler";
 import { startCompetitorWorker, stopCompetitorWorker } from "../workers/competitor-worker.js";
 import { startPostWorker, stopPostWorker } from "../workers/post-worker.js";
 import { startCompetitorPollingWorker, stopCompetitorPollingWorker } from "../workers/competitor-polling-worker.js";
 import { startMediaCompletionWorker, stopMediaCompletionWorker } from "../workers/media-completion-worker.js";
+import { startDistributionWorker, stopDistributionWorker } from "../workers/distribution-worker.js";
+import { disposeExecutor } from "../services/warming/executor";
 
 const boss = createBoss();
 
 async function start(): Promise<void> {
+  console.log("[worker] bootstrapping agent registry...");
+  bootstrapAgents();
+
   console.log("[worker] starting pg-boss...");
   await boss.start();
   await registerJobHandlers(boss);
+
+  console.log("[worker] registering cron workflows...");
+  await registerCronWorkflows(boss);
 
   console.log("[worker] starting competitor worker...");
   await startCompetitorWorker();
@@ -24,6 +34,9 @@ async function start(): Promise<void> {
   console.log("[worker] starting media completion worker...");
   await startMediaCompletionWorker();
 
+  console.log("[worker] starting distribution worker...");
+  await startDistributionWorker();
+
   console.log("[worker] ready");
 }
 
@@ -33,6 +46,8 @@ async function shutdown(): Promise<void> {
   await stopCompetitorPollingWorker();
   await stopPostWorker();
   await stopMediaCompletionWorker();
+  await stopDistributionWorker();
+  await disposeExecutor();
   await boss.stop();
   console.log("[worker] stopped");
   process.exit(0);

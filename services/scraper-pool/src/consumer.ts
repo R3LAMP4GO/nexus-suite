@@ -19,6 +19,7 @@ interface ScrapeTask {
   };
 }
 
+// Keep in sync with src/server/services/scrape-types.ts (canonical shared type)
 interface ScrapeResult {
   taskId: string;
   html: string;
@@ -59,7 +60,7 @@ export class ScrapeConsumer {
   }
 
   async start(): Promise<void> {
-    this.proxyManager.loadFromEnv();
+    await this.proxyManager.initProxies();
 
     await this.boss.start();
     console.log("[ScrapeConsumer] pg-boss started");
@@ -156,6 +157,7 @@ export class ScrapeConsumer {
   }
 
   async stop(): Promise<void> {
+    this.proxyManager.stopRefresh();
     await this.boss.stop({ graceful: true });
     this.redis.disconnect();
     console.log("[ScrapeConsumer] stopped");

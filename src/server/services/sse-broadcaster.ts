@@ -6,7 +6,11 @@ export type SSEEventType =
   | "post_status"
   | "budget_warning"
   | "outlier_detected"
-  | "account_health";
+  | "account_health"
+  | "post:complete"
+  | "content:published"
+  | "media:complete"
+  | "workflow:complete";
 
 export interface SSEEvent {
   type: SSEEventType;

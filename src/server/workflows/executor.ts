@@ -20,6 +20,7 @@ import { executeAgentDelegate } from "./agent-delegate";
 import { checkLlmBudget } from "../services/llm-budget";
 import { incrementUsage } from "../services/usage-tracking";
 import { sendScriptReadyEmail } from "../services/notifications";
+import { publishSSE } from "../services/sse-broadcaster";
 import { db } from "@/lib/db";
 import { randomUUID } from "crypto";
 import { loadBrandPrompt } from "@/agents/general/brand-loader";
@@ -140,6 +141,10 @@ export async function executeWorkflow(
     }
   } catch (err) {
     const completedAt = new Date();
+    await publishSSE(workflow.organizationId, "workflow:complete", {
+      workflowName: workflow.name,
+      status: "failed",
+    }).catch(() => {});
     return {
       runId,
       workflowName: workflow.name,
@@ -157,6 +162,11 @@ export async function executeWorkflow(
   const completedAt = new Date();
   const hasErrors = allResults.some((r) => r.status === "error");
   const finalStatus = context.aborted ? "aborted" : hasErrors ? "failed" : "completed";
+
+  await publishSSE(workflow.organizationId, "workflow:complete", {
+    workflowName: workflow.name,
+    status: finalStatus,
+  }).catch(() => {});
 
   if (finalStatus === "completed") {
     await incrementUsage(workflow.organizationId, "workflow_runs").catch(() => {});

@@ -48,6 +48,7 @@ export async function generateFacebook(
   const systemPrompt = buildSystemPrompt(
     INSTRUCTIONS,
     ctx.brandVoice as string | undefined,
+    ctx.organizationId as string | undefined,
   );
 
   const result = await facebookAgent.generate(prompt, {

@@ -1,26 +1,9 @@
-import {
-  S3Client,
-  GetObjectCommand,
-  PutObjectCommand,
-} from "@aws-sdk/client-s3";
 import { fetchSecret } from "../../../lib/infisical";
 import { createCipheriv, createDecipheriv, randomBytes } from "crypto";
-
-// ── R2 Client (Cloudflare R2 = S3-compatible) ──────────────────
+import { uploadFile, downloadFile } from "@/server/services/r2-storage";
 
 const INFISICAL_PROJECT_ID = process.env.INFISICAL_PROJECT_ID!;
 const INFISICAL_ENV = process.env.INFISICAL_ENV ?? "dev";
-
-const r2 = new S3Client({
-  region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
-  },
-});
-
-const R2_BUCKET = process.env.R2_BUCKET_NAME ?? "nexus-storage";
 
 // ── Encryption helpers (AES-256-GCM) ───────────────────────────
 
@@ -82,16 +65,7 @@ export async function saveSessionState(
   const encrypted = encrypt(plaintext, key);
 
   const r2Key = `sessions/${orgId}/${accountId}/state.json`;
-
-  await r2.send(
-    new PutObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: r2Key,
-      Body: encrypted,
-      ContentType: "application/octet-stream",
-    }),
-  );
-
+  await uploadFile(r2Key, encrypted, "application/octet-stream");
   return r2Key;
 }
 
@@ -106,22 +80,19 @@ export async function loadSessionState(
   const r2Key = `sessions/${orgId}/${accountId}/state.json`;
 
   try {
-    const response = await r2.send(
-      new GetObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: r2Key,
-      }),
-    );
-
-    const body = await response.Body?.transformToByteArray();
-    if (!body) return null;
+    const body = await downloadFile(r2Key);
 
     const key = await getEncryptionKey(orgId);
-    const decrypted = decrypt(Buffer.from(body), key);
+    const decrypted = decrypt(body, key);
     return JSON.parse(decrypted.toString("utf-8")) as SessionState;
   } catch (err: unknown) {
-    // NoSuchKey = first run, no session yet
-    if ((err as { name?: string }).name === "NoSuchKey") return null;
+    // NoSuchKey / Empty response = first run, no session yet
+    if (
+      err instanceof Error &&
+      (err.name === "NoSuchKey" || err.name === "NotFound" || err.message.startsWith("Empty response"))
+    ) {
+      return null;
+    }
     throw err;
   }
 }

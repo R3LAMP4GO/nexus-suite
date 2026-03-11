@@ -110,6 +110,7 @@ export async function generate(
   const systemPrompt = buildSystemPrompt(
     INSTRUCTIONS,
     ctx.brandVoice as string | undefined,
+    ctx.organizationId as string | undefined,
   );
 
   const result = await seoAgent.generate(prompt, {

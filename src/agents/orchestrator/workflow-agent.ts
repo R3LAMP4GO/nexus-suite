@@ -1,6 +1,7 @@
 import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
+import { wrapToolHandler } from "@/agents/general";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
@@ -59,8 +60,11 @@ const validateWorkflowTool = createTool({
     warnings: z.array(z.string()),
   }),
   execute: async ({ context }) => {
-    const result = validateWorkflow(context.yaml);
-    return result;
+    const wrappedFn = wrapToolHandler(
+      async (input: { yaml: string }) => validateWorkflow(input.yaml),
+      { agentName: AGENT_NAME, toolName: "validate_workflow" },
+    );
+    return wrappedFn({ yaml: context.yaml });
   },
 });
 
@@ -84,6 +88,7 @@ export async function generateWorkflow(
   const systemPrompt = buildSystemPrompt(
     WORKFLOW_AGENT_INSTRUCTIONS,
     ctx.brandVoice as string | undefined,
+    ctx.organizationId as string | undefined,
   );
 
   const result = await workflowAgent.generate(prompt, {

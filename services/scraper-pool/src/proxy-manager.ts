@@ -1,3 +1,4 @@
+import { InfisicalSDK } from "@infisical/sdk";
 import type { Redis } from "ioredis";
 
 interface ProxyEntry {
@@ -8,17 +9,100 @@ interface ProxyEntry {
 
 const MAX_CONSECUTIVE_FAILURES = 5;
 const STICKY_TTL_SECONDS = 3600; // 1 hour
+const REFRESH_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 export class ProxyManager {
   private redis: Redis;
   private proxies: ProxyEntry[] = [];
+  private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private infisicalClient: InfisicalSDK | null = null;
 
   constructor(redis: Redis) {
     this.redis = redis;
   }
 
   /**
-   * Load proxy list from environment or a provided list.
+   * Initialize proxies — from Infisical if configured, otherwise from env var.
+   * When using Infisical, sets up periodic refresh (fetch-use-discard pattern).
+   */
+  async initProxies(): Promise<void> {
+    const projectId = process.env.INFISICAL_PROJECT_ID;
+
+    if (projectId) {
+      await this.loadFromInfisical();
+      this.refreshTimer = setInterval(() => {
+        void this.loadFromInfisical();
+      }, REFRESH_INTERVAL_MS);
+      console.log("[ProxyManager] Infisical refresh scheduled every 30m");
+    } else {
+      this.loadFromEnv();
+    }
+  }
+
+  /**
+   * Fetch proxy list from Infisical (fetch-use-discard pattern).
+   * Re-fetches fresh each call — never caches the SDK secret values.
+   */
+  private async loadFromInfisical(): Promise<void> {
+    const projectId = process.env.INFISICAL_PROJECT_ID!;
+    const environment = process.env.INFISICAL_ENV ?? "production";
+    const secretPath = process.env.INFISICAL_PROXY_SECRET_PATH ?? "/proxies";
+    const secretName = process.env.INFISICAL_PROXY_SECRET_NAME ?? "PROXY_RESIDENTIAL_ENDPOINT";
+
+    try {
+      const sdk = await this.getInfisicalClient();
+      const secret = await sdk.secrets().getSecret({
+        projectId,
+        environment,
+        secretPath,
+        secretName,
+      });
+
+      const value = secret.secretValue;
+      if (!value) {
+        console.warn("[ProxyManager] Infisical secret is empty, keeping existing proxies");
+        return;
+      }
+
+      const urls = value.split(",").map((u) => u.trim()).filter(Boolean);
+
+      // Preserve failure/burned state for proxies that still exist
+      const existingByUrl = new Map(this.proxies.map((p) => [p.url, p]));
+      this.proxies = urls.map((url) => {
+        const existing = existingByUrl.get(url);
+        return existing ?? { url, failures: 0, burned: false };
+      });
+
+      console.log(`[ProxyManager] loaded ${this.proxies.length} proxies from Infisical`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[ProxyManager] Infisical fetch failed: ${msg}`);
+
+      // On first load with no proxies, fall back to env var
+      if (this.proxies.length === 0) {
+        console.warn("[ProxyManager] falling back to PROXY_RESIDENTIAL_ENDPOINT env var");
+        this.loadFromEnv();
+      }
+    }
+  }
+
+  private async getInfisicalClient(): Promise<InfisicalSDK> {
+    if (this.infisicalClient) return this.infisicalClient;
+
+    this.infisicalClient = new InfisicalSDK({
+      siteUrl: process.env.INFISICAL_SITE_URL ?? "http://localhost:8080",
+    });
+
+    await this.infisicalClient.auth().universalAuth.login({
+      clientId: process.env.INFISICAL_CLIENT_ID!,
+      clientSecret: process.env.INFISICAL_CLIENT_SECRET!,
+    });
+
+    return this.infisicalClient;
+  }
+
+  /**
+   * Load proxy list from environment variable (local dev fallback).
    * Format: comma-separated proxy URLs.
    */
   loadFromEnv(): void {
@@ -31,7 +115,7 @@ export class ProxyManager {
     // Support comma-separated list or single rotating endpoint
     const urls = endpoint.split(",").map((u) => u.trim()).filter(Boolean);
     this.proxies = urls.map((url) => ({ url, failures: 0, burned: false }));
-    console.log(`[ProxyManager] loaded ${this.proxies.length} proxies`);
+    console.log(`[ProxyManager] loaded ${this.proxies.length} proxies from env`);
   }
 
   loadFromList(urls: string[]): void {
@@ -88,6 +172,16 @@ export class ProxyManager {
     if (entry.failures >= MAX_CONSECUTIVE_FAILURES) {
       entry.burned = true;
       console.warn(`[ProxyManager] proxy burned: ${proxyUrl}`);
+    }
+  }
+
+  /**
+   * Stop the periodic refresh timer.
+   */
+  stopRefresh(): void {
+    if (this.refreshTimer) {
+      clearInterval(this.refreshTimer);
+      this.refreshTimer = null;
     }
   }
 

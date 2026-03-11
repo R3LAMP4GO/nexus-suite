@@ -27,6 +27,14 @@ Full plan in `@ARCHITECTURE.md` — all decisions (1-10), implementation phases,
 - `npx prisma migrate dev` — run migrations
 - `npx prisma generate` — generate client
 
+## Wiring Notes
+- All new workers/handlers MUST call `checkLlmBudget()` before agent execution
+- All posting paths MUST call `canPost()` before `postContent()`
+- New agents MUST be added to `bootstrapAgents()` in `src/agents/registry.ts`
+- New queue payloads should reference canonical types in `src/server/services/queue-types.ts`
+- Warming service components must be wired through executor, not called directly
+- SSE events should be published from workers via `publishSSE()` for dashboard updates
+
 ## Shell Commands
 
 ### `speedrun` — Sequential feature pipeline

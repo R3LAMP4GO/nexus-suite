@@ -6,6 +6,7 @@ export enum JobType {
   AGENT_EXECUTE = "agent-execute",
   ANALYTICS_SYNC = "analytics-sync",
   WEBHOOK_DISPATCH = "webhook-dispatch",
+  WORKFLOW_RUN = "workflow:run",
 }
 
 export interface BaseJobData {

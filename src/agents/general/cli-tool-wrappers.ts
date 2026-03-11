@@ -1,6 +1,7 @@
 import { createTool } from "@mastra/core";
 import { z } from "zod";
 import { execPocketCli } from "@/server/modules/cli-bridge/cli-bridge.service";
+import { wrapToolHandler } from "./tool-wrappers";
 
 const MAX_LOG_SIZE = 2048;
 
@@ -35,43 +36,51 @@ export function wrapCliToolHandler(meta: CliToolMeta) {
     description: meta.description,
     inputSchema: meta.inputSchema,
     execute: async ({ context }): Promise<WrappedToolResult> => {
-      const start = performance.now();
+      const toolId = `pocket_${meta.domain}_${meta.service}_${meta.action}`;
+      const wrappedFn = wrapToolHandler(
+        async (inputArgs: Record<string, string>) => {
+          const start = performance.now();
+
+          console.log(
+            `[tool:${meta.domain}/${meta.service}/${meta.action}] input=${truncate(inputArgs)}`,
+          );
+
+          try {
+            const result = await execPocketCli(
+              meta.domain,
+              meta.service,
+              meta.action,
+              inputArgs,
+            );
+            const durationMs = Math.round(performance.now() - start);
+
+            console.log(
+              `[tool:${meta.domain}/${meta.service}/${meta.action}] ok duration=${durationMs}ms output=${truncate(result.data)}`,
+            );
+
+            return { success: true, data: result.data, durationMs } as WrappedToolResult;
+          } catch (err) {
+            const durationMs = Math.round(performance.now() - start);
+            const error =
+              err instanceof Error
+                ? { name: err.name, message: err.message, stack: err.stack }
+                : { name: "UnknownError", message: String(err) };
+
+            console.error(
+              `[tool:${meta.domain}/${meta.service}/${meta.action}] error duration=${durationMs}ms ${error.message}`,
+            );
+
+            return { success: false, data: null, durationMs, error } as WrappedToolResult;
+          }
+        },
+        { agentName: "cli-bridge", toolName: toolId },
+      );
+
       const inputArgs: Record<string, string> = {};
       for (const [k, v] of Object.entries(context as Record<string, unknown>)) {
         inputArgs[k] = String(v);
       }
-
-      console.log(
-        `[tool:${meta.domain}/${meta.service}/${meta.action}] input=${truncate(inputArgs)}`,
-      );
-
-      try {
-        const result = await execPocketCli(
-          meta.domain,
-          meta.service,
-          meta.action,
-          inputArgs,
-        );
-        const durationMs = Math.round(performance.now() - start);
-
-        console.log(
-          `[tool:${meta.domain}/${meta.service}/${meta.action}] ok duration=${durationMs}ms output=${truncate(result.data)}`,
-        );
-
-        return { success: true, data: result.data, durationMs };
-      } catch (err) {
-        const durationMs = Math.round(performance.now() - start);
-        const error =
-          err instanceof Error
-            ? { name: err.name, message: err.message, stack: err.stack }
-            : { name: "UnknownError", message: String(err) };
-
-        console.error(
-          `[tool:${meta.domain}/${meta.service}/${meta.action}] error duration=${durationMs}ms ${error.message}`,
-        );
-
-        return { success: false, data: null, durationMs, error };
-      }
+      return wrappedFn(inputArgs);
     },
   });
 }

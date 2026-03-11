@@ -7,6 +7,7 @@ import type { TransformConfig, TransformFragment } from "./transforms.js";
 
 const QUEUE_NAME = "media:task";
 
+// Keep in sync with src/shared/queue-types.ts (canonical MediaJobPayload)
 export interface MediaJob {
   type: "download" | "transform" | "audio-check";
   organizationId: string;
@@ -16,6 +17,7 @@ export interface MediaJob {
   transforms?: TransformConfig | TransformFragment;
 }
 
+// Keep in sync with src/shared/queue-types.ts (canonical MediaJobResult)
 export interface MediaJobResult {
   success: boolean;
   r2Key?: string;

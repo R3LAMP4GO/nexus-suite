@@ -1,4 +1,5 @@
 import { executeAgentDelegate } from "@/server/workflows/agent-delegate";
+import { checkLlmBudget } from "@/server/services/llm-budget";
 import { incCounter, observeHistogram } from "@/lib/metrics";
 import type { AgentExecuteJob } from "../types.js";
 import type PgBoss from "pg-boss";
@@ -9,6 +10,11 @@ export async function handleAgentExecute(
   const { agentId, input, organizationId } = job.data;
 
   console.log(`[agent-execute] running agent=${agentId} org=${organizationId} job=${job.id}`);
+
+  const budgetCheck = await checkLlmBudget(organizationId);
+  if (!budgetCheck.allowed) {
+    throw new Error(`LLM_BUDGET_EXCEEDED: ${budgetCheck.message}`);
+  }
 
   const prompt = typeof input.prompt === "string" ? input.prompt : JSON.stringify(input);
 

@@ -1,5 +1,6 @@
 import { workflowSchema, type WorkflowDefinition, type Step } from "./workflow-schema";
 import { parse as parseYaml } from "yaml";
+import { getRegisteredAgents, SPECIALIST_AGENTS, PLATFORM_SUBAGENTS } from "@/server/workflows/agent-delegate";
 
 export interface ValidationResult {
   valid: boolean;
@@ -101,6 +102,16 @@ export function validateWorkflow(raw: string | object): ValidationResult {
     if (step.type === "agent-delegate") {
       if (!step.prompt || step.prompt.trim().length === 0) {
         errors.push({ layer: "agent", path: step.id, message: "agent-delegate step requires non-empty prompt" });
+      }
+      // Verify agent name is known in at least one resolution source.
+      // This is a warning (not error) because client plugins can define custom
+      // agents resolved dynamically from disk at runtime.
+      const knownAgent =
+        getRegisteredAgents().has(step.agent) ||
+        SPECIALIST_AGENTS.has(step.agent) ||
+        PLATFORM_SUBAGENTS.has(step.agent);
+      if (!knownAgent) {
+        warnings.push(`Step "${step.id}": unknown agent "${step.agent}". Check agent name spelling or ensure a client plugin provides it.`);
       }
     }
   }

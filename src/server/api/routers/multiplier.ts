@@ -4,6 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { Platform, Prisma } from "@/generated/prisma/client";
 import { composeTransforms } from "../../../../services/media-engine/src/transforms";
 import { sendMediaJob } from "@/server/services/media-queue";
+import type { TransformFragment } from "@/server/services/media-types";
 import { incrementUsage } from "@/server/services/usage-tracking";
 
 async function assertMultiplierEnabled(ctx: { db: any; organizationId: string }) {
@@ -79,7 +80,7 @@ export const multiplierRouter = createTRPCRouter({
             type: "transform",
             organizationId: ctx.organizationId,
             sourceUrl: sourceVideo.url,
-            transforms: v.transforms as Record<string, unknown>,
+            transforms: v.transforms as unknown as TransformFragment,
             outputKey: `variations/${v.id}`,
           }),
         ),

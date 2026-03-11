@@ -4,8 +4,11 @@
 import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { wrapToolHandler } from "@/agents/general";
+import { wrapToolHandler, socialAnalyticsTool } from "@/agents/general";
 import { modelConfig } from "@/agents/platforms/model-config";
+import { prepareContext } from "../general/prepare-context";
+import { buildSystemPrompt } from "../general/prompts";
+import type { RawAgentContext } from "../general/types";
 
 const searchTrends = createTool({
   id: "tavilySearch",
@@ -95,9 +98,9 @@ const searchReddit = createTool({
   },
 });
 
-export const trendScoutAgent = new Agent({
-  name: "trend-scout",
-  instructions: `You are the Trend Scout specialist. Your role is to identify trending topics, viral patterns, and content opportunities across platforms.
+const AGENT_NAME = "trend-scout";
+
+const INSTRUCTIONS = `You are the Trend Scout specialist. Your role is to identify trending topics, viral patterns, and content opportunities across platforms.
 
 You can search for:
 - Trending hashtags and topics
@@ -105,7 +108,45 @@ You can search for:
 - Emerging niches and content gaps
 - Competitor content performance signals
 
-Return concise, actionable trend insights. Focus on timeliness and relevance to the creator's niche.`,
+Return concise, actionable trend insights. Focus on timeliness and relevance to the creator's niche.`;
+
+export const trendScoutAgent = new Agent({
+  name: AGENT_NAME,
+  instructions: INSTRUCTIONS,
   model: modelConfig.tier25,
-  tools: { searchTrends, searchTwitter, searchHackerNews, searchReddit },
+  tools: { searchTrends, searchTwitter, searchHackerNews, searchReddit, socialAnalyticsTool },
 });
+
+export async function generate(
+  prompt: string,
+  rawContext: RawAgentContext,
+  opts?: { model?: string; maxTokens?: number },
+) {
+  const ctx = prepareContext(AGENT_NAME, rawContext);
+  const systemPrompt = buildSystemPrompt(
+    INSTRUCTIONS,
+    ctx.brandVoice as string | undefined,
+    ctx.organizationId as string | undefined,
+  );
+
+  const result = await trendScoutAgent.generate(prompt, {
+    instructions: systemPrompt,
+    maxTokens: opts?.maxTokens,
+  });
+
+  return {
+    text: result.text,
+    usage: result.usage
+      ? {
+          promptTokens: result.usage.promptTokens,
+          completionTokens: result.usage.completionTokens,
+          model: opts?.model ?? "default",
+        }
+      : undefined,
+    toolCalls: result.toolCalls?.map((tc) => ({
+      name: tc.toolName,
+      args: tc.args as Record<string, unknown>,
+      result: undefined,
+    })),
+  };
+}

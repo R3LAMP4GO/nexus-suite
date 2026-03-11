@@ -1,7 +1,7 @@
 import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
-import { wrapToolHandler } from "@/agents/general";
+import { wrapToolHandler, socialAnalyticsTool } from "@/agents/general";
 import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
@@ -74,7 +74,7 @@ const hashtagOptimizerAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
   model: modelConfig.tier25,
-  tools: { getTrending, getHashtagAnalytics },
+  tools: { getTrending, getHashtagAnalytics, socialAnalyticsTool },
 });
 
 export async function generate(
@@ -86,6 +86,7 @@ export async function generate(
   const systemPrompt = buildSystemPrompt(
     INSTRUCTIONS,
     ctx.brandVoice as string | undefined,
+    ctx.organizationId as string | undefined,
   );
 
   const result = await hashtagOptimizerAgent.generate(prompt, {

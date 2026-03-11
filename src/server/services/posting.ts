@@ -15,6 +15,7 @@ import { uploadViaPlatform } from "./browser-posting";
 import { postYouTubeApi } from "./platform-apis/youtube";
 import { postTikTokApi } from "./platform-apis/tiktok";
 import { postXApi } from "./platform-apis/x";
+import { postLinkedInApi } from "./platform-apis/linkedin";
 import type { Platform, AccountType } from "@/generated/prisma/client";
 
 const INFISICAL_PROJECT_ID = process.env.INFISICAL_PROJECT_ID ?? "";
@@ -197,7 +198,7 @@ async function postViaApi(
     case "X":
       return postXApi(accessToken, variation);
     case "LINKEDIN":
-      return postLinkedInApi(variation);
+      return postLinkedInApi(accessToken, variation);
     default:
       return { success: false, errorMessage: `Unsupported platform: ${platform}` };
   }
@@ -294,12 +295,6 @@ async function postFacebookApi(account: AccountData, variation: VariationData): 
   }
 
   return { success: true, externalPostId: data.id };
-}
-
-async function postLinkedInApi(variation: VariationData): Promise<PostResult> {
-  // TODO: LinkedIn Marketing API — /ugcPosts with video upload
-  void variation;
-  return { success: false, errorMessage: "LinkedIn API posting not yet implemented" };
 }
 
 // ── Browser Posting (SECONDARY accounts) ──────────────────────

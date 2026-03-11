@@ -1,6 +1,9 @@
 import type PgBoss from "pg-boss";
 import { db } from "@/lib/db";
+import { incCounter } from "@/lib/metrics";
 import { postContent } from "@/server/services/posting";
+import { canPost } from "@/server/services/circuit-breaker";
+import { publishSSE } from "@/server/services/sse-broadcaster";
 import type { ContentPublishJob } from "../types.js";
 import type { Platform } from "@/generated/prisma/client";
 
@@ -50,6 +53,14 @@ export async function handleContentPublish(
 
   for (const account of accounts) {
     try {
+      const circuitCheck = await canPost(account.id);
+      if (!circuitCheck.allowed) {
+        console.warn(
+          `[content-publish] circuit breaker blocked account=${account.id} platform=${account.platform}`,
+        );
+        continue;
+      }
+
       const postRecord = await db.postRecord.create({
         data: {
           organizationId,
@@ -75,4 +86,7 @@ export async function handleContentPublish(
       );
     }
   }
+
+  incCounter("content_published_total", {}).catch(() => {});
+  await publishSSE(organizationId, "content:published", { contentId }).catch(() => {});
 }
