@@ -43,6 +43,8 @@ export async function handleWorkflowRun(
   }
 
   try {
+    // Ensure the workflow definition has the correct organizationId from the job
+    match.organizationId = organizationId;
     const result = await executeWorkflow(match);
     console.log(
       `[workflow-run] completed workflow="${workflowName}" org=${organizationId} job=${job.id} status=${result.status} durationMs=${result.durationMs}`,
