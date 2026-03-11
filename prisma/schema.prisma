@@ -1,12 +1,10 @@
 generator client {
-  provider        = "prisma-client"
-  output          = "../src/generated/prisma"
-  previewFeatures = ["postgresqlExtensions"]
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider   = "postgresql"
-  extensions = [pgvector(map: "vector"), pgcrypto]
+  provider = "postgresql"
 }
 
 // ── Enums ────────────────────────────────────────────────────────

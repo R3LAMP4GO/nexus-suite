@@ -21,6 +21,12 @@ export function loadBrandPrompt(organizationId: string): string | null {
 
   const filePath = join(CLIENTS_DIR, organizationId, "brand-prompt.md");
 
+  // Prevent path traversal — resolved path must stay within CLIENTS_DIR
+  if (!resolve(filePath).startsWith(CLIENTS_DIR)) {
+    brandPromptCache.set(organizationId, null);
+    return null;
+  }
+
   if (!existsSync(filePath)) {
     brandPromptCache.set(organizationId, null);
     return null;

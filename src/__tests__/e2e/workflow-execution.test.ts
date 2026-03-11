@@ -22,6 +22,27 @@ vi.mock("@/server/workflows/agent-delegate", () => ({
   getWorkflowContext: vi.fn(() => ({})),
 }));
 
+vi.mock("@/server/services/notifications", () => ({
+  sendScriptReadyEmail: vi.fn(async () => ({ success: true })),
+  sendVideoProcessedEmail: vi.fn(async () => ({ success: true })),
+  sendActivationEmail: vi.fn(async () => ({ success: true })),
+  sendWelcomeEmail: vi.fn(async () => ({ success: true })),
+}));
+
+vi.mock("@/server/services/llm-budget", () => ({
+  checkLlmBudget: vi.fn(async () => ({
+    allowed: true, spentCents: 0, budgetCents: 500, remainingCents: 500, percentUsed: 0,
+  })),
+}));
+
+vi.mock("@/server/services/usage-tracking", () => ({
+  incrementUsage: vi.fn(async () => ({ current: 1, limit: 50 })),
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: { workflowRunLog: { create: vi.fn() } },
+}));
+
 // Import after mocks
 const { validateWorkflow } = await import("@/server/workflows/validator");
 const { executeWorkflow } = await import("@/server/workflows/executor");

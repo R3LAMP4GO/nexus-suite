@@ -6,7 +6,7 @@ import {
 } from "./executor";
 import type { WorkflowDefinition } from "./workflow-schema";
 
-// Mock the agent-delegate and llm-budget modules
+// Mock the agent-delegate, llm-budget, and notifications modules
 vi.mock("./agent-delegate", () => ({
   executeAgentDelegate: vi.fn(async () => ({ result: "agent-output" })),
 }));
@@ -18,6 +18,21 @@ vi.mock("../services/llm-budget", () => ({
     budgetCents: 500,
     message: "OK",
   })),
+}));
+
+vi.mock("../services/notifications", () => ({
+  sendScriptReadyEmail: vi.fn(async () => ({ success: true })),
+  sendVideoProcessedEmail: vi.fn(async () => ({ success: true })),
+  sendActivationEmail: vi.fn(async () => ({ success: true })),
+  sendWelcomeEmail: vi.fn(async () => ({ success: true })),
+}));
+
+vi.mock("../services/usage-tracking", () => ({
+  incrementUsage: vi.fn(async () => ({ current: 1, limit: 50 })),
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: { workflowRunLog: { create: vi.fn(async () => ({})) } },
 }));
 
 function validWorkflow(overrides: Partial<WorkflowDefinition> = {}): WorkflowDefinition {

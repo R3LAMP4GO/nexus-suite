@@ -10,9 +10,11 @@ function handler(req: NextRequest) {
     router: appRouter,
     createContext: () => createTRPCContext(),
     onError({ path, error }) {
-      if (process.env.NODE_ENV === "development") {
-        console.error(`tRPC error on ${path ?? "<no-path>"}:`, error);
-      }
+      console.error(
+        `tRPC error on ${path ?? "<no-path>"}:`,
+        error.code,
+        error.message,
+      );
     },
   });
 }

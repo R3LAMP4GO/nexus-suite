@@ -3,8 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import crypto from "node:crypto";
-import { Redis } from "ioredis";
 import { db } from "@/lib/db";
+import { redis } from "@/lib/redis";
 import { fetchSecret } from "@/lib/infisical";
 import { incCounter, observeHistogram } from "@/lib/metrics";
 import { recordSuccess, recordFailure } from "./circuit-breaker";
@@ -16,8 +16,6 @@ import { postYouTubeApi } from "./platform-apis/youtube";
 import { postTikTokApi } from "./platform-apis/tiktok";
 import { postXApi } from "./platform-apis/x";
 import type { Platform, AccountType } from "@/generated/prisma/client";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
 
 const INFISICAL_PROJECT_ID = process.env.INFISICAL_PROJECT_ID ?? "";
 const INFISICAL_ENV = process.env.INFISICAL_ENV ?? "production";

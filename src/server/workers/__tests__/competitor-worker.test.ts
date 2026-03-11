@@ -17,6 +17,12 @@ vi.mock("pg-boss", () => ({
   },
 }));
 
+vi.mock("@/lib/pg-boss", () => ({
+  getBoss: vi.fn(async () => bossMock),
+  createBoss: vi.fn(() => bossMock),
+  stopBoss: vi.fn(),
+}));
+
 // ── Mock Prisma ─────────────────────────────────────────────────
 const dbMock = {
   trackedPost: {
@@ -86,10 +92,11 @@ describe("startCompetitorWorker", () => {
 });
 
 describe("stopCompetitorWorker", () => {
-  it("calls boss.stop", async () => {
-    await startCompetitorWorker(); // sets boss instance
+  it("is a no-op (pg-boss lifecycle managed by shared singleton)", async () => {
+    await startCompetitorWorker();
     await stopCompetitorWorker();
-    expect(bossMock.stop).toHaveBeenCalled();
+    // stopCompetitorWorker is a no-op — pg-boss lifecycle is managed by the shared singleton
+    expect(bossMock.stop).not.toHaveBeenCalled();
   });
 });
 

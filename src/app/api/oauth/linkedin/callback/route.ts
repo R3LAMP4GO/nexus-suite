@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
+import { validateOAuthState } from "../../_lib/oauth-state";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -15,8 +16,10 @@ export async function GET(req: NextRequest) {
   const stateParam = req.nextUrl.searchParams.get("state");
   const error = req.nextUrl.searchParams.get("error");
 
-  // Validate OAuth state parameter to prevent CSRF attacks
-  if (stateParam !== session.user.organizationId) {
+  // Validate OAuth state nonce to prevent CSRF attacks
+  try {
+    await validateOAuthState(stateParam);
+  } catch {
     return NextResponse.redirect(
       new URL("/dashboard/settings/connections?error=invalid_state", REDIRECT_BASE),
     );

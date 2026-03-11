@@ -88,9 +88,9 @@ describe("prepareContext", () => {
       brandVoice: "casual",
     };
     const result = prepareContext("hook-writer", rawContext);
-    expect(result).toEqual({ organizationId: "org_2" });
+    // hook-writer whitelist: ["organizationId", "input", "brandVoice"]
+    expect(result).toEqual({ organizationId: "org_2", brandVoice: "casual" });
     expect(result).not.toHaveProperty("userPrompt");
-    expect(result).not.toHaveProperty("brandVoice");
   });
 
   it("handles missing context keys gracefully", () => {

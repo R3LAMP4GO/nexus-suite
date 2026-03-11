@@ -1,6 +1,4 @@
-import { Redis } from "ioredis";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
+import { redis } from "@/lib/redis";
 
 const HEALTH_PREFIX = "session:health:";
 const STALE_THRESHOLD_DAYS = 7;

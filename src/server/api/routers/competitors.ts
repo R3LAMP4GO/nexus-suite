@@ -3,6 +3,7 @@ import { createTRPCRouter, onboardedProcedure } from "../trpc";
 import { TRPCError } from "@trpc/server";
 import { Platform } from "@/generated/prisma/client";
 import { getBoss } from "@/lib/pg-boss";
+import { handlePrismaError } from "@/lib/prisma-errors";
 
 const COMPETITOR_QUEUE = "competitor:task";
 
@@ -56,18 +57,22 @@ export const competitorsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { platform, username } = parseProfileUrl(input.profileUrl);
 
-      const creator = await ctx.db.trackedCreator.create({
-        data: {
-          organizationId: ctx.organizationId,
-          platform,
-          username,
-          profileUrl: input.profileUrl,
-        },
-      });
+      try {
+        const creator = await ctx.db.trackedCreator.create({
+          data: {
+            organizationId: ctx.organizationId,
+            platform,
+            username,
+            profileUrl: input.profileUrl,
+          },
+        });
 
-      // TODO: queue scraper-pool job for profile extraction (Chunk 3)
+        // TODO: queue scraper-pool job for profile extraction (Chunk 3)
 
-      return creator;
+        return creator;
+      } catch (e) {
+        throw handlePrismaError(e);
+      }
     }),
 
   listCreators: onboardedProcedure

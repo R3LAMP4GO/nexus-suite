@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { Redis } from "ioredis";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
+import { redis } from "@/lib/redis";
 
 export async function GET() {
   const checks: Record<string, "ok" | "fail"> = {};

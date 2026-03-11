@@ -4,6 +4,7 @@ import { ZodError } from "zod";
 import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { checkUsageLimit } from "@/server/services/usage-tracking";
+import { checkRateLimit, MUTATION_LIMIT } from "@/lib/rate-limit";
 
 // ── Context ──────────────────────────────────────────────────────
 
@@ -70,8 +71,6 @@ const enforceAuth = t.middleware(async ({ ctx, next }) => {
   });
 });
 
-export const authedProcedure = t.procedure.use(enforceAuth);
-
 // Enriched context after enforceAuth
 type AuthedContext = {
   session: NonNullable<Context["session"]>;
@@ -83,6 +82,26 @@ type AuthedContext = {
   role?: string;
   features?: NonNullable<Context["session"]>["user"]["features"];
 };
+
+// ── Rate Limit Middleware ────────────────────────────────────────
+// Applied to authed mutations to prevent abuse (60 req/min per user)
+
+const enforceRateLimit = t.middleware(async ({ ctx, type, next }) => {
+  if (type === "mutation") {
+    const c = ctx as unknown as AuthedContext;
+    const key = `user:${c.userId ?? "anon"}`;
+    const result = await checkRateLimit(key, MUTATION_LIMIT);
+    if (!result.allowed) {
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: "Too many requests. Please slow down.",
+      });
+    }
+  }
+  return next({ ctx });
+});
+
+export const authedProcedure = t.procedure.use(enforceAuth).use(enforceRateLimit);
 
 // ── Layer 3: Subscribed Procedure ────────────────────────────────
 // Requires ACTIVE or PAUSED subscription — blocks PAST_DUE, CANCELED, etc.

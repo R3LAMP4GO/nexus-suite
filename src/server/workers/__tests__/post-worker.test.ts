@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, beforeEach } from "vitest";
 
-// ── Mock pg-boss ────────────────────────────────────────────────
+// ── Mock pg-boss (mock the wrapper, not the library) ────────────
 const bossMock = {
   start: vi.fn(),
   work: vi.fn(),
@@ -13,6 +13,12 @@ vi.mock("pg-boss", () => ({
     work = bossMock.work;
     stop = bossMock.stop;
   },
+}));
+
+vi.mock("@/lib/pg-boss", () => ({
+  getBoss: vi.fn(async () => bossMock),
+  createBoss: vi.fn(() => bossMock),
+  stopBoss: vi.fn(),
 }));
 
 // ── Mock Prisma ─────────────────────────────────────────────────
@@ -42,11 +48,11 @@ beforeEach(() => {
 });
 
 describe("startPostWorker", () => {
-  it("registers with batchSize 2", async () => {
+  it("registers with batchSize 1", async () => {
     await startPostWorker();
     expect(bossMock.work).toHaveBeenCalledWith(
       "post:task",
-      { batchSize: 2 },
+      { batchSize: 1 },
       expect.any(Function),
     );
   });

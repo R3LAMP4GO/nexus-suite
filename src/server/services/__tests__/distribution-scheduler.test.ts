@@ -18,6 +18,12 @@ vi.mock("pg-boss", () => ({
   },
 }));
 
+vi.mock("@/lib/pg-boss", () => ({
+  getBoss: vi.fn(async () => bossMock),
+  createBoss: vi.fn(() => bossMock),
+  stopBoss: vi.fn(),
+}));
+
 // ── Mock Prisma ─────────────────────────────────────────────────
 const dbMock = {
   organization: { findUnique: vi.fn() },

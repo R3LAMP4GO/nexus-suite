@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/server/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
+import { checkRateLimit, AUTH_LIMIT, OAUTH_LIMIT, WEBHOOK_LIMIT } from "@/lib/rate-limit";
 
 const { auth } = NextAuth(authConfig);
 
@@ -13,9 +14,38 @@ const ONBOARDING_FLOW_ROUTES = ["/onboarding", "/provisioning", "/pricing"];
 // Routes only accessible to admins via admin UI (no redirect guards needed)
 const ADMIN_ROUTES = ["/admin"];
 
-export default auth((req) => {
+// ── Rate-limited route patterns ─────────────────────────────────
+const RATE_LIMITED_ROUTES: Array<{ prefix: string; config: typeof AUTH_LIMIT }> = [
+  { prefix: "/api/auth", config: AUTH_LIMIT },
+  { prefix: "/api/oauth", config: OAUTH_LIMIT },
+  { prefix: "/api/webhooks", config: WEBHOOK_LIMIT },
+];
+
+export default auth(async (req) => {
   const nextReq = req as unknown as NextRequest;
   const { pathname } = nextReq.nextUrl;
+
+  // ── IP-based rate limiting for sensitive endpoints ──────────────
+  const rateLimitRoute = RATE_LIMITED_ROUTES.find((r) => pathname.startsWith(r.prefix));
+  if (rateLimitRoute) {
+    const ip = nextReq.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    try {
+      const result = await checkRateLimit(`ip:${ip}:${rateLimitRoute.prefix}`, rateLimitRoute.config);
+      if (!result.allowed) {
+        return NextResponse.json(
+          { error: "Too many requests. Please try again later." },
+          {
+            status: 429,
+            headers: {
+              "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)),
+            },
+          },
+        );
+      }
+    } catch {
+      // Redis down — fail open to avoid blocking all requests
+    }
+  }
   const session = req.auth;
 
   // Allow public routes

@@ -17,6 +17,21 @@ vi.mock("@/server/services/llm-budget", () => ({
   })),
 }));
 
+vi.mock("@/server/services/notifications", () => ({
+  sendScriptReadyEmail: vi.fn(async () => ({ success: true })),
+  sendVideoProcessedEmail: vi.fn(async () => ({ success: true })),
+  sendActivationEmail: vi.fn(async () => ({ success: true })),
+  sendWelcomeEmail: vi.fn(async () => ({ success: true })),
+}));
+
+vi.mock("@/server/services/usage-tracking", () => ({
+  incrementUsage: vi.fn(async () => ({ current: 1, limit: 50 })),
+}));
+
+vi.mock("@/lib/db", () => ({
+  db: { workflowRunLog: { create: vi.fn(async () => ({})) } },
+}));
+
 const { executeWorkflow, registerAction } = await import(
   "@/server/workflows/executor"
 );

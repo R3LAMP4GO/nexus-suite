@@ -1,11 +1,14 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/server/auth/config";
+import { generateOAuthState } from "../_lib/oauth-state";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
   if (!session?.user?.organizationId) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
+
+  const state = await generateOAuthState(session.user.organizationId);
 
   const params = new URLSearchParams({
     client_id: process.env.YOUTUBE_OAUTH_CLIENT_ID ?? "",
@@ -14,7 +17,7 @@ export async function GET(_req: NextRequest) {
     scope: "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube",
     access_type: "offline",
     prompt: "consent",
-    state: session.user.organizationId,
+    state,
   });
 
   return NextResponse.redirect(

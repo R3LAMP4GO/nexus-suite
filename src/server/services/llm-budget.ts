@@ -1,7 +1,5 @@
-import { Redis } from "ioredis";
 import { db } from "@/lib/db";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
+import { redis } from "@/lib/redis";
 
 // ── Per-Model Pricing (cents per 1M tokens) ──────────────────────
 // In-memory constant — no need for Redis since pricing is static.

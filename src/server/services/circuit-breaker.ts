@@ -1,7 +1,5 @@
-import { Redis } from "ioredis";
 import { db } from "@/lib/db";
-
-const redis = new Redis(process.env.REDIS_URL ?? "redis://localhost:6379/0");
+import { redis } from "@/lib/redis";
 
 // ── Constants ────────────────────────────────────────────────────
 const FAILURE_THRESHOLD = 3;
