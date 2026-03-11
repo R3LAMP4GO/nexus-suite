@@ -181,6 +181,10 @@ export const competitorsRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Post not found" });
       }
 
+      if (!post.url) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Post has no URL — cannot analyze" });
+      }
+
       const b = await getBoss();
       await b.send(COMPETITOR_QUEUE, {
         jobType: "analyze" as const,
@@ -204,6 +208,10 @@ export const competitorsRouter = createTRPCRouter({
 
       if (!post) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Post not found" });
+      }
+
+      if (!post.url) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Post has no URL — cannot reproduce" });
       }
 
       const b = await getBoss();

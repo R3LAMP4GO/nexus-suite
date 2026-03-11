@@ -10,7 +10,7 @@ const boss = createBoss();
 async function start(): Promise<void> {
   console.log("[worker] starting pg-boss...");
   await boss.start();
-  registerJobHandlers(boss);
+  await registerJobHandlers(boss);
 
   console.log("[worker] starting competitor worker...");
   await startCompetitorWorker();

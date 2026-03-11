@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const tokens = await db.orgPlatformToken.findMany({
+      take: 1000,
       select: {
         organizationId: true,
         platform: true,
@@ -55,7 +56,15 @@ export async function GET(req: NextRequest) {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const pattern = `llm:spend:*:${today}`;
-    const keys = await redis.keys(pattern);
+
+    // Use SCAN instead of KEYS to avoid blocking Redis
+    const keys: string[] = [];
+    const stream = redis.scanStream({ match: pattern, count: 100 });
+    await new Promise<void>((resolve, reject) => {
+      stream.on("data", (batch: string[]) => keys.push(...batch));
+      stream.on("end", resolve);
+      stream.on("error", reject);
+    });
 
     lines.push("# HELP llm_spend_cents Daily LLM spend in cents per org");
     lines.push("# TYPE llm_spend_cents gauge");

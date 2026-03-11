@@ -22,7 +22,7 @@ export async function startPostWorker(): Promise<void> {
 
   await b.work<PostTaskPayload>(
     QUEUE_NAME,
-    { batchSize: 2 },
+    { batchSize: 1 },
     async ([job]) => {
       const { orgId, accountId, variationId, platform, postRecordId } = job.data;
 

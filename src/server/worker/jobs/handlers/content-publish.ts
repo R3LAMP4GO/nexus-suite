@@ -49,23 +49,30 @@ export async function handleContentPublish(
   const variation = sourceVideo.variations[0]!;
 
   for (const account of accounts) {
-    const postRecord = await db.postRecord.create({
-      data: {
-        organizationId,
-        accountId: account.id,
-        variationId: variation.id,
-        platform: account.platform,
-        scheduledAt: new Date(),
-        status: "SCHEDULED",
-      },
-    });
+    try {
+      const postRecord = await db.postRecord.create({
+        data: {
+          organizationId,
+          accountId: account.id,
+          variationId: variation.id,
+          platform: account.platform,
+          scheduledAt: new Date(),
+          status: "SCHEDULED",
+        },
+      });
 
-    await postContent(
-      organizationId,
-      account.id,
-      variation.id,
-      account.platform,
-      postRecord.id,
-    );
+      await postContent(
+        organizationId,
+        account.id,
+        variation.id,
+        account.platform,
+        postRecord.id,
+      );
+    } catch (err) {
+      console.error(
+        `[content-publish] failed for account=${account.id} platform=${account.platform}:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
   }
 }

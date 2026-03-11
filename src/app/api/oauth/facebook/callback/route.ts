@@ -12,7 +12,15 @@ export async function GET(req: NextRequest) {
   }
 
   const code = req.nextUrl.searchParams.get("code");
+  const stateParam = req.nextUrl.searchParams.get("state");
   const error = req.nextUrl.searchParams.get("error");
+
+  // Validate OAuth state parameter to prevent CSRF attacks
+  if (stateParam !== session.user.organizationId) {
+    return NextResponse.redirect(
+      new URL("/dashboard/settings/connections?error=invalid_state", REDIRECT_BASE),
+    );
+  }
 
   if (error || !code) {
     return NextResponse.redirect(

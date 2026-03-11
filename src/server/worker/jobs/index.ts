@@ -29,9 +29,9 @@ async function instrumentedWork<T>(
   }
 }
 
-export function registerJobHandlers(boss: PgBoss): void {
+export async function registerJobHandlers(boss: PgBoss): Promise<void> {
   // CONTENT_PUBLISH — immediate publish to platforms
-  boss.work<ContentPublishJob>(JobType.CONTENT_PUBLISH, async (jobs) => {
+  await boss.work<ContentPublishJob>(JobType.CONTENT_PUBLISH, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.CONTENT_PUBLISH} job=${job.id}`);
       await instrumentedWork(JobType.CONTENT_PUBLISH, () => handleContentPublish(job));
@@ -39,7 +39,7 @@ export function registerJobHandlers(boss: PgBoss): void {
   });
 
   // CONTENT_SCHEDULE — create PostRecord + enqueue delayed post:task
-  boss.work<ContentScheduleJob>(JobType.CONTENT_SCHEDULE, async (jobs) => {
+  await boss.work<ContentScheduleJob>(JobType.CONTENT_SCHEDULE, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.CONTENT_SCHEDULE} job=${job.id}`);
       await instrumentedWork(JobType.CONTENT_SCHEDULE, () => handleContentSchedule(boss, job));
@@ -47,7 +47,7 @@ export function registerJobHandlers(boss: PgBoss): void {
   });
 
   // SCRAPER_RUN — forward to scrape:task queue for scraper-pool consumer
-  boss.work<ScraperRunJob>(JobType.SCRAPER_RUN, async (jobs) => {
+  await boss.work<ScraperRunJob>(JobType.SCRAPER_RUN, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.SCRAPER_RUN} job=${job.id}`);
       await instrumentedWork(JobType.SCRAPER_RUN, () => handleScraperRun(boss, job));
@@ -55,7 +55,7 @@ export function registerJobHandlers(boss: PgBoss): void {
   });
 
   // AGENT_EXECUTE — resolve agent from registry + execute
-  boss.work<AgentExecuteJob>(JobType.AGENT_EXECUTE, async (jobs) => {
+  await boss.work<AgentExecuteJob>(JobType.AGENT_EXECUTE, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.AGENT_EXECUTE} job=${job.id}`);
       await instrumentedWork(JobType.AGENT_EXECUTE, () => handleAgentExecute(job));
@@ -63,7 +63,7 @@ export function registerJobHandlers(boss: PgBoss): void {
   });
 
   // ANALYTICS_SYNC — fetch platform metrics
-  boss.work<AnalyticsSyncJob>(JobType.ANALYTICS_SYNC, async (jobs) => {
+  await boss.work<AnalyticsSyncJob>(JobType.ANALYTICS_SYNC, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.ANALYTICS_SYNC} job=${job.id}`);
       await instrumentedWork(JobType.ANALYTICS_SYNC, () => handleAnalyticsSync(job));
@@ -71,7 +71,7 @@ export function registerJobHandlers(boss: PgBoss): void {
   });
 
   // WEBHOOK_DISPATCH — POST payload with exponential backoff
-  boss.work<WebhookDispatchJob>(JobType.WEBHOOK_DISPATCH, async (jobs) => {
+  await boss.work<WebhookDispatchJob>(JobType.WEBHOOK_DISPATCH, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.WEBHOOK_DISPATCH} job=${job.id}`);
       await instrumentedWork(JobType.WEBHOOK_DISPATCH, () => handleWebhookDispatch(job));
@@ -79,7 +79,7 @@ export function registerJobHandlers(boss: PgBoss): void {
   });
 
   // MEDIA_PROCESS — stub, not in scope for this feature
-  boss.work<JobData>(JobType.MEDIA_PROCESS, async (jobs) => {
+  await boss.work<JobData>(JobType.MEDIA_PROCESS, async (jobs) => {
     for (const job of jobs) {
       console.log(`[worker] processing ${JobType.MEDIA_PROCESS} job=${job.id}`);
       await instrumentedWork(JobType.MEDIA_PROCESS, () => Promise.resolve());

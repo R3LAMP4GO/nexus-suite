@@ -50,7 +50,7 @@ export const uploadRouter = createTRPCRouter({
               transforms: transforms as unknown as Prisma.InputJsonValue,
               fileHash: "",
               pHash: "",
-              status: "PENDING",
+              status: "pending",
             },
           });
         }),

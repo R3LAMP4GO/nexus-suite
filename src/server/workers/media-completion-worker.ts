@@ -39,14 +39,14 @@ export async function startMediaCompletionWorker(): Promise<void> {
 
       const total = sourceVideo.variations.length;
       const completed = sourceVideo.variations.filter(
-        (v) => v.status === "COMPLETED" || v.status === "FAILED",
+        (v) => v.status === "ready" || v.status === "failed",
       ).length;
 
       // Not all done yet — wait for more completions
       if (completed < total) return;
 
       const succeeded = sourceVideo.variations.filter(
-        (v) => v.status === "COMPLETED",
+        (v) => v.status === "ready",
       ).length;
 
       // Only notify if at least one variation succeeded

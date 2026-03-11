@@ -144,15 +144,22 @@ export const adminRouter = createTRPCRouter({
     )
     .query(async ({ ctx, input }) => {
       const { cursor, limit = 50, search } = input ?? {};
+      const callerOrgId = ctx.session!.user.organizationId;
+
+      // Scope to users who have a membership in the caller's org
+      const baseFilter = callerOrgId
+        ? { memberships: { some: { organizationId: callerOrgId } } }
+        : {};
 
       const where = search
         ? {
+            ...baseFilter,
             OR: [
               { name: { contains: search, mode: "insensitive" as const } },
               { email: { contains: search, mode: "insensitive" as const } },
             ],
           }
-        : {};
+        : baseFilter;
 
       const users = await ctx.db.user.findMany({
         where,
@@ -166,6 +173,8 @@ export const adminRouter = createTRPCRouter({
           image: true,
           createdAt: true,
           memberships: {
+            // Only return memberships for the caller's org
+            where: callerOrgId ? { organizationId: callerOrgId } : undefined,
             select: {
               id: true,
               role: true,
@@ -216,6 +225,11 @@ export const adminRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND", message: "Membership not found" });
       }
 
+      // Ensure the caller can only modify memberships within their own org
+      if (membership.organizationId !== ctx.session!.user.organizationId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot modify memberships outside your organization" });
+      }
+
       await ctx.db.orgMember.update({
         where: { id: input.membershipId },
         data: { role: input.role },
@@ -232,19 +246,24 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const user = await ctx.db.user.findUnique({
-        where: { id: input.userId },
-        include: { memberships: true },
+      const callerOrgId = ctx.session!.user.organizationId;
+      if (!callerOrgId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No organization context" });
+      }
+
+      // Verify the target user belongs to the caller's org
+      const membership = await ctx.db.orgMember.findFirst({
+        where: { userId: input.userId, organizationId: callerOrgId },
       });
 
-      if (!user) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
+      if (!membership) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "User not found in your organization" });
       }
 
       if (input.action === "SUSPEND") {
-        // Remove all memberships → effectively removes access
+        // Remove membership from the caller's org only — not all orgs
         await ctx.db.orgMember.deleteMany({
-          where: { userId: input.userId },
+          where: { userId: input.userId, organizationId: callerOrgId },
         });
         // Delete active sessions to force immediate logout
         await ctx.db.session.deleteMany({
@@ -264,11 +283,16 @@ export const adminRouter = createTRPCRouter({
       z.object({
         email: z.string().email(),
         name: z.string().optional(),
-        organizationId: z.string().optional(),
         role: z.enum(["OWNER", "ADMIN", "MEMBER"]).default("MEMBER"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Always invite into the caller's org — never allow arbitrary org targeting
+      const callerOrgId = ctx.session!.user.organizationId;
+      if (!callerOrgId) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "No organization context" });
+      }
+
       // Check if user already exists
       const existing = await ctx.db.user.findUnique({
         where: { email: input.email },
@@ -289,22 +313,14 @@ export const adminRouter = createTRPCRouter({
         },
       });
 
-      // Optionally add them to an org immediately
-      if (input.organizationId) {
-        const org = await ctx.db.organization.findUnique({
-          where: { id: input.organizationId },
-        });
-        if (!org) {
-          throw new TRPCError({ code: "NOT_FOUND", message: "Organization not found" });
-        }
-        await ctx.db.orgMember.create({
-          data: {
-            userId: user.id,
-            organizationId: input.organizationId,
-            role: input.role,
-          },
-        });
-      }
+      // Add them to the caller's org
+      await ctx.db.orgMember.create({
+        data: {
+          userId: user.id,
+          organizationId: callerOrgId,
+          role: input.role,
+        },
+      });
 
       return { success: true, userId: user.id, email: input.email };
     }),

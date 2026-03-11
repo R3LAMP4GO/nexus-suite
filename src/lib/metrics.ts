@@ -27,7 +27,13 @@ export async function getCounter(
   name: string,
 ): Promise<{ labels: Record<string, string>; value: number }[]> {
   const pattern = `${PREFIX}counter:${name}:*`;
-  const keys = await redis.keys(pattern);
+  const keys: string[] = [];
+  const stream = redis.scanStream({ match: pattern, count: 100 });
+  await new Promise<void>((resolve, reject) => {
+    stream.on("data", (batch: string[]) => keys.push(...batch));
+    stream.on("end", resolve);
+    stream.on("error", reject);
+  });
   if (keys.length === 0) return [];
 
   const values = await redis.mget(...keys);
@@ -75,7 +81,13 @@ export async function getHistogram(
   name: string,
 ): Promise<{ labels: Record<string, string>; buckets: Record<string, number>; count: number; sum: number }[]> {
   const pattern = `${PREFIX}histogram:${name}:*`;
-  const keys = await redis.keys(pattern);
+  const keys: string[] = [];
+  const stream = redis.scanStream({ match: pattern, count: 100 });
+  await new Promise<void>((resolve, reject) => {
+    stream.on("data", (batch: string[]) => keys.push(...batch));
+    stream.on("end", resolve);
+    stream.on("error", reject);
+  });
   if (keys.length === 0) return [];
 
   const results = [];
