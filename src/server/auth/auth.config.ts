@@ -18,5 +18,20 @@ export const authConfig = {
     authorized({ auth, request: { nextUrl } }) {
       return true; // Let middleware.ts handle route logic
     },
+    // Forward custom JWT fields to session so middleware can read them.
+    // The full config (config.ts) overrides this with its own richer session callback.
+    jwt({ token }) {
+      return token;
+    },
+    session({ session, token }) {
+      if (token) {
+        session.user.id = token.id as string;
+        session.user.onboardingStatus = token.onboardingStatus as string | undefined;
+        session.user.subscriptionStatus = token.subscriptionStatus as string | undefined;
+        session.user.organizationId = token.organizationId as string | undefined;
+        (session as Record<string, unknown>).hasOrg = token.hasOrg;
+      }
+      return session;
+    },
   },
 } satisfies NextAuthConfig;

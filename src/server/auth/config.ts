@@ -16,7 +16,44 @@ const devCredentials =
           async authorize(credentials) {
             const email = credentials?.email as string;
             if (!email) return null;
-            const user = await db.user.findUnique({ where: { email } });
+
+            // Find or bootstrap dev user + org
+            let user = await db.user.findUnique({ where: { email } });
+            if (!user) {
+              user = await db.user.create({
+                data: {
+                  email,
+                  name: "Dev Admin",
+                  emailVerified: new Date(),
+                },
+              });
+
+              // Bootstrap org + membership so session callback works
+              const org = await db.organization.create({
+                data: {
+                  name: "Dev Organization",
+                  slug: "dev-org",
+                  subscriptionStatus: "ACTIVE",
+                  onboardingStatus: "ACTIVE",
+                  pricingTier: "MULTIPLIER",
+                  maxAccounts: 50,
+                  maxWorkflowRuns: 1000,
+                  maxVideosPerMonth: 500,
+                  mlFeaturesEnabled: true,
+                  multiplierEnabled: true,
+                  dailyLlmBudgetCents: 5000,
+                },
+              });
+
+              await db.orgMember.create({
+                data: {
+                  organizationId: org.id,
+                  userId: user.id,
+                  role: "OWNER",
+                },
+              });
+            }
+
             return user;
           },
         }),
@@ -25,7 +62,8 @@ const devCredentials =
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  adapter: PrismaAdapter(db),
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma 7 client type doesn't match @auth/prisma-adapter's expected PrismaClient shape
+  adapter: PrismaAdapter(db as any),
   session: { strategy: "jwt" },
   providers: [
     ...authConfig.providers,
