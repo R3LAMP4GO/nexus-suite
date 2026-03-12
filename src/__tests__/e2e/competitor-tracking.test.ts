@@ -9,22 +9,25 @@
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type R = Record<string, any>;
+
 // ── Mock DB ─────────────────────────────────────────────────────
-const creators = new Map<string, Record<string, unknown>>();
-const posts = new Map<string, Record<string, unknown>[]>();
-const snapshots: Record<string, unknown>[] = [];
+const creators = new Map<string, R>();
+const posts = new Map<string, R[]>();
+const snapshots: R[] = [];
 
 const mockDb = {
   trackedCreator: {
     findMany: vi.fn(async () => Array.from(creators.values())),
     findUnique: vi.fn(async ({ where }: { where: { id: string } }) => creators.get(where.id) ?? null),
-    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+    create: vi.fn(async ({ data }: { data: R }): Promise<R> => {
       const id = `creator_${creators.size + 1}`;
-      const record = { id, ...data };
+      const record: R = { id, ...data };
       creators.set(id, record);
       return record;
     }),
-    update: vi.fn(async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
+    update: vi.fn(async ({ where, data }: { where: { id: string }; data: R }) => {
       const existing = creators.get(where.id);
       if (existing) Object.assign(existing, data);
       return existing;
@@ -34,9 +37,9 @@ const mockDb = {
     findMany: vi.fn(async ({ where }: { where: { creatorId: string } }) =>
       posts.get(where.creatorId) ?? [],
     ),
-    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+    create: vi.fn(async ({ data }: { data: R }): Promise<R> => {
       const id = `post_${Math.random().toString(36).slice(2, 8)}`;
-      const record = { id, ...data };
+      const record: R = { id, ...data };
       const creatorPosts = posts.get(data.creatorId as string) ?? [];
       creatorPosts.push(record);
       posts.set(data.creatorId as string, creatorPosts);
@@ -45,8 +48,8 @@ const mockDb = {
     update: vi.fn(),
   },
   postSnapshot: {
-    create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
-      const record = { id: `snap_${snapshots.length + 1}`, ...data };
+    create: vi.fn(async ({ data }: { data: R }): Promise<R> => {
+      const record: R = { id: `snap_${snapshots.length + 1}`, ...data };
       snapshots.push(record);
       return record;
     }),

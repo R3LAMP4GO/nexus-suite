@@ -22,7 +22,6 @@ import { incrementUsage } from "../services/usage-tracking";
 import { sendScriptReadyEmail } from "../services/notifications";
 import { publishSSE } from "../services/sse-broadcaster";
 import { db } from "@/lib/db";
-import { randomUUID } from "crypto";
 import { loadBrandPrompt } from "@/agents/general/brand-loader";
 import { validateAgentOutput, buildRetryPrompt } from "@/agents/general/validate-output";
 
@@ -69,8 +68,21 @@ export async function executeWorkflow(
     );
   }
 
-  const runId = randomUUID();
   const startedAt = new Date();
+
+  // Create WorkflowRun record in DB
+  const workflowRun = await db.workflowRun.create({
+    data: {
+      workflowName: workflow.name,
+      organizationId: workflow.organizationId,
+      status: "RUNNING",
+      triggeredBy: (inputData?.triggeredBy as string) ?? "system",
+      startedAt,
+      metadata: inputData ? (inputData as unknown as any) : undefined,
+    },
+  });
+
+  const runId = workflowRun.id;
 
   // Load brand voice from client plugin directory (if exists)
   const brandVoice = loadBrandPrompt(workflow.organizationId);
@@ -101,7 +113,7 @@ export async function executeWorkflow(
 
       if (wave.length === 1) {
         // Single step — execute sequentially
-        const result = await executeStep(wave[0], context);
+        const result = await executeStepWithLog(wave[0], context, runId);
         if (Array.isArray(result)) {
           allResults.push(...result);
         } else {
@@ -113,7 +125,7 @@ export async function executeWorkflow(
         }
       } else {
         // Multiple steps with no inter-dependencies — execute in parallel
-        const promises = wave.map((step) => executeStep(step, context));
+        const promises = wave.map((step) => executeStepWithLog(step, context, runId));
         const settled = await Promise.allSettled(promises);
 
         for (let i = 0; i < settled.length; i++) {
@@ -141,10 +153,35 @@ export async function executeWorkflow(
     }
   } catch (err) {
     const completedAt = new Date();
+    const durationMs = completedAt.getTime() - startedAt.getTime();
+
+    // Update WorkflowRun as FAILED
+    await db.workflowRun.update({
+      where: { id: runId },
+      data: { status: "FAILED", completedAt, durationMs, error: String(err), variables: context.variables as any },
+    }).catch((e) => console.error("[WorkflowRun] Failed to update run:", e));
+
     await publishSSE(workflow.organizationId, "workflow:complete", {
       workflowName: workflow.name,
       status: "failed",
     }).catch(() => {});
+
+    // Legacy log
+    await db.workflowRunLog.create({
+      data: {
+        organizationId: workflow.organizationId,
+        runId,
+        workflowName: workflow.name,
+        status: "failed",
+        startedAt,
+        completedAt,
+        durationMs,
+        error: String(err),
+        steps: allResults as unknown as any,
+        variables: context.variables as unknown as any,
+      },
+    }).catch((e) => console.error("[WorkflowRunLog] Failed to persist run log:", e));
+
     return {
       runId,
       workflowName: workflow.name,
@@ -154,7 +191,7 @@ export async function executeWorkflow(
       variables: context.variables,
       startedAt,
       completedAt,
-      durationMs: completedAt.getTime() - startedAt.getTime(),
+      durationMs,
       error: String(err),
     };
   }
@@ -162,6 +199,20 @@ export async function executeWorkflow(
   const completedAt = new Date();
   const hasErrors = allResults.some((r) => r.status === "error");
   const finalStatus = context.aborted ? "aborted" : hasErrors ? "failed" : "completed";
+  const durationMs = completedAt.getTime() - startedAt.getTime();
+
+  // Update WorkflowRun with final status
+  const dbStatus = finalStatus === "aborted" ? "CANCELLED" : finalStatus === "failed" ? "FAILED" : "COMPLETED";
+  await db.workflowRun.update({
+    where: { id: runId },
+    data: {
+      status: dbStatus,
+      completedAt,
+      durationMs,
+      error: context.abortReason ?? null,
+      variables: context.variables as any,
+    },
+  }).catch((e) => console.error("[WorkflowRun] Failed to update run:", e));
 
   await publishSSE(workflow.organizationId, "workflow:complete", {
     workflowName: workflow.name,
@@ -181,11 +232,11 @@ export async function executeWorkflow(
     variables: context.variables,
     startedAt,
     completedAt,
-    durationMs: completedAt.getTime() - startedAt.getTime(),
+    durationMs,
     error: context.abortReason,
   };
 
-  // Persist to WorkflowRunLog for observability
+  // Persist to legacy WorkflowRunLog for backwards compatibility
   await db.workflowRunLog.create({
     data: {
       organizationId: workflow.organizationId,
@@ -202,6 +253,66 @@ export async function executeWorkflow(
   }).catch((err) => {
     console.error("[WorkflowRunLog] Failed to persist run log:", err);
   });
+
+  return result;
+}
+
+// ── Step Logger Wrapper ──────────────────────────────────────────
+
+async function executeStepWithLog(
+  step: Step,
+  context: WorkflowContext,
+  runId: string,
+): Promise<StepResult | StepResult[]> {
+  const stepStartedAt = new Date();
+
+  // Create step log record as RUNNING
+  const stepLog = await db.workflowStepLog.create({
+    data: {
+      runId,
+      stepName: step.id,
+      stepType: step.type,
+      agentId: step.type === "agent-delegate" ? (step as AgentDelegateStep).agent : null,
+      status: "RUNNING",
+      input: step.type === "action"
+        ? ((step as ActionStep).params as unknown as any ?? undefined)
+        : step.type === "agent-delegate"
+          ? ({ prompt: (step as AgentDelegateStep).prompt } as any)
+          : undefined,
+      startedAt: stepStartedAt,
+    },
+  }).catch((err) => {
+    console.error("[WorkflowStepLog] Failed to create step log:", err);
+    return null;
+  });
+
+  // Execute the actual step
+  const result = await executeStep(step, context);
+
+  // Determine final status and extract data from result
+  const completedAt = new Date();
+  const primaryResult = Array.isArray(result) ? result[0] : result;
+  const stepStatus = primaryResult?.status === "success" ? "COMPLETED"
+    : primaryResult?.status === "skipped" ? "SKIPPED"
+    : "FAILED";
+
+  // Update step log with outcome
+  if (stepLog) {
+    await db.workflowStepLog.update({
+      where: { id: stepLog.id },
+      data: {
+        status: stepStatus,
+        output: primaryResult?.output !== undefined
+          ? (primaryResult.output as unknown as any)
+          : undefined,
+        error: primaryResult?.error ?? null,
+        durationMs: primaryResult?.durationMs ?? (completedAt.getTime() - stepStartedAt.getTime()),
+        completedAt,
+      },
+    }).catch((err) => {
+      console.error("[WorkflowStepLog] Failed to update step log:", err);
+    });
+  }
 
   return result;
 }

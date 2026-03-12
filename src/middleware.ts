@@ -6,7 +6,7 @@ import { checkRateLimit, AUTH_LIMIT, OAUTH_LIMIT, WEBHOOK_LIMIT } from "@/lib/ra
 const { auth } = NextAuth(authConfig);
 
 // Routes that don't require auth
-const PUBLIC_ROUTES = ["/login", "/pricing", "/api/webhooks/stripe", "/api/auth", "/api/health"];
+const PUBLIC_ROUTES = ["/login", "/pricing", "/terms", "/privacy", "/api/webhooks/stripe", "/api/auth", "/api/health"];
 
 // Routes that are part of the onboarding flow — don't redirect away from these
 const ONBOARDING_FLOW_ROUTES = ["/onboarding", "/provisioning", "/pricing"];
@@ -136,5 +136,5 @@ export default auth(async (req) => {
 });
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|terms|privacy|.*\\..*).*)"],
 };

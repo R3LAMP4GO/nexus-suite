@@ -3,6 +3,7 @@ export enum JobType {
   CONTENT_SCHEDULE = "content-schedule",
   SCRAPER_RUN = "scraper-run",
   MEDIA_PROCESS = "media-process",
+  MEDIA_RENDER = "media-render",
   AGENT_EXECUTE = "agent-execute",
   ANALYTICS_SYNC = "analytics-sync",
   WEBHOOK_DISPATCH = "webhook-dispatch",
@@ -39,6 +40,26 @@ export interface MediaProcessJob extends BaseJobData {
   outputFormat: string;
 }
 
+export interface CaptionStyleData {
+  fontName: string;
+  fontFile: string;
+  highlightColor: string;
+}
+
+export interface MediaRenderJob extends BaseJobData {
+  type: JobType.MEDIA_RENDER;
+  sourceVideoId: string;
+  hookClips: string[];
+  meatClips: string[];
+  ctaClips: string[];
+  resolution: { width: number; height: number };
+  autoCaptions: boolean;
+  autoResize: boolean;
+  captionStyle?: CaptionStyleData;
+  textOverlay?: string;
+  hookDurationSec?: number;
+}
+
 export interface AgentExecuteJob extends BaseJobData {
   type: JobType.AGENT_EXECUTE;
   agentId: string;
@@ -62,6 +83,7 @@ export type JobData =
   | ContentScheduleJob
   | ScraperRunJob
   | MediaProcessJob
+  | MediaRenderJob
   | AgentExecuteJob
   | AnalyticsSyncJob
   | WebhookDispatchJob;

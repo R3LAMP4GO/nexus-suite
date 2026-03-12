@@ -10,6 +10,7 @@ export type SSEEventType =
   | "post:complete"
   | "content:published"
   | "media:complete"
+  | "media:render"
   | "workflow:complete";
 
 export interface SSEEvent {

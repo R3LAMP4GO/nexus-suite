@@ -1,10 +1,11 @@
 import type PgBoss from "pg-boss";
 import { incCounter, observeHistogram } from "@/lib/metrics";
 import { JobType } from "./types.js";
-import type { JobData, ContentPublishJob, ContentScheduleJob, ScraperRunJob, AgentExecuteJob, AnalyticsSyncJob, WebhookDispatchJob } from "./types.js";
+import type { JobData, ContentPublishJob, ContentScheduleJob, ScraperRunJob, MediaRenderJob, AgentExecuteJob, AnalyticsSyncJob, WebhookDispatchJob } from "./types.js";
 import { handleContentPublish } from "./handlers/content-publish.js";
 import { handleContentSchedule } from "./handlers/content-schedule.js";
 import { handleScraperRun } from "./handlers/scraper-run.js";
+import { handleMediaRender } from "./handlers/media-render.js";
 import { handleAgentExecute } from "./handlers/agent-execute.js";
 import { handleAnalyticsSync } from "./handlers/analytics-sync.js";
 import { handleWebhookDispatch } from "./handlers/webhook-dispatch.js";
@@ -95,6 +96,12 @@ export async function registerJobHandlers(boss: PgBoss): Promise<void> {
       console.log(`[worker] processing ${JobType.MEDIA_PROCESS} job=${job.id}`);
       await instrumentedWork(JobType.MEDIA_PROCESS, () => Promise.resolve());
     }
+  });
+
+  // MEDIA_RENDER — BatchEdit combinatorial render pipeline (Hook+Meat+CTA → FFmpeg → R2)
+  await boss.work<MediaRenderJob>(JobType.MEDIA_RENDER, { batchSize: 1 }, async ([job]) => {
+    console.log(`[worker] processing ${JobType.MEDIA_RENDER} job=${job.id}`);
+    await instrumentedWork(JobType.MEDIA_RENDER, () => handleMediaRender(job));
   });
 
   // WARM_TASK — browser-based account warming (1 task at a time)

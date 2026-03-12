@@ -97,7 +97,7 @@ export const settingsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await ctx.db.organization.update({
         where: { id: ctx.organizationId },
-        data: { brandConfig: input.brandConfig as unknown as import("@prisma/client").Prisma.InputJsonValue },
+        data: { brandConfig: input.brandConfig as any },
       });
 
       return { success: true };

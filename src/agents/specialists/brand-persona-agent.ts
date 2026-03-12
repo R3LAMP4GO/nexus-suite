@@ -6,6 +6,8 @@ import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+import { db } from "@/lib/db";
+import { loadBrandPrompt } from "../general/brand-loader";
 
 const AGENT_NAME = "brand-persona-agent";
 
@@ -37,14 +39,63 @@ const getBrandProfile = createTool({
   execute: async (executionContext) => {
     const { organizationId, includeVisual } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { organizationId: string; includeVisual?: boolean }) => ({
-        organizationId: input.organizationId,
-        tone: "",
-        formality: "",
-        values: [] as string[],
-        visualIdentity: input.includeVisual ? {} : undefined,
-        status: "pending-integration" as const,
-      }),
+      async (input: { organizationId: string; includeVisual?: boolean }) => {
+        // Load org from DB with brand config and onboarding data
+        const org = await db.organization.findUnique({
+          where: { id: input.organizationId },
+          select: {
+            name: true,
+            brandConfig: true,
+            onboardingSubmission: true,
+          },
+        });
+
+        if (!org) {
+          return {
+            organizationId: input.organizationId,
+            error: "Organization not found",
+            tone: "",
+            formality: "",
+            values: [] as string[],
+            brandPrompt: null,
+          };
+        }
+
+        // Parse brandConfig JSON
+        const brandCfg = org.brandConfig && typeof org.brandConfig === "object" && !Array.isArray(org.brandConfig)
+          ? (org.brandConfig as Record<string, unknown>)
+          : {};
+
+        // Load file-based brand prompt if available
+        const fileBrandPrompt = loadBrandPrompt(input.organizationId);
+
+        // Extract onboarding data
+        const onboarding = org.onboardingSubmission;
+        const competitorUrls = onboarding?.competitorUrls
+          ? (Array.isArray(onboarding.competitorUrls) ? onboarding.competitorUrls : [])
+          : [];
+        const platforms = onboarding?.platforms
+          ? (Array.isArray(onboarding.platforms) ? onboarding.platforms : [])
+          : [];
+
+        return {
+          organizationId: input.organizationId,
+          orgName: org.name,
+          tone: (brandCfg.tone as string) ?? onboarding?.tonePreferences ?? "",
+          formality: (brandCfg.formality as string) ?? "",
+          values: (brandCfg.values as string[]) ?? [],
+          niche: onboarding?.niche ?? "",
+          brandVoice: onboarding?.brandVoice ?? "",
+          tonePreferences: onboarding?.tonePreferences ?? "",
+          contentStyle: onboarding?.contentStyle ?? "",
+          postingFrequency: onboarding?.postingFrequency ?? "",
+          competitorUrls,
+          targetPlatforms: platforms,
+          brandPrompt: fileBrandPrompt,
+          brandConfig: brandCfg,
+          visualIdentity: input.includeVisual ? (brandCfg.visual ?? null) : undefined,
+        };
+      },
       { agentName: AGENT_NAME, toolName: "getBrandProfile" },
     );
     return wrappedFn({ organizationId, includeVisual });

@@ -21,8 +21,14 @@ const mockInfisical = {
 };
 
 vi.mock("@/lib/infisical", () => ({
-  fetchSecret: async (secretId: string) => {
-    const result = await mockInfisical.getSecret(secretId);
+  fetchSecret: async (
+    _projectId: string,
+    _environment: string,
+    _secretPath: string,
+    secretName: string,
+  ) => {
+    // In tests, we use secretName as the vault key for simplicity
+    const result = await mockInfisical.getSecret(secretName);
     return result.secretValue;
   },
 }));
@@ -52,7 +58,7 @@ describe("E2E: Infisical Secrets — Fetch-Use-Discard Pattern", () => {
     };
 
     // 2. Fetch from Infisical at runtime
-    const credential = await fetchSecret(dbRecord.infisicalSecretId);
+    const credential = await fetchSecret("proj_1", "dev", dbRecord.infisicalSecretId, dbRecord.infisicalSecretId);
     expect(credential).toBe("ya29.mock_youtube_token");
 
     // 3. Use the credential (pass to API call)
@@ -76,7 +82,7 @@ describe("E2E: Infisical Secrets — Fetch-Use-Discard Pattern", () => {
       // No raw proxy URL in DB
     };
 
-    const proxyUrl = await fetchSecret(dbRecord.infisicalProxyId);
+    const proxyUrl = await fetchSecret("proj_1", "dev", dbRecord.infisicalProxyId, dbRecord.infisicalProxyId);
     expect(proxyUrl).toContain("proxy1.example.com");
     expect(proxyUrl).toContain("http://");
   });
@@ -85,7 +91,7 @@ describe("E2E: Infisical Secrets — Fetch-Use-Discard Pattern", () => {
     const { fetchSecret } = await import("@/lib/infisical");
 
     await expect(
-      fetchSecret("orgs/org_1/tokens/nonexistent"),
+      fetchSecret("proj_1", "dev", "/nonexistent", "orgs/org_1/tokens/nonexistent"),
     ).rejects.toThrow("Secret not found");
   });
 
@@ -95,8 +101,8 @@ describe("E2E: Infisical Secrets — Fetch-Use-Discard Pattern", () => {
     // Add secrets for org_2
     secretVault.set("orgs/org_2/tokens/youtube-api", "ya29.org2_different_token");
 
-    const org1Token = await fetchSecret("orgs/org_1/tokens/youtube-api");
-    const org2Token = await fetchSecret("orgs/org_2/tokens/youtube-api");
+    const org1Token = await fetchSecret("proj_1", "dev", "/tokens", "orgs/org_1/tokens/youtube-api");
+    const org2Token = await fetchSecret("proj_1", "dev", "/tokens", "orgs/org_2/tokens/youtube-api");
 
     expect(org1Token).not.toBe(org2Token);
     expect(org1Token).toBe("ya29.mock_youtube_token");

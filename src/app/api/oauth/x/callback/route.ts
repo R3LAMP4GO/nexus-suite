@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
+const X_REDIRECT_BASE = process.env.X_OAUTH_REDIRECT_BASE ?? REDIRECT_BASE;
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
       body: new URLSearchParams({
         code,
         grant_type: "authorization_code",
-        redirect_uri: `${REDIRECT_BASE}/api/oauth/x/callback`,
+        redirect_uri: `${X_REDIRECT_BASE}/api/oauth/x/callback`,
         code_verifier: codeVerifier,
       }),
     });

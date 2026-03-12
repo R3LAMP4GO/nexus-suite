@@ -138,7 +138,7 @@ describe("LLM Budget", () => {
       // First call sets TTL
       await trackLlmSpend("org_1", "openai/gpt-4o", 10000, 0);
       const expireCalls = mockRedis.expire.mock.calls.filter(
-        ([key]: [string]) => key.startsWith("llm:spend:"),
+        ([key]: [string, number]) => key.startsWith("llm:spend:"),
       );
       const firstCallCount = expireCalls.length;
 
@@ -147,7 +147,7 @@ describe("LLM Budget", () => {
       await trackLlmSpend("org_1", "openai/gpt-4o", 10000, 0);
 
       const expireCallsAfter = mockRedis.expire.mock.calls.filter(
-        ([key]: [string]) => key.startsWith("llm:spend:"),
+        ([key]: [string, number]) => key.startsWith("llm:spend:"),
       );
       expect(expireCallsAfter.length).toBe(firstCallCount);
     });

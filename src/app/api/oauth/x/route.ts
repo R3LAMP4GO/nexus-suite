@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest) {
   const params = new URLSearchParams({
     response_type: "code",
     client_id: process.env.X_CLIENT_ID ?? "",
-    redirect_uri: `${process.env.NEXTAUTH_URL}/api/oauth/x/callback`,
+    redirect_uri: `${process.env.X_OAUTH_REDIRECT_BASE ?? process.env.NEXTAUTH_URL}/api/oauth/x/callback`,
     scope: "tweet.read tweet.write users.read offline.access",
     state,
     code_challenge: codeChallenge,

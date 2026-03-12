@@ -9,6 +9,7 @@ import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+import { db } from "@/lib/db";
 
 const AGENT_NAME = "title-generator";
 
@@ -31,7 +32,7 @@ Return JSON with:
 
 const getTitlePerformance = createTool({
   id: "getTitlePerformance",
-  description: "Fetch historical CTR data and title patterns that perform well",
+  description: "Fetch historical title performance data from tracked posts",
   inputSchema: z.object({
     niche: z.string().describe("Content niche for relevant title data"),
     platform: z.string().optional().describe("Target platform for CTR benchmarks"),
@@ -40,15 +41,73 @@ const getTitlePerformance = createTool({
   execute: async (executionContext) => {
     const { niche, platform, titleStyle } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { niche: string; platform?: string; titleStyle?: string }) => ({
-        niche: input.niche,
-        platform: input.platform ?? "youtube",
-        titleStyle: input.titleStyle ?? "all",
-        topPatterns: [] as string[],
-        avgCtr: 0,
-        benchmarks: {} as Record<string, number>,
-        status: "pending-integration" as const,
-      }),
+      async (input: { niche: string; platform?: string; titleStyle?: string }) => {
+        const platformUpper = (input.platform ?? "youtube").toUpperCase();
+
+        // Fetch top-performing tracked posts with titles
+        const posts = await db.trackedPost.findMany({
+          where: {
+            title: { not: null },
+            creator: { platform: platformUpper as never },
+          },
+          orderBy: { views: "desc" },
+          take: 50,
+          select: {
+            title: true,
+            views: true,
+            likes: true,
+            comments: true,
+            isOutlier: true,
+          },
+        });
+
+        // Filter by title style if specified
+        let filtered = posts;
+        if (input.titleStyle && input.titleStyle !== "all") {
+          const stylePatterns: Record<string, RegExp> = {
+            numbers: /\b\d+\b/,
+            "how-to": /\bhow\s+to\b/i,
+            curiosity: /\b(secret|reveal|truth|hidden|nobody|won't believe)\b/i,
+            urgency: /\b(now|today|before|hurry|last chance|don't miss|stop)\b/i,
+          };
+          const pattern = stylePatterns[input.titleStyle];
+          if (pattern) {
+            filtered = posts.filter((p) => p.title && pattern.test(p.title));
+          }
+        }
+
+        const topPatterns = filtered.slice(0, 15).map((p) => p.title!);
+
+        // Calculate engagement benchmarks
+        const totalViews = filtered.reduce((s, p) => s + p.views, 0);
+        const totalLikes = filtered.reduce((s, p) => s + p.likes, 0);
+        const avgEngagement = totalViews > 0 ? (totalLikes / totalViews) * 100 : 0;
+
+        // Group by title style for benchmarks
+        const benchmarks: Record<string, number> = {};
+        for (const style of ["numbers", "how-to", "curiosity", "urgency"] as const) {
+          const stylePatterns: Record<string, RegExp> = {
+            numbers: /\b\d+\b/,
+            "how-to": /\bhow\s+to\b/i,
+            curiosity: /\b(secret|reveal|truth|hidden|nobody|won't believe)\b/i,
+            urgency: /\b(now|today|before|hurry|last chance|don't miss|stop)\b/i,
+          };
+          const matched = posts.filter((p) => p.title && stylePatterns[style]!.test(p.title));
+          const views = matched.reduce((s, p) => s + p.views, 0);
+          const likes = matched.reduce((s, p) => s + p.likes, 0);
+          benchmarks[style] = views > 0 ? Math.round((likes / views) * 10000) / 100 : 0;
+        }
+
+        return {
+          niche: input.niche,
+          platform: input.platform ?? "youtube",
+          titleStyle: input.titleStyle ?? "all",
+          topPatterns,
+          avgEngagementRate: Math.round(avgEngagement * 100) / 100,
+          benchmarks,
+          totalPostsAnalyzed: posts.length,
+        };
+      },
       { agentName: AGENT_NAME, toolName: "getTitlePerformance" },
     );
     return wrappedFn({ niche, platform, titleStyle });

@@ -40,7 +40,7 @@ services:
     environment:
       ENCRYPTION_KEY: ${INFISICAL_ENCRYPTION_KEY:?INFISICAL_ENCRYPTION_KEY must be set}
       AUTH_SECRET: ${INFISICAL_AUTH_SECRET:?INFISICAL_AUTH_SECRET must be set}
-      SITE_URL: http://infisical:8080
+      SITE_URL: http://localhost:8080
       DB_CONNECTION_URI: postgres://nexus:${POSTGRES_PASSWORD:-nexus_dev}@infisical-db:5432/infisical
       REDIS_URL: redis://redis:6379/1
     depends_on:

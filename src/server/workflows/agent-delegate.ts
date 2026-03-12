@@ -229,6 +229,7 @@ export async function executeAgentDelegate(
   // Validate structured output against the agent's registered schema.
   // Agents without a schema pass through automatically.
   // On validation failure, retry once with a format-correction prompt.
+  // After retries, log a warning but don't break the workflow (graceful degradation).
   const MAX_OUTPUT_RETRIES = 1;
   let outputText = result.text;
 
@@ -244,6 +245,15 @@ export async function executeAgentDelegate(
     validateNoCredentials(retryResult.text);
     outputText = retryResult.text;
     result = retryResult;
+  }
+
+  // Final validation check — log warning on failure but continue with raw text
+  const finalValidation = validateAgentOutput(agentName, outputText);
+  if (!finalValidation.valid) {
+    console.warn(
+      `[agent-delegate] Output validation failed for "${agentName}" after ${MAX_OUTPUT_RETRIES} retry(ies). ` +
+      `Errors: ${finalValidation.errors.join("; ")}. Continuing with raw output (graceful degradation).`,
+    );
   }
 
   // Track LLM spend if usage data is available

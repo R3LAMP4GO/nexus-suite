@@ -165,6 +165,8 @@ model Organization {
   sourceVideos         SourceVideo[]
   postRecords          PostRecord[]
   scripts              Script[]
+  workflows            Workflow[]
+  workflowRuns         WorkflowRun[]
 }
 
 // ── Multi-Tenant: Membership ─────────────────────────────────────
@@ -499,7 +501,72 @@ model Script {
   @@index([organizationId, status])
 }
 
-// ── Workflow Run Log (Agent Observability) ─────────────────────────
+// ── Workflow Definition (DB-stored) ─────────────────────────────────
+
+model Workflow {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  description    String?  @db.Text
+  definition     Json     // Full WorkflowDefinition YAML/JSON
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  runs         WorkflowRun[]
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+}
+
+// ── Workflow Run (Per-Execution Record) ─────────────────────────────
+
+model WorkflowRun {
+  id             String          @id @default(cuid())
+  workflowId     String?
+  workflow       Workflow?       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowName   String          // Denormalized for YAML-only workflows without DB record
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  status         String          @default("RUNNING") // RUNNING, COMPLETED, FAILED, CANCELLED
+  triggeredBy    String?         // userId or "system"
+  startedAt      DateTime        @default(now())
+  completedAt    DateTime?
+  durationMs     Int?
+  error          String?         @db.Text
+  metadata       Json?
+  variables      Json?           // Final workflow variables snapshot
+  steps          WorkflowStepLog[]
+
+  @@index([workflowId])
+  @@index([organizationId])
+  @@index([status])
+  @@index([organizationId, startedAt])
+}
+
+// ── Workflow Step Log (Per-Step Record) ──────────────────────────────
+
+model WorkflowStepLog {
+  id            String       @id @default(cuid())
+  runId         String
+  run           WorkflowRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  stepName      String
+  stepType      String?      // action, agent-delegate, condition, forEach, while, parallel
+  agentId       String?
+  status        String       @default("RUNNING") // RUNNING, COMPLETED, FAILED, SKIPPED
+  input         Json?
+  output        Json?
+  error         String?      @db.Text
+  durationMs    Int?
+  tokenUsage    Json?        // { prompt: number, completion: number, total: number }
+  startedAt     DateTime     @default(now())
+  completedAt   DateTime?
+
+  @@index([runId])
+}
+
+// ── Workflow Run Log (Legacy — Agent Observability) ─────────────────
 
 model WorkflowRunLog {
   id             String   @id @default(cuid())

@@ -11,9 +11,11 @@ import { workflowsRouter } from "./routers/workflows";
 import { agentsRouter } from "./routers/agents";
 import { scriptsRouter } from "./routers/scripts";
 import { uploadRouter } from "./routers/upload";
+import { analyticsRouter } from "./routers/analytics";
 
 export const appRouter = createTRPCRouter({
   admin: adminRouter,
+  analytics: analyticsRouter,
   competitors: competitorsRouter,
   multiplier: multiplierRouter,
   onboarding: onboardingRouter,

@@ -11,12 +11,23 @@ import type { TransformConfig, TransformFragment } from "@/server/services/media
 // ── Media job payloads ──────────────────────────────────────────
 
 export interface MediaJobPayload {
-  type: "download" | "transform" | "audio-check";
+  type: "download" | "transform" | "audio-check" | "batch-render";
   organizationId: string;
   sourceUrl?: string;
   localPath?: string;
   outputKey?: string;
   transforms?: TransformConfig | TransformFragment;
+  batchRender?: {
+    hookClips: string[];
+    meatClips: string[];
+    ctaClips: string[];
+    resolution: { width: number; height: number };
+    autoResize: boolean;
+    autoCaptions: boolean;
+    captionStyle?: { fontName: string; highlightColor: string };
+    textOverlay?: string;
+    hookDurationSec?: number;
+  };
 }
 
 export interface MediaJobResult {

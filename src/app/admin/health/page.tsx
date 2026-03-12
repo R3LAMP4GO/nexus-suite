@@ -8,7 +8,7 @@ const SERVICE_GROUPS: Record<string, string[]> = {
   "Secrets Management": ["INFISICAL_CLIENT_ID", "INFISICAL_CLIENT_SECRET"],
   "Cloud Storage": ["R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET_NAME"],
   "Proxy / Scraping": ["IPROYAL_API_KEY"],
-  Infrastructure: ["DATABASE_URL", "REDIS_URL", "NEXTAUTH_SECRET"],
+  Infrastructure: ["DATABASE_URL", "REDIS_URL", "AUTH_SECRET"],
 };
 
 const MONITORING_LINKS = [

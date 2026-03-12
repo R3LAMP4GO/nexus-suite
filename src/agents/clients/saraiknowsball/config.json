@@ -1,0 +1,72 @@
+{
+  "clientId": "saraiknowsball",
+  "displayName": "Sarai Knows Ball",
+  "niche": "NBA Basketball / Sports Commentary",
+  "status": "active",
+
+  "platforms": {
+    "primary": ["YOUTUBE", "TIKTOK", "INSTAGRAM"],
+    "secondary": ["X"]
+  },
+
+  "contentCadence": {
+    "YOUTUBE": {
+      "longForm": { "frequency": "2x/week", "targetDays": ["tuesday", "friday"] },
+      "shorts": { "frequency": "daily" }
+    },
+    "TIKTOK": {
+      "shortForm": { "frequency": "daily", "targetCount": 2 }
+    },
+    "INSTAGRAM": {
+      "reels": { "frequency": "daily" },
+      "carousels": { "frequency": "3x/week" },
+      "stories": { "frequency": "daily", "note": "game nights and polls" }
+    },
+    "X": {
+      "posts": { "frequency": "daily", "targetCount": 3 },
+      "threads": { "frequency": "2x/week" }
+    }
+  },
+
+  "postingWindows": {
+    "weekday": {
+      "morning": "09:00-10:00",
+      "afternoon": "12:00-13:00",
+      "evening": "19:00-21:00"
+    },
+    "weekend": {
+      "afternoon": "13:00-15:00",
+      "evening": "18:00-22:00"
+    },
+    "gameNight": {
+      "preGame": "-60min",
+      "halftime": "halftime",
+      "postGame": "+30min"
+    },
+    "timezone": "America/New_York"
+  },
+
+  "audience": {
+    "primaryDemographic": "Males 18-34",
+    "interests": ["NBA", "basketball", "sports betting", "fantasy basketball", "sneaker culture"],
+    "geoFocus": ["US", "CA", "UK", "PH"]
+  },
+
+  "hashtagGroups": {
+    "general": ["#NBA", "#Basketball", "#HoopCulture", "#NBATwitter", "#Buckets"],
+    "gameDay": ["#NBAGameDay", "#NBAPlayoffs", "#GameTime", "#HoopsTonight"],
+    "takes": ["#HotTake", "#NBADebate", "#NBATwitter", "#ControversialTake"],
+    "players": ["#NBAHighlights", "#NBAStats", "#TopPlayers"],
+    "draft": ["#NBADraft", "#DraftSzn", "#NBAFuture", "#Prospects"],
+    "culture": ["#BasketballCulture", "#HoopDreams", "#BallIsLife", "#SneakerCulture"]
+  },
+
+  "contentPillars": [
+    "game-reactions",
+    "player-comparisons",
+    "basketball-culture",
+    "highlight-breakdowns",
+    "draft-predictions",
+    "stats-mythbusting"
+  ]
+}

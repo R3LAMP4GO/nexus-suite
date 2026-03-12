@@ -92,6 +92,70 @@ export const workflowsRouter = createTRPCRouter({
       return run;
     }),
 
+  // ── WorkflowRun + WorkflowStepLog (structured run inspector) ──
+
+  listRuns: onboardedProcedure
+    .input(
+      z.object({
+        cursor: z.string().optional(),
+        limit: z.number().min(1).max(100).default(25),
+        status: z.string().optional(),
+      }).optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const { cursor, limit = 25, status } = input ?? {};
+
+      const where: Record<string, unknown> = {
+        organizationId: ctx.organizationId,
+      };
+      if (status) where.status = status;
+
+      const runs = await ctx.db.workflowRun.findMany({
+        where,
+        take: limit + 1,
+        cursor: cursor ? { id: cursor } : undefined,
+        orderBy: { startedAt: "desc" },
+        select: {
+          id: true,
+          workflowName: true,
+          status: true,
+          startedAt: true,
+          completedAt: true,
+          durationMs: true,
+          error: true,
+          triggeredBy: true,
+          _count: { select: { steps: true } },
+        },
+      });
+
+      let nextCursor: string | undefined;
+      if (runs.length > limit) {
+        const next = runs.pop();
+        nextCursor = next?.id;
+      }
+
+      return { runs, nextCursor };
+    }),
+
+  getRunDetail: onboardedProcedure
+    .input(z.object({ runId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const run = await ctx.db.workflowRun.findUnique({
+        where: { id: input.runId },
+        include: {
+          steps: {
+            orderBy: { startedAt: "asc" },
+          },
+        },
+      });
+
+      if (!run || run.organizationId !== ctx.organizationId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Workflow run not found" });
+      }
+
+      return run;
+    }),
+
   runNow: tierGatedProcedure("maxWorkflowRuns")
     .input(z.object({ workflowName: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {

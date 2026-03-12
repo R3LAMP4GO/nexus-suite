@@ -36,7 +36,17 @@ vi.mock("../services/usage-tracking", () => ({
 }));
 
 vi.mock("@/lib/db", () => ({
-  db: { workflowRunLog: { create: vi.fn(async () => ({})) } },
+  db: {
+    workflowRunLog: { create: vi.fn(async () => ({})) },
+    workflowRun: {
+      create: vi.fn(async () => ({ id: "run_mock_1" })),
+      update: vi.fn(async () => ({})),
+    },
+    workflowStepLog: {
+      create: vi.fn(async () => ({ id: "step_mock_1" })),
+      update: vi.fn(async () => ({})),
+    },
+  },
 }));
 
 function validWorkflow(overrides: Partial<WorkflowDefinition> = {}): WorkflowDefinition {

@@ -340,7 +340,7 @@ export const adminRouter = createTRPCRouter({
       checkEnvVar("IPRoyal API Key", "IPROYAL_API_KEY"),
       checkEnvVar("Database URL", "DATABASE_URL"),
       checkEnvVar("Redis URL", "REDIS_URL"),
-      checkEnvVar("NextAuth Secret", "NEXTAUTH_SECRET"),
+      checkEnvVar("Auth Secret", "AUTH_SECRET"),
     ];
 
     // Quick DB ping

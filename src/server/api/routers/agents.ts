@@ -33,6 +33,50 @@ function classifyTier(name: string): Tier {
 // ── Router ──────────────────────────────────────────────────────
 
 export const agentsRouter = createTRPCRouter({
+  stats: onboardedProcedure.query(async ({ ctx }) => {
+    const rows = await ctx.db.$queryRaw<
+      Array<{
+        agentId: string;
+        totalRuns: bigint;
+        completedRuns: bigint;
+        avgDurationMs: number | null;
+        totalPromptTokens: bigint;
+        totalCompletionTokens: bigint;
+        lastRunAt: Date | null;
+      }>
+    >`
+      SELECT
+        s."agentId",
+        COUNT(*)::bigint                                          AS "totalRuns",
+        COUNT(*) FILTER (WHERE s."status" = 'COMPLETED')::bigint  AS "completedRuns",
+        AVG(s."durationMs")                                       AS "avgDurationMs",
+        COALESCE(SUM((s."tokenUsage"->>'prompt')::int), 0)::bigint   AS "totalPromptTokens",
+        COALESCE(SUM((s."tokenUsage"->>'completion')::int), 0)::bigint AS "totalCompletionTokens",
+        MAX(s."startedAt")                                        AS "lastRunAt"
+      FROM "WorkflowStepLog" s
+      JOIN "WorkflowRun" r ON r."id" = s."runId"
+      WHERE r."organizationId" = ${ctx.organizationId}
+        AND s."agentId" IS NOT NULL
+      GROUP BY s."agentId"
+      ORDER BY COUNT(*) DESC
+    `;
+
+    return rows.map((r) => ({
+      agentId: r.agentId,
+      totalRuns: Number(r.totalRuns),
+      completedRuns: Number(r.completedRuns),
+      successRate:
+        Number(r.totalRuns) > 0
+          ? Number(r.completedRuns) / Number(r.totalRuns)
+          : 0,
+      avgDurationMs: r.avgDurationMs ? Math.round(r.avgDurationMs) : 0,
+      totalTokens: Number(r.totalPromptTokens) + Number(r.totalCompletionTokens),
+      totalPromptTokens: Number(r.totalPromptTokens),
+      totalCompletionTokens: Number(r.totalCompletionTokens),
+      lastRunAt: r.lastRunAt?.toISOString() ?? null,
+    }));
+  }),
+
   list: onboardedProcedure.query(() => {
     const registry = getRegisteredAgents();
     return Array.from(registry.entries()).map(([name, entry]) => ({
