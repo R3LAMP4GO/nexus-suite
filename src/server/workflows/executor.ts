@@ -1,3 +1,4 @@
+import { workflowLogger } from "@/lib/logger";
 import { parse as parseYaml } from "yaml";
 import type {
   WorkflowDefinition,
@@ -159,7 +160,7 @@ export async function executeWorkflow(
     await db.workflowRun.update({
       where: { id: runId },
       data: { status: "FAILED", completedAt, durationMs, error: String(err), variables: context.variables as any },
-    }).catch((e) => console.error("[WorkflowRun] Failed to update run:", e));
+    }).catch((e) => workflowLogger.error({ err: e }, "Failed to update WorkflowRun"));
 
     await publishSSE(workflow.organizationId, "workflow:complete", {
       workflowName: workflow.name,
@@ -212,7 +213,7 @@ export async function executeWorkflow(
       error: context.abortReason ?? null,
       variables: context.variables as any,
     },
-  }).catch((e) => console.error("[WorkflowRun] Failed to update run:", e));
+  }).catch((e) => workflowLogger.error({ err: e }, "Failed to update WorkflowRun"));
 
   await publishSSE(workflow.organizationId, "workflow:complete", {
     workflowName: workflow.name,

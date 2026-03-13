@@ -59,7 +59,7 @@ const tavilySearch = createTool({
             likes: true,
             comments: true,
             analysis: true,
-            creator: { select: { handle: true, platform: true } },
+            creator: { select: { username: true, platform: true } },
           },
         });
 
@@ -72,7 +72,7 @@ const tavilySearch = createTool({
             snippet: `${p.views?.toLocaleString() ?? 0} views, ${p.likes?.toLocaleString() ?? 0} likes on ${p.creator?.platform ?? "unknown"}`,
             engagement: p.views ? ((p.likes + p.comments) / p.views) * 100 : 0,
             platform: p.creator?.platform ?? "unknown",
-            creator: p.creator?.handle ?? "unknown",
+            creator: p.creator?.username ?? "unknown",
           })),
           source: "tracked-posts-database",
           totalResults: posts.length,
@@ -114,7 +114,7 @@ const youtubeSearch = createTool({
             likes: true,
             comments: true,
             publishedAt: true,
-            creator: { select: { handle: true, subscriberCount: true } },
+            creator: { select: { username: true, followerCount: true } },
           },
         });
 
@@ -127,8 +127,8 @@ const youtubeSearch = createTool({
             views: v.views ?? 0,
             likes: v.likes ?? 0,
             comments: v.comments ?? 0,
-            channel: v.creator?.handle ?? "unknown",
-            subscribers: v.creator?.subscriberCount ?? 0,
+            channel: v.creator?.username ?? "unknown",
+            subscribers: v.creator?.followerCount ?? 0,
             publishedAt: v.publishedAt?.toISOString() ?? null,
             engagementRate: v.views ? ((v.likes + v.comments) / v.views) * 100 : 0,
           })),

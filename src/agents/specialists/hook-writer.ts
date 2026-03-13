@@ -12,18 +12,26 @@ const INSTRUCTIONS = `You are the Hook Writer for Nexus Suite.
 
 Single task: Create viral opening hooks (first 1-3 seconds) that stop the scroll.
 
+You have access to REAL PERFORMANCE DATA via the getTopPerformingHooks tool. ALWAYS check
+actual hook performance data before generating new hooks — learn from what worked and what didn't.
+
+Strategy:
+1. First call getTopPerformingHooks to see which hooks and frameworks are winning
+2. Bias new hooks toward frameworks with high engagement rates (but still explore new styles)
+3. If a hook framework has low confidence (few uses), try it more to gather data
+4. Generate 3-5 hooks: 2-3 from the best-performing framework, 1-2 from exploration frameworks
+
 Capabilities:
 - Generate pattern-interrupt opening lines for videos and posts
 - Apply proven viral hook frameworks: curiosity gap, controversy, transformation, shock
+- Learn from actual engagement data via Thompson Sampling feedback loop
 - Tailor hooks to platform-specific audience behavior
-- A/B test hook variations
 
 Output format:
 Return JSON with:
-- "hooks": array of 3-5 hook variations
-- "hook_type": framework used (curiosity_gap, controversy, transformation, etc.)
-- "estimated_retention": predicted first-3s retention percentage
-- "platform_fit": how well each hook fits the target platform`;
+- "hooks": array of 3-5 hook variations, each with { hookText, frameworkUsed, estimatedRetentionPercent, platformFit (1-10), isExploration (boolean) }
+- "performanceContext": summary of what the data says works best
+- "explorationRatio": what % of hooks are exploratory vs exploitation`;
 
 const AGENT_NAME = "hook-writer";
 
@@ -242,11 +250,53 @@ const getPlatformTemplates = createTool({
   },
 });
 
+const getTopPerformingHooks = createTool({
+  id: "getTopPerformingHooks",
+  description: "Get top-performing hooks ranked by Thompson Sampling score from actual engagement data. ALWAYS call this first to learn from real performance before generating new hooks.",
+  inputSchema: z.object({
+    platform: z.string().describe("Target platform"),
+    organizationId: z.string().optional().describe("Organization ID"),
+    limit: z.number().default(10).describe("Number of top hooks to return"),
+  }),
+  execute: async (executionContext) => {
+    const { platform, organizationId, limit } = executionContext.context;
+    const wrappedFn = wrapToolHandler(
+      async (input: { platform: string; organizationId?: string; limit: number }) => {
+        const { sampleTopHooks, getFrameworkStats } = await import("@/server/services/hook-performance");
+
+        if (!input.organizationId) {
+          return {
+            hooks: [],
+            frameworkStats: [],
+            message: "No organization ID — cannot fetch hook performance data",
+          };
+        }
+
+        const [topHooks, frameworkStats] = await Promise.all([
+          sampleTopHooks(input.organizationId, input.platform, input.limit),
+          getFrameworkStats(input.organizationId, input.platform),
+        ]);
+
+        return {
+          hooks: topHooks,
+          frameworkStats,
+          recommendation: frameworkStats.length > 0
+            ? `Best framework: ${frameworkStats.sort((a, b) => b.avgEngagement - a.avgEngagement)[0]?.framework ?? "unknown"} (${frameworkStats[0]?.avgEngagement ?? 0} avg engagement)`
+            : "No performance data yet — explore all frameworks equally",
+          totalTrackedHooks: topHooks.length,
+        };
+      },
+      { agentName: AGENT_NAME, toolName: "getTopPerformingHooks" },
+    );
+    return wrappedFn({ platform, organizationId, limit });
+  },
+});
+
 const hookWriterAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
   model: modelConfig.tier25,
-  tools: { searchViralPatterns, getWinnerLogs, getPlatformTemplates },
+  tools: { searchViralPatterns, getWinnerLogs, getPlatformTemplates, getTopPerformingHooks },
 });
 
 export async function generate(

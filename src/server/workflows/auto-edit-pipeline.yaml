@@ -1,0 +1,131 @@
+name: auto-edit-pipeline
+organizationId: "{{organizationId}}"
+trigger:
+  type: event
+  event: "source-video.ready"
+  description: "Full automated edit pipeline: script → clips → captions → render → distribute"
+
+steps:
+  # Step 1: Extract transcript from the source video
+  - id: extract-transcript
+    type: agent-delegate
+    agent: transcript-extractor
+    prompt: >
+      Extract the full transcript from SourceVideo {{sourceVideoId}}
+      for organization {{organizationId}}.
+      Return timestamped segments, hook/CTA identification,
+      pacing metrics, and silence detection.
+
+  # Step 2: Generate or refine the script based on transcript
+  - id: refine-script
+    type: agent-delegate
+    agent: script-agent
+    dependsOn:
+      - extract-transcript
+    prompt: >
+      Using the transcript data: {{extract-transcript.output}}
+      Refine or create a script for SourceVideo {{sourceVideoId}}.
+      Structure it into hook (0-3s), body, and CTA sections.
+      Ensure the hook is a pattern interrupt or bold statement.
+      Keep total duration under 60 seconds for short-form.
+
+  # Step 3: Generate captions from the transcript
+  - id: generate-captions
+    type: agent-delegate
+    agent: caption-generator
+    dependsOn:
+      - extract-transcript
+    prompt: >
+      Generate karaoke-style captions for the video transcript:
+      {{extract-transcript.output}}
+      Use style "karaoke" with word-by-word highlighting.
+      Resolution: 1080x1920 (9:16 vertical).
+      Font: Arial, highlight color: #FFFF00.
+      Ensure maximum 7 words per line on screen.
+      Return the full ASS subtitle file content.
+
+  # Step 4: Auto-clip the best moments (parallel with captions)
+  - id: auto-clip
+    type: agent-delegate
+    agent: auto-clipper
+    dependsOn:
+      - extract-transcript
+    prompt: >
+      Find the top 3 clip candidates from SourceVideo {{sourceVideoId}}.
+      Use transcript: {{extract-transcript.output}}
+      Target clip duration: 15-60 seconds.
+      Score each on hook strength, self-contained narrative, and energy.
+      Cut the top clip to disk.
+
+  # Step 5: Edit director plans the final video assembly
+  - id: plan-edit
+    type: agent-delegate
+    agent: edit-director
+    dependsOn:
+      - refine-script
+      - generate-captions
+      - auto-clip
+    prompt: >
+      Plan the full video edit for SourceVideo {{sourceVideoId}},
+      organization {{organizationId}}.
+      Script: {{refine-script.output}}
+      Captions: {{generate-captions.output}}
+      Available clips: {{auto-clip.output}}
+      Design an edit plan with:
+      1. Clip selection and ordering (hook → body → CTA)
+      2. Per-clip transforms for uniqueness
+      3. Caption integration (karaoke style)
+      4. Platform target: TikTok (9:16, 1080x1920)
+      Submit the render job to the media-engine queue.
+      Generate 3 unique variations.
+
+  # Step 6: Quality check the edit plan before distribution
+  - id: quality-gate
+    type: agent-delegate
+    agent: quality-scorer
+    dependsOn:
+      - plan-edit
+    prompt: >
+      Review the edit plan and render submission for {{sourceVideoId}}:
+      {{plan-edit.output}}
+      Score on: hook strength (first 1s must grab), pacing (2-4s cuts),
+      caption coverage (>70%), and platform compliance.
+      Return an overall score (1-10) and pass/fail recommendation.
+
+  # Step 7: Schedule distribution if quality passes
+  - id: distribute
+    type: condition
+    condition: "{{quality-gate.output.score}} >= 7"
+    dependsOn:
+      - quality-gate
+    onTrue:
+      - id: schedule-distribution
+        type: agent-delegate
+        agent: distribution-strategist
+        prompt: >
+          Plan multi-platform distribution for the rendered variations
+          of SourceVideo {{sourceVideoId}}, org {{organizationId}}.
+          Edit plan: {{plan-edit.output}}
+          Schedule TikTok first, Instagram 2hr later, YouTube Shorts 4hr later.
+          Assign to highest-health accounts.
+
+      - id: generate-platform-captions
+        type: agent-delegate
+        agent: caption-writer
+        dependsOn:
+          - schedule-distribution
+        prompt: >
+          Write platform-specific post captions for the distribution plan:
+          {{schedule-distribution.output}}
+          Script context: {{refine-script.output}}
+          Create captions for each platform with appropriate hashtags,
+          character limits, and CTAs. Include a pinned-comment suggestion.
+
+    onFalse:
+      - id: log-quality-fail
+        type: action
+        action: content.logSkipped
+        params:
+          organizationId: "{{organizationId}}"
+          reason: "Edit plan quality score below threshold"
+          feedback: "{{quality-gate.output.feedback}}"

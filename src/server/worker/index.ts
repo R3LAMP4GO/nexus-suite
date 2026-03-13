@@ -10,43 +10,44 @@ import { startCompetitorPollingWorker, stopCompetitorPollingWorker } from "../wo
 import { startMediaCompletionWorker, stopMediaCompletionWorker } from "../workers/media-completion-worker.js";
 import { startDistributionWorker, stopDistributionWorker } from "../workers/distribution-worker.js";
 import { disposeExecutor } from "../services/warming/executor";
+import { workerLogger } from "@/lib/logger";
 
 const boss = createBoss();
 
 async function start(): Promise<void> {
-  console.log("[worker] bootstrapping agent registry...");
+  workerLogger.info("bootstrapping agent registry...");
   bootstrapAgents();
 
-  console.log("[worker] starting pg-boss...");
+  workerLogger.info("starting pg-boss...");
   await boss.start();
   await registerJobHandlers(boss);
 
-  console.log("[worker] registering workflow actions...");
+  workerLogger.info("registering workflow actions...");
   registerWorkflowActions();
 
-  console.log("[worker] registering cron workflows...");
+  workerLogger.info("registering cron workflows...");
   await registerCronWorkflows(boss);
 
-  console.log("[worker] starting competitor worker...");
+  workerLogger.info("starting competitor worker...");
   await startCompetitorWorker();
 
-  console.log("[worker] starting post worker...");
+  workerLogger.info("starting post worker...");
   await startPostWorker();
 
-  console.log("[worker] starting competitor polling worker...");
+  workerLogger.info("starting competitor polling worker...");
   await startCompetitorPollingWorker();
 
-  console.log("[worker] starting media completion worker...");
+  workerLogger.info("starting media completion worker...");
   await startMediaCompletionWorker();
 
-  console.log("[worker] starting distribution worker...");
+  workerLogger.info("starting distribution worker...");
   await startDistributionWorker();
 
-  console.log("[worker] ready");
+  workerLogger.info("ready");
 }
 
 async function shutdown(): Promise<void> {
-  console.log("[worker] shutting down...");
+  workerLogger.info("shutting down...");
   await stopCompetitorWorker();
   await stopCompetitorPollingWorker();
   await stopPostWorker();
@@ -54,7 +55,7 @@ async function shutdown(): Promise<void> {
   await stopDistributionWorker();
   await disposeExecutor();
   await boss.stop();
-  console.log("[worker] stopped");
+  workerLogger.info("stopped");
   process.exit(0);
 }
 
@@ -62,6 +63,6 @@ process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
 
 start().catch((err) => {
-  console.error("[worker] fatal:", err);
+  workerLogger.error({ err }, "fatal");
   process.exit(1);
 });

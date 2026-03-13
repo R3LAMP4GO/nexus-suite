@@ -167,6 +167,7 @@ model Organization {
   scripts              Script[]
   workflows            Workflow[]
   workflowRuns         WorkflowRun[]
+  hookPerformances     HookPerformance[]
 }
 
 // ── Multi-Tenant: Membership ─────────────────────────────────────
@@ -444,13 +445,62 @@ model PostRecord {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  account      OrgPlatformToken @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  variation    VideoVariation   @relation(fields: [variationId], references: [id], onDelete: Cascade)
+  organization    Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  account         OrgPlatformToken    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  variation       VideoVariation      @relation(fields: [variationId], references: [id], onDelete: Cascade)
+  metricSnapshots PostMetricSnapshot[]
 
   @@index([organizationId, status])
   @@index([accountId, scheduledAt])
   @@index([status, scheduledAt])
+}
+
+// ── Post Metric Snapshots (Performance Tracking) ───────────────────
+
+model PostMetricSnapshot {
+  id             String   @id @default(cuid())
+  postRecordId   String
+  views          Int      @default(0)
+  likes          Int      @default(0)
+  comments       Int      @default(0)
+  shares         Int      @default(0)
+  saves          Int      @default(0)
+  engagementRate Float    @default(0) // (likes+comments+shares) / views
+  retentionRate  Float?   // Platform-reported average watch %
+  snapshotAt     DateTime @default(now())
+
+  postRecord PostRecord @relation(fields: [postRecordId], references: [id], onDelete: Cascade)
+
+  @@index([postRecordId, snapshotAt])
+}
+
+// ── Hook Performance (A/B Feedback Loop) ───────────────────────────
+
+model HookPerformance {
+  id             String   @id @default(cuid())
+  organizationId String
+  hookText       String   @db.Text
+  hookFramework  String?  // curiosity_gap, controversy, transformation, shock
+  platform       Platform
+  timesUsed      Int      @default(1)
+  totalViews     Int      @default(0)
+  totalLikes     Int      @default(0)
+  totalComments  Int      @default(0)
+  totalShares    Int      @default(0)
+  avgEngagement  Float    @default(0) // Running average engagement rate
+  avgRetention   Float?   // Running average retention rate
+  score          Float    @default(0.5) // Thompson sampling score (0-1)
+  alphaPrior     Float    @default(1)   // Beta distribution alpha (successes)
+  betaPrior      Float    @default(1)   // Beta distribution beta (failures)
+  lastUsedAt     DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, hookText, platform])
+  @@index([organizationId, platform, score])
+  @@index([organizationId, hookFramework])
 }
 
 model AccountWarmingLog {

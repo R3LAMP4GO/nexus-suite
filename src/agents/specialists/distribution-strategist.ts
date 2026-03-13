@@ -6,6 +6,7 @@ import { modelConfig } from "@/agents/platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
+import { db } from "@/lib/db";
 
 const AGENT_NAME = "distribution-strategist";
 
@@ -48,12 +49,41 @@ const getAccountHealth = createTool({
   execute: async (executionContext) => {
     const { platform, organizationId } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { platform: string; organizationId?: string }) => ({
-        platform: input.platform,
-        organizationId: input.organizationId,
-        accounts: [] as Record<string, unknown>[],
-        status: "pending-integration" as const,
-      }),
+      async (input: { platform: string; organizationId?: string }) => {
+        const where: Record<string, unknown> = {
+          circuitState: { not: "OPEN" },
+        };
+        if (input.organizationId) where.organizationId = input.organizationId;
+        if (input.platform) where.platform = input.platform;
+
+        const accounts = await db.orgPlatformToken.findMany({
+          where: where as any,
+          select: {
+            id: true, platform: true, accountLabel: true,
+            accountType: true, healthScore: true, circuitState: true,
+            warmupStatus: true,
+          },
+          orderBy: { healthScore: "desc" },
+        });
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const postCounts = await db.postRecord.groupBy({
+          by: ["accountId"],
+          where: {
+            accountId: { in: accounts.map((a) => a.id) },
+            scheduledAt: { gte: today },
+            status: { in: ["SCHEDULED", "POSTING", "SUCCESS"] },
+          },
+          _count: { id: true },
+        });
+        const countMap = new Map(postCounts.map((r) => [r.accountId, r._count.id]));
+
+        return accounts.map((a) => ({
+          ...a,
+          todayPostCount: countMap.get(a.id) ?? 0,
+        }));
+      },
       { agentName: AGENT_NAME, toolName: "getAccountHealth" },
     );
     return wrappedFn({ platform, organizationId });
@@ -69,11 +99,24 @@ const getPostingWindows = createTool({
   execute: async (executionContext) => {
     const { organizationId } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { organizationId: string }) => ({
-        organizationId: input.organizationId,
-        windows: {} as Record<string, unknown>,
-        status: "pending-integration" as const,
-      }),
+      async (input: { organizationId: string }) => {
+        const org = await db.organization.findUnique({
+          where: { id: input.organizationId },
+          select: { brandConfig: true },
+        });
+        const config = org?.brandConfig as Record<string, unknown> | null;
+        const pw = (config?.postingWindows as Record<string, string>) ?? {};
+        return {
+          timezone: (config?.timezone as string) ?? "America/New_York",
+          windows: {
+            TIKTOK: pw.TIKTOK ?? "18:00-22:00",
+            INSTAGRAM: pw.INSTAGRAM ?? "07:00-09:00",
+            YOUTUBE: pw.YOUTUBE ?? "12:00-16:00",
+            FACEBOOK: pw.FACEBOOK ?? "07:00-09:00",
+            X: pw.X ?? "12:00-15:00",
+          },
+        };
+      },
       { agentName: AGENT_NAME, toolName: "getPostingWindows" },
     );
     return wrappedFn({ organizationId });
@@ -89,11 +132,21 @@ const getPlatformCaps = createTool({
   execute: async (executionContext) => {
     const { organizationId } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { organizationId: string }) => ({
-        organizationId: input.organizationId,
-        caps: {} as Record<string, number>,
-        status: "pending-integration" as const,
-      }),
+      async (input: { organizationId: string }) => {
+        const org = await db.organization.findUnique({
+          where: { id: input.organizationId },
+          select: { brandConfig: true },
+        });
+        const config = org?.brandConfig as Record<string, unknown> | null;
+        const overrides = (config?.dailyCaps as Record<string, number>) ?? {};
+        return {
+          TIKTOK: overrides.TIKTOK ?? 3,
+          INSTAGRAM: overrides.INSTAGRAM ?? 2,
+          YOUTUBE: overrides.YOUTUBE ?? 5,
+          FACEBOOK: overrides.FACEBOOK ?? 2,
+          X: overrides.X ?? 5,
+        };
+      },
       { agentName: AGENT_NAME, toolName: "getPlatformCaps" },
     );
     return wrappedFn({ organizationId });

@@ -1,0 +1,121 @@
+name: viral-scrape-to-post
+organizationId: "{{organizationId}}"
+trigger:
+  type: cron
+  schedule: "0 10 * * *"
+  description: "Daily viral scrape → transcript → clip → recreate → post pipeline"
+
+steps:
+  # Step 1: Scrape and analyse trending/viral content from competitors
+  - id: scrape-viral
+    type: agent-delegate
+    agent: trend-scout
+    prompt: >
+      Scan all tracked competitor accounts for {{organizationId}}.
+      Find the top 3-5 posts from the last 24 hours with the highest
+      engagement velocity (likes+shares+comments per hour since posting).
+      Return each with: platform, externalPostId, url, caption, metrics,
+      and an initial viralScore (1-10).
+
+  # Step 2: For each viral post found, run the full analysis pipeline
+  - id: process-viral-posts
+    type: forEach
+    collection: "{{scrape-viral.output.posts}}"
+    as: viralPost
+    steps:
+      # 2a: Extract transcript from the viral video
+      - id: extract-transcript
+        type: agent-delegate
+        agent: transcript-extractor
+        prompt: >
+          Extract the full transcript from the viral video at: {{viralPost.url}}
+          Identify the hook segment (first 3-5 seconds of speech),
+          CTA segment, and all key moments (pivots, emotional peaks, punchlines).
+          Also compute pacing metrics: WPM, average sentence length, longest pause.
+
+      # 2b: Auto-clip the best moments from the source
+      - id: auto-clip
+        type: agent-delegate
+        agent: auto-clipper
+        dependsOn:
+          - extract-transcript
+        prompt: >
+          Analyse the video for clip candidates.
+          Use the transcript data from the previous step:
+          {{extract-transcript.output}}
+          Find the top 3 most viral-worthy clips (15-60 seconds each).
+          Score each clip on hook strength, self-contained narrative,
+          emotional peak, and optimal duration.
+          Prioritise clips that start with a strong pattern interrupt.
+
+      # 2c: Do a full viral teardown of the content
+      - id: teardown
+        type: agent-delegate
+        agent: viral-teardown-agent
+        dependsOn:
+          - extract-transcript
+        prompt: >
+          Perform a viral teardown of this content.
+          Transcript: {{extract-transcript.output}}
+          Metrics: {{viralPost.metrics}}
+          Platform: {{viralPost.platform}}
+          Caption: {{viralPost.caption}}
+          Identify: hook type, retention strategy, emotional arc,
+          CTA technique, and the #1 reason this went viral.
+
+      # 2d: Recreate original content inspired by the viral mechanics
+      - id: recreate
+        type: agent-delegate
+        agent: content-recreator
+        dependsOn:
+          - teardown
+          - auto-clip
+        prompt: >
+          Using the viral teardown analysis: {{teardown.output}}
+          And the clip analysis: {{auto-clip.output}}
+          Create 2-3 original scripts that capture the same viral mechanics
+          but in the brand voice for organization {{organizationId}}.
+          Use recreation types: one "mirror", one "transpose", one "extract".
+          Each script needs a hook, body, and CTA.
+          Save each script to the database using the saveRecreatedScript tool.
+
+  # Step 3: Quality-check the recreated scripts
+  - id: quality-check
+    type: agent-delegate
+    agent: quality-scorer
+    dependsOn:
+      - process-viral-posts
+    prompt: >
+      Review all recreated scripts generated in the previous steps for
+      organization {{organizationId}}.
+      Score each on: originality (must NOT be a copy), hook strength,
+      brand voice alignment, and estimated viral potential.
+      Flag any script that scores below 6/10 for manual review.
+      Return the top scripts with scores >= 7/10 as ready for production.
+
+  # Step 4: Schedule the approved scripts for the content pipeline
+  - id: schedule-approved
+    type: condition
+    condition: "{{quality-check.output.approvedCount}} > 0"
+    dependsOn:
+      - quality-check
+    onTrue:
+      - id: distribute-scripts
+        type: agent-delegate
+        agent: distribution-strategist
+        prompt: >
+          Plan distribution for the approved recreated scripts
+          for organization {{organizationId}}.
+          Scripts ready for production: {{quality-check.output.approved}}
+          Create a multi-platform wave schedule:
+          TikTok first, Instagram 2hr later, YouTube 4hr later.
+          Assign each script to the best-performing accounts
+          based on current health scores.
+    onFalse:
+      - id: log-no-approved
+        type: action
+        action: content.logSkipped
+        params:
+          organizationId: "{{organizationId}}"
+          reason: "No recreated scripts met quality threshold (>= 7/10)"
+          feedback: "{{quality-check.output.summary}}"

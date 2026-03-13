@@ -38,9 +38,16 @@ import { generate as generateQualityScorer } from "./specialists/quality-scorer"
 import { generate as generateVariationOrchestrator } from "./specialists/variation-orchestrator";
 import { generate as generateBrandPersona } from "./specialists/brand-persona-agent";
 import { generate as generateViralTeardown } from "./specialists/viral-teardown-agent";
+import { generate as generateDistributionStrategist } from "./specialists/distribution-strategist";
+import { generate as generateReplyJacker } from "./specialists/reply-jacker";
+import { generate as generateTranscriptExtractor } from "./specialists/transcript-extractor";
+import { generate as generateAutoClipper } from "./specialists/auto-clipper";
+import { generate as generateContentRecreator } from "./specialists/content-recreator";
+import { generate as generateEditDirector } from "./specialists/edit-director";
+import { generate as generateCaptionGenerator } from "./specialists/caption-generator";
 
 /**
- * Bootstrap all 25 agents into the global registry.
+ * Bootstrap all agents into the global registry.
  * Called at application startup.
  */
 export function bootstrapAgents(): void {
@@ -187,5 +194,26 @@ export function bootstrapAgents(): void {
   );
   registerAgent("viral-teardown-agent", (prompt, opts) =>
     generateViralTeardown(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("distribution-strategist", (prompt, opts) =>
+    generateDistributionStrategist(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("reply-jacker", (prompt, opts) =>
+    generateReplyJacker(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("transcript-extractor", (prompt, opts) =>
+    generateTranscriptExtractor(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("auto-clipper", (prompt, opts) =>
+    generateAutoClipper(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("content-recreator", (prompt, opts) =>
+    generateContentRecreator(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("edit-director", (prompt, opts) =>
+    generateEditDirector(prompt, buildCtx(prompt, opts), opts),
+  );
+  registerAgent("caption-generator", (prompt, opts) =>
+    generateCaptionGenerator(prompt, buildCtx(prompt, opts), opts),
   );
 }

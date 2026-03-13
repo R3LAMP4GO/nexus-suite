@@ -58,22 +58,29 @@ const getRecentComments = createTool({
             caption: true,
             postedAt: true,
             platform: true,
-            metricSnapshots: {
-              orderBy: { capturedAt: "desc" },
-              take: 1,
-              select: { views: true, likes: true, comments: true, shares: true },
-            },
           },
         });
+
+        // Fetch metric snapshots for these posts
+        const postIds = recentPosts.map((p) => p.id);
+        const allSnapshots = postIds.length > 0
+          ? await db.postMetricSnapshot.findMany({
+              where: { postRecordId: { in: postIds } },
+              orderBy: { snapshotAt: "desc" },
+              distinct: ["postRecordId"],
+              select: { postRecordId: true, views: true, likes: true, comments: true, shares: true },
+            })
+          : [];
+        const snapMap = new Map(allSnapshots.map((s) => [s.postRecordId, s]));
 
         // Build comment-like records from posts that have engagement
         const comments = recentPosts
           .filter((p) => {
-            const snap = p.metricSnapshots[0];
+            const snap = snapMap.get(p.id);
             return snap && snap.comments > 0;
           })
           .map((p) => {
-            const snap = p.metricSnapshots[0];
+            const snap = snapMap.get(p.id);
             return {
               postRecordId: p.id,
               externalPostId: p.externalPostId,

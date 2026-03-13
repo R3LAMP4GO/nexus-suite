@@ -12,16 +12,38 @@ export interface WorkflowRunJob {
 }
 
 const AGENTS_DIR = join(process.cwd(), "src", "agents", "clients");
+const GLOBAL_WORKFLOWS_DIR = join(process.cwd(), "src", "server", "workflows");
 
 export function loadOrgWorkflows(orgId: string): WorkflowDefinition[] {
-  const workflowDir = join(AGENTS_DIR, orgId, "workflows");
-  if (!existsSync(workflowDir)) return [];
+  const results: WorkflowDefinition[] = [];
+  const seenNames = new Set<string>();
 
-  const files = readdirSync(workflowDir).filter((f) => f.endsWith(".yaml"));
-  return files.map((file) => {
-    const raw = readFileSync(join(workflowDir, file), "utf-8");
-    return parseYaml(raw) as WorkflowDefinition;
-  });
+  // 1. Load org-specific workflows (higher priority — can override globals)
+  const orgDir = join(AGENTS_DIR, orgId, "workflows");
+  if (existsSync(orgDir)) {
+    const files = readdirSync(orgDir).filter((f) => f.endsWith(".yaml"));
+    for (const file of files) {
+      const raw = readFileSync(join(orgDir, file), "utf-8");
+      const wf = parseYaml(raw) as WorkflowDefinition;
+      results.push(wf);
+      seenNames.add(wf.name);
+    }
+  }
+
+  // 2. Load global workflow templates (skip if org has a same-named override)
+  if (existsSync(GLOBAL_WORKFLOWS_DIR)) {
+    const files = readdirSync(GLOBAL_WORKFLOWS_DIR).filter((f) => f.endsWith(".yaml"));
+    for (const file of files) {
+      const raw = readFileSync(join(GLOBAL_WORKFLOWS_DIR, file), "utf-8");
+      const wf = parseYaml(raw) as WorkflowDefinition;
+      if (!seenNames.has(wf.name)) {
+        results.push(wf);
+        seenNames.add(wf.name);
+      }
+    }
+  }
+
+  return results;
 }
 
 export async function handleWorkflowRun(

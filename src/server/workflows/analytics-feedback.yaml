@@ -1,0 +1,83 @@
+name: analytics-feedback
+organizationId: "{{organizationId}}"
+trigger:
+  type: cron
+  schedule: "0 6,14,22 * * *"
+  description: "Collect post metrics 3x/day and update hook performance scores via Thompson Sampling"
+
+steps:
+  # Step 1: Collect metrics for all recent SUCCESS posts
+  - id: collect-metrics
+    type: action
+    action: analytics.collectHookMetrics
+    params:
+      organizationId: "{{organizationId}}"
+
+  # Step 2: For each platform, fetch updated metrics from the platform API
+  - id: fetch-platform-metrics
+    type: forEach
+    collection:
+      - "TIKTOK"
+      - "INSTAGRAM"
+      - "YOUTUBE"
+      - "FACEBOOK"
+      - "X"
+    as: platform
+    dependsOn:
+      - collect-metrics
+    steps:
+      - id: fetch-metrics
+        type: agent-delegate
+        agent: analytics-reporter
+        prompt: >
+          Fetch the latest performance metrics for all posts on {{platform}}
+          for organization {{organizationId}} from the last 48 hours.
+          For each post, return: postRecordId, views, likes, comments,
+          shares, saves, and retention rate (if available).
+          Focus on posts that have been live for at least 3 hours
+          to get meaningful early-signal data.
+
+  # Step 3: Generate a hook performance report
+  - id: hook-report
+    type: agent-delegate
+    agent: analytics-reporter
+    dependsOn:
+      - fetch-platform-metrics
+    prompt: >
+      Generate a hook performance report for organization {{organizationId}}.
+      Analyse which hook frameworks (curiosity_gap, controversy,
+      transformation, shock/urgency) are performing best across platforms.
+      Metrics collection results: {{collect-metrics.output}}
+      Include:
+      1. Top 5 hooks by engagement rate
+      2. Framework performance breakdown (avg engagement by framework)
+      3. Platform-specific hook winners
+      4. Recommendations for next content cycle
+      5. Hooks that should be retired (consistent underperformance)
+
+  # Step 4: If any hooks are significantly underperforming, flag them
+  - id: flag-underperformers
+    type: condition
+    condition: "{{collect-metrics.output.hooksUpdated}} > 0"
+    dependsOn:
+      - hook-report
+    onTrue:
+      - id: generate-improvement-hooks
+        type: agent-delegate
+        agent: hook-writer
+        prompt: >
+          Based on the analytics feedback report: {{hook-report.output}}
+          Generate 3 new experimental hooks for organization {{organizationId}}.
+          Focus on:
+          1. One hook using the BEST performing framework (exploitation)
+          2. One hook using a framework with LOW confidence / few uses (exploration)
+          3. One completely novel hook that combines two frameworks (innovation)
+          Use the getTopPerformingHooks tool to check current Thompson Sampling scores.
+    onFalse:
+      - id: log-no-updates
+        type: action
+        action: engagement.logSkipped
+        params:
+          organizationId: "{{organizationId}}"
+          platform: "all"
+          reason: "No hook performance data to update in this cycle"
