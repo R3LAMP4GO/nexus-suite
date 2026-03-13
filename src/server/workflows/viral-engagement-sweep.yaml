@@ -1,0 +1,101 @@
+# Viral Engagement Sweep
+# Enhanced version: runs hourly, adds competitor reply-jacking and pinned comment generation
+# Chains: analytics-reporter + viral-teardown → engagement-responder → pinned comments → report
+
+name: viral-engagement-sweep
+description: "Hourly engagement sweep with competitor reply-jacking and pinned comment generation"
+organizationId: "{{input.organizationId}}"
+trigger:
+  type: cron
+  schedule: "0 * * * *"
+config:
+  platform: "{{input.platform}}"
+input:
+  organizationId: "Organization ID"
+  platform: "Target platform (TIKTOK, INSTAGRAM, YOUTUBE)"
+  niche: "Content niche for competitor discovery"
+
+steps:
+  # ── Step 1: Collect engagement analytics ─────────────────────────
+  - id: collect-analytics
+    type: agent-delegate
+    agent: analytics-reporter
+    prompt: "Analyze engagement metrics for {{input.platform}} in organization {{input.organizationId}} from the last 1 hour. Return a summary with total interactions, top-performing posts by completion rate and shares, a list of actionable items such as comments needing replies and mentions and DMs, posts published in the last 2 hours that do not yet have pinned comments as postsNeedingPinnedComment, and an actionableCount field with the total number of items needing attention."
+    outputAs: analytics
+    retries: 2
+    timeoutMs: 60000
+
+  # ── Step 2: Find competitor viral content for reply-jacking ──────
+  - id: find-competitor-viral
+    type: agent-delegate
+    agent: viral-teardown-agent
+    prompt: "Find the top 3 viral posts in the {{input.niche}} niche on {{input.platform}} posted in the last 6 hours that have high engagement but relatively few comments, meaning high visibility with low reply competition. For each post return: postId, creatorHandle, engagementScore as a number, commentCount, contentSummary, and suggestedReplyAngle explaining what kind of reply would get visibility."
+    outputAs: competitorViral
+    retries: 2
+    timeoutMs: 60000
+
+  # ── Step 3: Respond to actionable engagement ────────────────────
+  - id: engagement-gate
+    type: condition
+    condition: "{{analytics.actionableCount}} >= 1"
+    dependsOn:
+      - collect-analytics
+    onTrue:
+      - id: respond-engagement
+        type: agent-delegate
+        agent: engagement-responder
+        prompt: "Process these actionable engagement items for {{input.platform}}: {{analytics}}. Reply to comments within brand voice. Prioritize: questions first, positive mentions second, debate or controversy third. Keep replies conversational and authentic with no corporate speak. Each reply should invite further conversation. Return a summary of actions taken with replyCount as a number."
+        outputAs: responses
+        retries: 2
+        timeoutMs: 90000
+    onFalse:
+      - id: log-no-actions
+        type: action
+        action: engagement.logSkipped
+        params:
+          organizationId: "{{input.organizationId}}"
+          platform: "{{input.platform}}"
+          reason: "No actionable engagement items in last hour"
+        retries: 1
+        timeoutMs: 15000
+
+  # ── Step 4: Generate pinned comments for recent posts ───────────
+  - id: pinned-comment-gate
+    type: condition
+    condition: "{{analytics.postsNeedingPinnedComment}} >= 1"
+    dependsOn:
+      - collect-analytics
+    onTrue:
+      - id: write-pinned
+        type: agent-delegate
+        agent: engagement-responder
+        prompt: "Generate pinned comments for recent posts on {{input.platform}} that need engagement triggers. Each pinned comment should drive engagement using one of these strategies: open-ended question, self-identifying prompt like comment if you have experienced this, debate trigger, or challenge like spot the hidden detail. Keep each under 150 characters. Return an array of objects with postId, pinnedCommentText, and strategy fields."
+        outputAs: pinnedComments
+        retries: 1
+        timeoutMs: 30000
+    onFalse:
+      - id: skip-pinned
+        type: action
+        action: engagement.logSkipped
+        params:
+          organizationId: "{{input.organizationId}}"
+          platform: "{{input.platform}}"
+          reason: "No posts need pinned comments"
+        retries: 1
+        timeoutMs: 15000
+
+  # ── Step 5: Compile engagement report ───────────────────────────
+  - id: compile-report
+    type: action
+    action: engagement.compileReport
+    dependsOn:
+      - engagement-gate
+      - find-competitor-viral
+      - pinned-comment-gate
+    params:
+      organizationId: "{{input.organizationId}}"
+      platform: "{{input.platform}}"
+      analytics: "{{analytics}}"
+      responses: "{{responses}}"
+    retries: 1
+    timeoutMs: 30000
