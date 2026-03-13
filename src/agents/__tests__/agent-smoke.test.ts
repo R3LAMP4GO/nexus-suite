@@ -1,4 +1,4 @@
-// Agent Smoke Tests — verifies the structural integrity of all 36 agents.
+// Agent Smoke Tests — verifies the structural integrity of all 44 agents.
 // Does NOT call real LLMs. Tests registration, delegation chain, context stripping,
 // safety enforcement, and tool scope compliance.
 
@@ -79,6 +79,9 @@ const EXPECTED_AGENTS = [
   "article-writer", "trend-scout", "engagement-responder",
   "analytics-reporter", "content-repurposer", "quality-scorer",
   "variation-orchestrator", "brand-persona-agent", "viral-teardown-agent",
+  // Tier 3+ (newer agents)
+  "auto-clipper", "caption-generator", "content-recreator",
+  "distribution-strategist", "edit-director", "reply-jacker", "transcript-extractor",
 ];
 
 beforeAll(() => {
@@ -86,7 +89,7 @@ beforeAll(() => {
 });
 
 describe("Agent Registry", () => {
-  it("registers all 36 expected agents", () => {
+  it("registers all 44 expected agents", () => {
     const registry = getRegisteredAgents();
     for (const name of EXPECTED_AGENTS) {
       expect(registry.has(name), `Agent "${name}" not registered`).toBe(true);
