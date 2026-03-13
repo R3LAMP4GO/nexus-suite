@@ -1,0 +1,136 @@
+# Viral-Optimized Daily Content Pipeline
+# Chains: viral-teardown → trend-scout → hook-writer → script-agent → caption-writer → hashtag-optimizer → title-generator → quality-scorer → schedule
+# Runs daily at 6 AM UTC. Uses viral analysis to inform every generation step.
+
+name: viral-daily-pipeline
+description: "Viral-optimized daily pipeline with full agent chain and competitor analysis"
+organizationId: "{{input.organizationId}}"
+trigger:
+  type: cron
+  schedule: "0 6 * * *"
+config:
+  platform: "{{input.platform}}"
+  niche: "{{input.niche}}"
+input:
+  organizationId: "Organization ID"
+  platform: "Target platform (TIKTOK, INSTAGRAM, YOUTUBE)"
+  niche: "Content niche for trend and viral discovery"
+
+steps:
+  # ── Step 1: Analyze competitor viral content ───────────────────
+  - id: viral-analysis
+    type: agent-delegate
+    agent: viral-teardown-agent
+    prompt: "Analyze the top 5 viral posts in the {{input.niche}} niche on {{input.platform}} from the last 7 days. Identify replicable patterns: hook types that work, optimal pacing, video structure, content angles that drive shares and saves. Return a JSON object with fields: viralPatterns (array of objects with hookType, pacingSeconds, structure, angle), avgCompletionRate (number), topHookExamples (array of strings), recommendedDuration (number in seconds), keyInsights (array of strings)."
+    outputAs: viralAnalysis
+    retries: 2
+    timeoutMs: 90000
+
+  # ── Step 2: Discover rising trends ─────────────────────────────
+  - id: discover-trends
+    type: agent-delegate
+    agent: trend-scout
+    prompt: "Find trending topics in the {{input.niche}} niche on {{input.platform}}. Prioritize RISING trends with high velocity that have not yet peaked. For each trend include a velocity indicator (rising, plateau, or declining). Return the top 3 trends each with title, angle, talking points, and estimated trend velocity. Focus on trends with high share potential."
+    outputAs: trends
+    retries: 2
+    timeoutMs: 60000
+
+  # ── Step 3: Generate viral hooks ───────────────────────────────
+  - id: generate-hooks
+    type: agent-delegate
+    agent: hook-writer
+    prompt: "Generate 5 viral hooks for a {{input.platform}} video about this trend: {{trends}}. Use these proven viral patterns from competitor analysis: {{viralAnalysis}}. Each hook must be under 3 seconds when spoken. Use these frameworks: pattern interrupt, curiosity gap, contradiction, direct promise, payoff preview. For each hook return: hookText, frameworkUsed, estimatedRetentionPercent, platformFit (1-10). Optimize for 80%+ first-3-second retention."
+    dependsOn:
+      - viral-analysis
+      - discover-trends
+    outputAs: hooks
+    retries: 2
+    timeoutMs: 60000
+
+  # ── Step 4: Write script with viral constraints ────────────────
+  - id: generate-script
+    type: agent-delegate
+    agent: script-agent
+    prompt: "Write a short-form script for {{input.platform}} based on trend: {{trends}}. Use the BEST hook from: {{hooks}} (pick the one with the highest estimatedRetentionPercent). Apply these viral patterns from competitor analysis: {{viralAnalysis}}. Structure: Hook (0-3s) then pattern interrupt (3-5s) then core content with cuts every 2-4 seconds then CTA. Target the recommended duration from viral analysis. Include visual direction notes for each segment. Include timestamps. The script MUST deliver on whatever the hook promises."
+    dependsOn:
+      - generate-hooks
+      - viral-analysis
+    outputAs: script
+    retries: 2
+    timeoutMs: 90000
+
+  # ── Step 5: Write platform-optimized caption ───────────────────
+  - id: write-caption
+    type: agent-delegate
+    agent: caption-writer
+    prompt: "Write a caption for this {{input.platform}} post. Script: {{script}}. Include a strong CTA that drives shares or saves, not just likes. Include a self-identifying question or debate prompt to drive comments. For TikTok keep it punchy with 3-5 hashtags. For Instagram be descriptive with a hook in the first line. For YouTube focus on SEO keywords."
+    dependsOn:
+      - generate-script
+    outputAs: caption
+    retries: 1
+    timeoutMs: 60000
+
+  # ── Step 6: Optimize hashtags ──────────────────────────────────
+  - id: optimize-hashtags
+    type: agent-delegate
+    agent: hashtag-optimizer
+    prompt: "Select optimal hashtags for this {{input.platform}} post. Content: {{caption}}. Trending topics: {{trends}}. Mix branded, niche, and trending hashtags. Follow strict platform limits: TikTok 3-5, Instagram 5-15, YouTube 3-5, X 1-2. Prioritize hashtags with high engagement-to-competition ratio. Return the hashtags as an array."
+    dependsOn:
+      - write-caption
+      - discover-trends
+    outputAs: hashtags
+    retries: 1
+    timeoutMs: 30000
+
+  # ── Step 7: Generate click-worthy titles ───────────────────────
+  - id: generate-titles
+    type: agent-delegate
+    agent: title-generator
+    prompt: "Generate 5 click-worthy titles for this {{input.platform}} content. Script: {{script}}. Hooks: {{hooks}}. Use curiosity, numbers, or urgency frameworks. Optimize for CTR. Each title should make someone stop scrolling. Return titles as an array ranked by estimated CTR."
+    dependsOn:
+      - generate-script
+      - generate-hooks
+    outputAs: titles
+    retries: 1
+    timeoutMs: 30000
+
+  # ── Step 8: Score content quality ──────────────────────────────
+  - id: score-quality
+    type: agent-delegate
+    agent: quality-scorer
+    prompt: "Score this content package for {{input.platform}} on a 1-10 scale. Script: {{script}}. Caption: {{caption}}. Evaluate: Does the body deliver on the hook promise? Is pacing fast enough with cuts every 2-4 seconds? Is there a clear CTA? Is it share-worthy? Return a JSON object with score (number 1-10), hookDeliveryScore (1-10), pacingScore (1-10), ctaStrength (1-10), feedback (string)."
+    dependsOn:
+      - write-caption
+      - generate-script
+    outputAs: quality
+    retries: 1
+    timeoutMs: 30000
+
+  # ── Step 9: Quality gate ───────────────────────────────────────
+  - id: quality-gate
+    type: condition
+    condition: "{{quality.score}} >= 7"
+    dependsOn:
+      - score-quality
+    onTrue:
+      - id: schedule-post
+        type: action
+        action: content.schedule
+        params:
+          organizationId: "{{input.organizationId}}"
+          platform: "{{input.platform}}"
+          script: "{{script}}"
+          caption: "{{caption}}"
+          qualityScore: "{{quality.score}}"
+        retries: 2
+        timeoutMs: 30000
+    onFalse:
+      - id: log-low-quality
+        type: action
+        action: content.logSkipped
+        params:
+          organizationId: "{{input.organizationId}}"
+          reason: "Quality score {{quality.score}} below threshold 7"
+          feedback: "{{quality.feedback}}"
+        retries: 1
+        timeoutMs: 15000
