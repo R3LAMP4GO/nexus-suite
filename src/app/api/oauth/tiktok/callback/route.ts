@@ -31,14 +31,23 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const clientKey = process.env.TIKTOK_CLIENT_KEY;
+  const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
+  if (!clientKey || !clientSecret) {
+    return NextResponse.json(
+      { error: "TikTok OAuth is not configured — TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET is missing" },
+      { status: 503 },
+    );
+  }
+
   try {
     const tokenRes = await fetch("https://open.tiktokapis.com/v2/oauth/token/", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_key: process.env.TIKTOK_CLIENT_KEY ?? "",
-        client_secret: process.env.TIKTOK_CLIENT_SECRET ?? "",
+        client_key: clientKey,
+        client_secret: clientSecret,
         redirect_uri: `${REDIRECT_BASE}/api/oauth/tiktok/callback`,
         grant_type: "authorization_code",
       }),

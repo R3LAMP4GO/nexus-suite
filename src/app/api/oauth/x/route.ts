@@ -14,6 +14,14 @@ export async function GET(_req: NextRequest) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
 
+  const clientId = process.env.X_CLIENT_ID;
+  if (!clientId) {
+    return NextResponse.json(
+      { error: "X OAuth is not configured — X_CLIENT_ID is missing" },
+      { status: 503 },
+    );
+  }
+
   const state = await generateOAuthState(session.user.organizationId);
 
   // PKCE challenge
@@ -35,7 +43,7 @@ export async function GET(_req: NextRequest) {
 
   const params = new URLSearchParams({
     response_type: "code",
-    client_id: process.env.X_CLIENT_ID ?? "",
+    client_id: clientId,
     redirect_uri: `${process.env.X_OAUTH_REDIRECT_BASE ?? process.env.NEXTAUTH_URL}/api/oauth/x/callback`,
     scope: "tweet.read tweet.write users.read offline.access",
     state,

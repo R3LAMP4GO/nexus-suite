@@ -34,6 +34,15 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const clientId = process.env.LINKEDIN_CLIENT_ID;
+  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+  if (!clientId || !clientSecret) {
+    return NextResponse.json(
+      { error: "LinkedIn OAuth is not configured — LINKEDIN_CLIENT_ID or LINKEDIN_CLIENT_SECRET is missing" },
+      { status: 503 },
+    );
+  }
+
   try {
     const tokenRes = await fetch(
       "https://www.linkedin.com/oauth/v2/accessToken",
@@ -43,8 +52,8 @@ export async function GET(req: NextRequest) {
         body: new URLSearchParams({
           grant_type: "authorization_code",
           code,
-          client_id: process.env.LINKEDIN_CLIENT_ID ?? "",
-          client_secret: process.env.LINKEDIN_CLIENT_SECRET ?? "",
+          client_id: clientId,
+          client_secret: clientSecret,
           redirect_uri: `${REDIRECT_BASE}/api/oauth/linkedin/callback`,
         }),
       },

@@ -181,7 +181,7 @@ export async function executeWorkflow(
         steps: allResults as unknown as any,
         variables: context.variables as unknown as any,
       },
-    }).catch((e) => console.error("[WorkflowRunLog] Failed to persist run log:", e));
+    }).catch((e) => workflowLogger.error({ err: e }, "Failed to persist WorkflowRunLog"));
 
     return {
       runId,
@@ -252,7 +252,7 @@ export async function executeWorkflow(
       variables: context.variables as unknown as any,
     },
   }).catch((err) => {
-    console.error("[WorkflowRunLog] Failed to persist run log:", err);
+    workflowLogger.error({ err }, "Failed to persist WorkflowRunLog");
   });
 
   return result;
@@ -283,7 +283,7 @@ async function executeStepWithLog(
       startedAt: stepStartedAt,
     },
   }).catch((err) => {
-    console.error("[WorkflowStepLog] Failed to create step log:", err);
+    workflowLogger.error({ err }, "Failed to create WorkflowStepLog");
     return null;
   });
 
@@ -311,7 +311,7 @@ async function executeStepWithLog(
         completedAt,
       },
     }).catch((err) => {
-      console.error("[WorkflowStepLog] Failed to update step log:", err);
+      workflowLogger.error({ err }, "Failed to update WorkflowStepLog");
     });
   }
 
@@ -461,8 +461,9 @@ async function executeAgentDelegateStep(
 
       // Last attempt — return what we have with a warning
       if (attempt >= maxValidationRetries) {
-        console.warn(
-          `[validation] Agent "${step.agent}" output failed schema validation after ${attempt + 1} attempts: ${validation.errors.join("; ")}`,
+        workflowLogger.warn(
+          { agent: step.agent, attempts: attempt + 1, errors: validation.errors },
+          "Agent output failed schema validation",
         );
         validatedOutput = output; // Use raw output as fallback
         break;
@@ -475,7 +476,7 @@ async function executeAgentDelegateStep(
     // Notify org owner when script-agent generates a script successfully
     if (step.agent === "script-agent") {
       notifyScriptReady(context.organizationId, validatedOutput ?? output).catch((err) => {
-        console.error("[notifications] Failed to send script ready email:", err);
+        workflowLogger.error({ err }, "Failed to send script ready email");
       });
     }
 

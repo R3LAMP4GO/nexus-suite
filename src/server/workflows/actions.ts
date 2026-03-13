@@ -1,3 +1,4 @@
+import { workflowLogger } from "@/lib/logger";
 import { registerAction } from "./executor";
 import { db } from "@/lib/db";
 import { enqueueWarmTask, type WarmTask } from "../services/warming/queue";
@@ -71,7 +72,7 @@ export function registerWorkflowActions(): void {
       }
     }
 
-    console.log(
+    workflowLogger.info(
       `[warming.enqueuePhase] Enqueued ${enqueued} tasks for account ${accountId} phase ${phase} (days ${dayStart}-${dayEnd})`,
     );
 
@@ -99,7 +100,7 @@ export function registerWorkflowActions(): void {
       data: { warmupStatus: "WARMING" },
     });
 
-    console.log(`[warming.markReady] Mark-ready task enqueued for account ${accountId}`);
+    workflowLogger.info(`[warming.markReady] Mark-ready task enqueued for account ${accountId}`);
 
     return { accountId, status: "mark-ready enqueued" };
   });
@@ -118,7 +119,7 @@ export function registerWorkflowActions(): void {
         params.variationId as string,
         [platform],
       );
-      console.log(
+      workflowLogger.info(
         `[content.schedule] Scheduled ${result.scheduled} posts for variation ${params.variationId} on ${platform}`,
       );
       return result;
@@ -183,7 +184,7 @@ export function registerWorkflowActions(): void {
     });
 
     const result = await scheduleDistribution(organizationId, variation.id, [platform]);
-    console.log(
+    workflowLogger.info(
       `[content.schedule] Created script ${script.id}, variation ${variation.id}, scheduled ${result.scheduled} posts on ${platform}`,
     );
 
@@ -202,7 +203,7 @@ export function registerWorkflowActions(): void {
     const reason = (params.reason as string) ?? "Unknown reason";
     const feedback = params.feedback as string | undefined;
 
-    console.log(
+    workflowLogger.info(
       `[content.logSkipped] org=${organizationId} reason="${reason}"${feedback ? ` feedback="${feedback}"` : ""}`,
     );
 
@@ -229,7 +230,7 @@ export function registerWorkflowActions(): void {
     const platform = params.platform as string;
     const reason = (params.reason as string) ?? "No actionable items";
 
-    console.log(
+    workflowLogger.info(
       `[engagement.logSkipped] org=${organizationId} platform=${platform} reason="${reason}"`,
     );
 
@@ -256,7 +257,7 @@ export function registerWorkflowActions(): void {
         : "Engagement sweep completed — no actionable items",
     };
 
-    console.log(
+    workflowLogger.info(
       `[engagement.compileReport] org=${organizationId} platform=${platform} report compiled`,
     );
 
@@ -290,7 +291,7 @@ export function registerWorkflowActions(): void {
           scheduled += result.scheduled;
           skipped += result.skipped;
         } catch (err) {
-          console.error(`[distribution.scheduleWave] Failed to schedule variation ${variationId}:`, err);
+          workflowLogger.error({ err, variationId }, "Failed to schedule variation in wave");
           skipped++;
         }
       }
@@ -301,13 +302,13 @@ export function registerWorkflowActions(): void {
           scheduled += result.scheduled;
           skipped += result.skipped;
         } catch (err) {
-          console.error(`[distribution.scheduleWave] Failed to schedule variation ${varId}:`, err);
+          workflowLogger.error({ err, variationId: varId }, "Failed to schedule variation in wave");
           skipped++;
         }
       }
     }
 
-    console.log(
+    workflowLogger.info(
       `[distribution.scheduleWave] platform=${platform} scheduled=${scheduled} skipped=${skipped} delay=${delayMinutes}min interval=${intervalMinutes}min`,
     );
 
@@ -337,7 +338,7 @@ export function registerWorkflowActions(): void {
     });
 
     if (recentPosts.length < 2) {
-      console.log(`[distribution.crossEngage] Only ${recentPosts.length} recent posts — need 2+ for cross-engagement`);
+      workflowLogger.info(`[distribution.crossEngage] Only ${recentPosts.length} recent posts — need 2+ for cross-engagement`);
       return { engagementsQueued: 0, reason: "Not enough recent posts" };
     }
 
@@ -372,7 +373,7 @@ export function registerWorkflowActions(): void {
       }
     }
 
-    console.log(
+    workflowLogger.info(
       `[distribution.crossEngage] platform=${platform} engagementsQueued=${engagementsQueued} delay=${delayMinutes}min`,
     );
 
@@ -413,7 +414,7 @@ export function registerWorkflowActions(): void {
     }
 
     if (!targetPost?.externalPostId) {
-      console.log(`[distribution.pinComment] No eligible post found for pinning`);
+      workflowLogger.info(`[distribution.pinComment] No eligible post found for pinning`);
       return { pinned: false, reason: "No eligible post found" };
     }
 
@@ -432,7 +433,7 @@ export function registerWorkflowActions(): void {
       { retryLimit: 2, expireInMinutes: 60 },
     );
 
-    console.log(
+    workflowLogger.info(
       `[distribution.pinComment] Queued pin-comment for post ${targetPost.id} on ${platform}`,
     );
 
@@ -448,7 +449,7 @@ export function registerWorkflowActions(): void {
 
     const result = await collectMetrics(organizationId);
 
-    console.log(
+    workflowLogger.info(
       `[analytics.collectHookMetrics] org=${organizationId} posts=${result.postsProcessed} snapshots=${result.snapshotsCreated} hooks=${result.hooksUpdated}`,
     );
 
@@ -475,12 +476,12 @@ export function registerWorkflowActions(): void {
     const { updatePostMetrics } = await import("../services/hook-performance");
     await updatePostMetrics(postRecordId, metrics);
 
-    console.log(
+    workflowLogger.info(
       `[analytics.updatePostMetrics] post=${postRecordId} views=${metrics.views} engagement=${metrics.likes + metrics.comments}`,
     );
 
     return { updated: true, postRecordId };
   });
 
-  console.log("[workflow-actions] Registered 11 workflow action handlers");
+  workflowLogger.info("[workflow-actions] Registered 11 workflow action handlers");
 }

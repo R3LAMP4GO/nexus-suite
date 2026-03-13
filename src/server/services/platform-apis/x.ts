@@ -220,11 +220,22 @@ export async function postXApi(
 
   // Build OAuth 1.0a credentials — accessToken here is the user oauth_token,
   // but media upload also needs api_key, api_secret, access_token_secret from env
+  const apiKey = process.env.X_API_KEY;
+  const apiSecret = process.env.X_API_SECRET;
+  const accessTokenSecret = process.env.X_ACCESS_TOKEN_SECRET;
+  if (!apiKey || !apiSecret || !accessTokenSecret) {
+    return {
+      success: false,
+      errorMessage:
+        "X API credentials are not configured — X_API_KEY, X_API_SECRET, or X_ACCESS_TOKEN_SECRET is missing",
+    };
+  }
+
   const creds: OAuthCredentials = {
-    apiKey: process.env.X_API_KEY ?? "",
-    apiSecret: process.env.X_API_SECRET ?? "",
+    apiKey,
+    apiSecret,
     accessToken,
-    accessTokenSecret: process.env.X_ACCESS_TOKEN_SECRET ?? "",
+    accessTokenSecret,
   };
 
   // ── Step 1: INIT ──

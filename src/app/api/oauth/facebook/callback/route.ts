@@ -34,11 +34,20 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const clientId = process.env.FACEBOOK_APP_ID;
+  const clientSecret = process.env.FACEBOOK_APP_SECRET;
+  if (!clientId || !clientSecret) {
+    return NextResponse.json(
+      { error: "Facebook OAuth is not configured — FACEBOOK_APP_ID or FACEBOOK_APP_SECRET is missing" },
+      { status: 503 },
+    );
+  }
+
   try {
     const params = new URLSearchParams({
       code,
-      client_id: process.env.FACEBOOK_APP_ID ?? "",
-      client_secret: process.env.FACEBOOK_APP_SECRET ?? "",
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: `${REDIRECT_BASE}/api/oauth/facebook/callback`,
       grant_type: "authorization_code",
     });

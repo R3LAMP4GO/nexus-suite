@@ -31,11 +31,20 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const clientId = process.env.INSTAGRAM_APP_ID;
+  const clientSecret = process.env.INSTAGRAM_APP_SECRET;
+  if (!clientId || !clientSecret) {
+    return NextResponse.json(
+      { error: "Instagram OAuth is not configured — INSTAGRAM_APP_ID or INSTAGRAM_APP_SECRET is missing" },
+      { status: 503 },
+    );
+  }
+
   try {
     const params = new URLSearchParams({
       code,
-      client_id: process.env.INSTAGRAM_APP_ID ?? "",
-      client_secret: process.env.INSTAGRAM_APP_SECRET ?? "",
+      client_id: clientId,
+      client_secret: clientSecret,
       redirect_uri: `${REDIRECT_BASE}/api/oauth/instagram/callback`,
       grant_type: "authorization_code",
     });

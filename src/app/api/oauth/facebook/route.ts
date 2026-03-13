@@ -13,10 +13,18 @@ export async function GET(_req: NextRequest) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
 
+  const clientId = process.env.FACEBOOK_APP_ID;
+  if (!clientId) {
+    return NextResponse.json(
+      { error: "Facebook OAuth is not configured — FACEBOOK_APP_ID is missing" },
+      { status: 503 },
+    );
+  }
+
   const state = await generateOAuthState(session.user.organizationId);
 
   const params = new URLSearchParams({
-    client_id: process.env.FACEBOOK_APP_ID ?? "",
+    client_id: clientId,
     redirect_uri: `${process.env.NEXTAUTH_URL}/api/oauth/facebook/callback`,
     response_type: "code",
     scope:

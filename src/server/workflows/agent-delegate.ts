@@ -1,3 +1,4 @@
+import { agentLogger } from "@/lib/logger";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -250,9 +251,9 @@ export async function executeAgentDelegate(
   // Final validation check — log warning on failure but continue with raw text
   const finalValidation = validateAgentOutput(agentName, outputText);
   if (!finalValidation.valid) {
-    console.warn(
-      `[agent-delegate] Output validation failed for "${agentName}" after ${MAX_OUTPUT_RETRIES} retry(ies). ` +
-      `Errors: ${finalValidation.errors.join("; ")}. Continuing with raw output (graceful degradation).`,
+    agentLogger.warn(
+      { agentName, retries: MAX_OUTPUT_RETRIES, errors: finalValidation.errors },
+      "Output validation failed, continuing with raw output (graceful degradation)",
     );
   }
 
