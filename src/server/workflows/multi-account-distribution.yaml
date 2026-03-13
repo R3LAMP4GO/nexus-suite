@@ -1,0 +1,75 @@
+# Multi-Account Staggered Distribution
+# Implements the "Tate model": coordinated multi-account, multi-platform posting
+# Posts to TikTok first, then Instagram 2hr later, then YouTube 4hr later
+# Generates engagement triggers and coordinates cross-account engagement
+
+name: multi-account-distribution
+description: "Staggered multi-account multi-platform distribution for maximum algorithmic momentum"
+organizationId: "{{input.organizationId}}"
+trigger:
+  type: manual
+input:
+  organizationId: "Organization ID"
+  variationIds: "Array of variation IDs to distribute"
+  platforms: "Array of target platforms in priority order"
+  staggerMinutes: "Minutes between platform waves (default 120)"
+
+steps:
+  # ── Step 1: Plan optimal distribution strategy ─────────────────
+  - id: plan-distribution
+    type: agent-delegate
+    agent: nexus-orchestrator
+    prompt: "Plan a staggered distribution strategy for content variations {{input.variationIds}} across platforms {{input.platforms}} for organization {{input.organizationId}}. Rules: 1) Post to TikTok first as it has the fastest feedback loop. 2) Wait {{input.staggerMinutes}} minutes then post to Instagram Reels. 3) Wait another {{input.staggerMinutes}} minutes then post to YouTube Shorts. 4) Post to Facebook simultaneously with Instagram. Assign different variations to different platforms to avoid duplicate detection. Return a distribution plan as JSON with a waves array where each wave has: platform (string), delayMinutes (number), variationIds (array of strings). Also include an engagementPlan object with delayAfterPostMinutes set to 15."
+    outputAs: distributionPlan
+    retries: 2
+    timeoutMs: 60000
+
+  # ── Step 2: Execute distribution waves sequentially ────────────
+  - id: execute-waves
+    type: forEach
+    collection: "{{distributionPlan.waves}}"
+    as: wave
+    maxConcurrency: 1
+    dependsOn:
+      - plan-distribution
+    steps:
+      - id: schedule-wave-content
+        type: forEach
+        collection: "{{wave.variationIds}}"
+        as: varId
+        maxConcurrency: 5
+        steps:
+          - id: schedule-single
+            type: action
+            action: content.schedule
+            params:
+              organizationId: "{{input.organizationId}}"
+              platform: "{{wave.platform}}"
+              variationId: "{{varId}}"
+            retries: 2
+            timeoutMs: 30000
+
+  # ── Step 3: Generate engagement triggers ───────────────────────
+  - id: generate-engagement-triggers
+    type: agent-delegate
+    agent: engagement-responder
+    prompt: "Generate pinned comment text for each platform we are distributing to: {{input.platforms}}. Each pinned comment should drive engagement using one of these strategies: open-ended question, self-identifying prompt, debate trigger, or challenge. Platform-specific tone: TikTok should be casual with minimal emojis, Instagram should be polished with a CTA to save or share, YouTube should ask a question to drive comments for the algorithm. Return an array of objects with platform, pinnedCommentText, and strategy fields."
+    dependsOn:
+      - execute-waves
+    outputAs: engagementTriggers
+    retries: 1
+    timeoutMs: 30000
+
+  # ── Step 4: Compile distribution report ────────────────────────
+  - id: compile-distribution-report
+    type: action
+    action: engagement.compileReport
+    dependsOn:
+      - generate-engagement-triggers
+    params:
+      organizationId: "{{input.organizationId}}"
+      platform: "multi"
+      analytics: "{{distributionPlan}}"
+      responses: "{{engagementTriggers}}"
+    retries: 1
+    timeoutMs: 30000
