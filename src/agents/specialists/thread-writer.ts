@@ -41,15 +41,55 @@ const getThreadStructure = createTool({
   execute: async (executionContext) => {
     const { platform, narrativeType, postCount } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { platform: string; narrativeType?: string; postCount?: number }) => ({
-        platform: input.platform,
-        narrativeType: input.narrativeType ?? "listicle",
-        maxPostCount: input.postCount ?? 10,
-        charLimit: 280,
-        hookPlacements: [] as string[],
-        ctaPatterns: [] as string[],
-        status: "pending-integration" as const,
-      }),
+      async (input: { platform: string; narrativeType?: string; postCount?: number }) => {
+        const THREAD_CONFIG: Record<string, { charLimit: number; maxPosts: number; mediaPerPost: number; linkBehavior: string }> = {
+          x: { charLimit: 280, maxPosts: 25, mediaPerPost: 4, linkBehavior: "shortens via t.co" },
+          linkedin: { charLimit: 3000, maxPosts: 1, mediaPerPost: 9, linkBehavior: "inline, penalised in feed" },
+          threads: { charLimit: 500, maxPosts: 10, mediaPerPost: 10, linkBehavior: "inline" },
+        };
+
+        const NARRATIVE_TEMPLATES: Record<string, { hookPlacement: string[]; structure: string[]; ctaPatterns: string[] }> = {
+          listicle: {
+            hookPlacement: ["Post 1: bold claim or stat", "Post 1: 'X things I learned about...'"],
+            structure: ["Hook → numbered items (1 per post) → summary + CTA"],
+            ctaPatterns: ["Follow for more [topic]", "Save this thread", "Which one resonated most? Reply below"],
+          },
+          story: {
+            hookPlacement: ["Post 1: tension or conflict opener", "Post 1: 'A year ago I was...'"],
+            structure: ["Setup (1-2 posts) → Rising action (3-5 posts) → Climax (1 post) → Resolution + lesson (1-2 posts)"],
+            ctaPatterns: ["If this resonated, repost it", "Share your own story below", "Follow for the next chapter"],
+          },
+          educational: {
+            hookPlacement: ["Post 1: myth-busting or 'most people think X, but actually Y'", "Post 1: question the reader wants answered"],
+            structure: ["Question/myth → evidence/explanation (2-4 posts) → actionable takeaway (1-2 posts) → CTA"],
+            ctaPatterns: ["Bookmark this for later", "Tag someone who needs this", "Follow for daily [topic] breakdowns"],
+          },
+        };
+
+        const platformKey = input.platform.toLowerCase();
+        const config = THREAD_CONFIG[platformKey] ?? THREAD_CONFIG.x;
+        const narrative = input.narrativeType ?? "listicle";
+        const template = NARRATIVE_TEMPLATES[narrative] ?? NARRATIVE_TEMPLATES.listicle;
+        const targetPosts = Math.min(input.postCount ?? 7, config.maxPosts);
+
+        return {
+          platform: input.platform,
+          narrativeType: narrative,
+          maxPostCount: targetPosts,
+          charLimit: config.charLimit,
+          mediaPerPost: config.mediaPerPost,
+          linkBehavior: config.linkBehavior,
+          hookPlacements: template.hookPlacement,
+          structure: template.structure,
+          ctaPatterns: template.ctaPatterns,
+          tips: [
+            `Keep each post under ${Math.round(config.charLimit * 0.85)} chars for readability`,
+            "End post 1 with '🧵👇' or 'A thread:' to signal thread format",
+            "Number posts (1/, 2/, ...) so readers know progress",
+            targetPosts > 5 ? "For long threads, add a mid-thread re-hook at post " + Math.ceil(targetPosts / 2) : "Short threads should be tight — every post must earn its place",
+          ],
+        };
+      },
       { agentName: AGENT_NAME, toolName: "getThreadStructure" },
     );
     return wrappedFn({ platform, narrativeType, postCount });
