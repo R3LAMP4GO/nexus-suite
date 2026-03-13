@@ -18,7 +18,8 @@
     "db:restore": "bash scripts/restore-db.sh",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.0.0",
