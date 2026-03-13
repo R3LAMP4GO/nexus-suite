@@ -1,0 +1,108 @@
+# Viral Content Repurpose
+# Enhanced: adds hook-writer, caption-writer, hashtag-optimizer, title-generator per platform
+# Chains: content-repurposer → forEach(platforms) { repurpose → hooks → caption → hashtags → title → variation → schedule }
+
+name: viral-content-repurpose
+description: "Cross-platform content repurpose with viral optimization per platform"
+organizationId: "{{input.organizationId}}"
+trigger:
+  type: manual
+input:
+  organizationId: "Organization ID"
+  sourceContentId: "Source content ID to repurpose"
+  targetPlatforms: "Array of target platforms"
+
+steps:
+  # ── Step 1: Analyze source content ─────────────────────────────
+  - id: analyze-source
+    type: agent-delegate
+    agent: content-repurposer
+    prompt: "Analyze source content {{input.sourceContentId}} for organization {{input.organizationId}}. Extract key themes, hooks, talking points, media assets, original pacing, and what made it engaging. Return a structured breakdown with: themes as an array, originalHook as a string, talkingPoints as an array, mediaAssets as an array, originalPlatform, estimatedDuration as a number, and viralElements explaining what made it engaging."
+    outputAs: sourceAnalysis
+    retries: 2
+    timeoutMs: 60000
+
+  # ── Step 2: Adapt and optimize per platform ────────────────────
+  - id: per-platform
+    type: forEach
+    collection: "{{input.targetPlatforms}}"
+    as: platform
+    maxConcurrency: 3
+    dependsOn:
+      - analyze-source
+    steps:
+      - id: adapt-content
+        type: agent-delegate
+        agent: content-repurposer
+        prompt: "Adapt this content for {{platform}}: {{sourceAnalysis}}. Adjust duration for the platform (TikTok 15-60s, YouTube Shorts 15-60s, Instagram Reels 15-90s). Adjust tone (TikTok casual and raw, Instagram polished, YouTube informative, X punchy). Return the adapted script with platform-specific pacing and structure."
+        outputAs: adaptedContent
+        retries: 2
+        timeoutMs: 60000
+
+      - id: platform-hooks
+        type: agent-delegate
+        agent: hook-writer
+        prompt: "Generate 3 hooks optimized specifically for {{platform}} based on: {{adaptedContent}}. TikTok hooks should be raw and attention-grabbing. Instagram hooks should be visually striking. YouTube hooks should create curiosity. Each hook must be under 3 seconds spoken. Return for each: hookText, frameworkUsed, platformFit as a number 1-10."
+        dependsOn:
+          - adapt-content
+        outputAs: platformHooks
+        retries: 1
+        timeoutMs: 30000
+
+      - id: platform-caption
+        type: agent-delegate
+        agent: caption-writer
+        prompt: "Write a {{platform}}-optimized caption for: {{adaptedContent}}. Include a platform-appropriate CTA. TikTok: share with someone who. Instagram: save this for later. YouTube: subscribe for more. Keep within platform character limits."
+        dependsOn:
+          - adapt-content
+        outputAs: platformCaption
+        retries: 1
+        timeoutMs: 30000
+
+      - id: platform-hashtags
+        type: agent-delegate
+        agent: hashtag-optimizer
+        prompt: "Select optimal hashtags for {{platform}}. Content: {{platformCaption}}. Follow strict platform limits: TikTok 3-5, Instagram 5-15, YouTube 3-5, X 1-2. Mix niche and trending hashtags."
+        dependsOn:
+          - platform-caption
+        outputAs: platformHashtags
+        retries: 1
+        timeoutMs: 30000
+
+      - id: platform-title
+        type: agent-delegate
+        agent: title-generator
+        prompt: "Generate 3 titles for {{platform}} content: {{adaptedContent}}. Best hook: {{platformHooks}}. YouTube needs SEO-friendly titles. TikTok needs scroll-stopping text. Instagram needs clean overlay text."
+        dependsOn:
+          - adapt-content
+          - platform-hooks
+        outputAs: platformTitle
+        retries: 1
+        timeoutMs: 30000
+
+      - id: generate-variation
+        type: agent-delegate
+        agent: variation-orchestrator
+        prompt: "Generate a {{platform}}-optimized variation of this content: {{adaptedContent}}. Apply hash-altering transforms to ensure unique visual fingerprint. Return FFmpeg transform specifications."
+        dependsOn:
+          - adapt-content
+        outputAs: variation
+        retries: 2
+        timeoutMs: 60000
+
+      - id: schedule-variation
+        type: action
+        action: content.schedule
+        dependsOn:
+          - generate-variation
+          - platform-caption
+          - platform-hashtags
+          - platform-title
+        params:
+          organizationId: "{{input.organizationId}}"
+          platform: "{{platform}}"
+          variation: "{{variation}}"
+          caption: "{{platformCaption}}"
+          sourceContentId: "{{input.sourceContentId}}"
+        retries: 2
+        timeoutMs: 30000
