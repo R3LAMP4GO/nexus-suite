@@ -1,6 +1,17 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+let _resend: Resend | null = null;
+
+function getResend(): Resend {
+  if (!_resend) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error("RESEND_API_KEY environment variable is required for email notifications");
+    }
+    _resend = new Resend(apiKey);
+  }
+  return _resend;
+}
 const FROM = process.env.EMAIL_FROM ?? "Nexus Suite <noreply@nexus-suite.com>";
 const APP_URL = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -69,7 +80,7 @@ export async function sendScriptReadyEmail(
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: clientEmail,
       subject: `Your Script is Ready: ${scriptTitle}`,
@@ -107,7 +118,7 @@ export async function sendVideoProcessedEmail(
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: clientEmail,
       subject: `Your Videos Are Ready — ${variationCount} Variations Created`,
@@ -145,7 +156,7 @@ export async function sendActivationEmail(
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: clientEmail,
       subject: `Your Nexus Suite Account is Ready — ${orgName}`,
@@ -180,7 +191,7 @@ export async function sendWelcomeEmail(
   `;
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: FROM,
       to: clientEmail,
       subject: `Welcome to Nexus Suite — ${orgName}`,
