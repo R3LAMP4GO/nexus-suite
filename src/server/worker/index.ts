@@ -1,7 +1,9 @@
+import "@/lib/env";
 import { createBoss } from "@/lib/pg-boss";
 import { bootstrapAgents } from "@/agents/registry";
 import { registerJobHandlers } from "./jobs/index.js";
 import { registerCronWorkflows } from "@/server/workflows/cron-scheduler";
+import { registerWorkflowActions } from "@/server/workflows/actions";
 import { startCompetitorWorker, stopCompetitorWorker } from "../workers/competitor-worker.js";
 import { startPostWorker, stopPostWorker } from "../workers/post-worker.js";
 import { startCompetitorPollingWorker, stopCompetitorPollingWorker } from "../workers/competitor-polling-worker.js";
@@ -18,6 +20,9 @@ async function start(): Promise<void> {
   console.log("[worker] starting pg-boss...");
   await boss.start();
   await registerJobHandlers(boss);
+
+  console.log("[worker] registering workflow actions...");
+  registerWorkflowActions();
 
   console.log("[worker] registering cron workflows...");
   await registerCronWorkflows(boss);
