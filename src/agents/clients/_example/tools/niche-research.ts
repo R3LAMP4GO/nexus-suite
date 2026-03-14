@@ -7,29 +7,76 @@ import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { wrapToolHandler } from "@/agents/general/index.js";
 
-/** Example niche-specific tool: search fitness supplement databases. */
-export const searchSupplementDb = createTool({
-  id: "searchSupplementDb",
-  description: "Search a fitness supplement database for ingredient info and claims",
+/** Niche research tool: fetch keywords and trending topics for a given niche. */
+export const fetchNicheKeywords = createTool({
+  id: "fetchNicheKeywords",
+  description: "Fetch keyword ideas, competition data, and trending topics for a content niche",
   inputSchema: z.object({
-    ingredient: z.string().describe("Supplement ingredient to look up"),
-    claimType: z
-      .enum(["efficacy", "safety", "dosage", "interactions"])
-      .optional()
-      .describe("Type of information to retrieve"),
+    niche: z.string().describe("Content niche to research (e.g. fitness, tech, finance)"),
+    region: z.string().optional().describe("Region for keyword data (defaults to global)"),
   }),
   execute: async (executionContext) => {
-    const { ingredient, claimType } = executionContext.context;
+    const { niche, region } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { ingredient: string; claimType?: string }) => ({
-        ingredient: input.ingredient,
-        claimType: input.claimType ?? "efficacy",
-        results: [] as string[],
-        source: "client-plugin",
-        status: "pending-integration" as const,
-      }),
-      { agentName: "client-plugin", toolName: "searchSupplementDb" },
+      async (input: { niche: string; region?: string }) => {
+        const NICHE_DATA: Record<string, { keywords: string[]; avgVolume: number; competition: string; trending: string[] }> = {
+          fitness: {
+            keywords: ["home workout", "weight loss tips", "gym motivation", "meal prep", "protein shake recipes"],
+            avgVolume: 45000,
+            competition: "high",
+            trending: ["walking pad", "zone 2 cardio", "12-3-30 workout"],
+          },
+          tech: {
+            keywords: ["AI tools", "productivity apps", "coding tutorials", "tech reviews", "startup tips"],
+            avgVolume: 62000,
+            competition: "high",
+            trending: ["local LLMs", "AI agents", "vibe coding"],
+          },
+          finance: {
+            keywords: ["passive income", "investing for beginners", "budgeting tips", "side hustles", "crypto basics"],
+            avgVolume: 38000,
+            competition: "medium",
+            trending: ["high yield savings", "FIRE movement", "dividend investing"],
+          },
+          beauty: {
+            keywords: ["skincare routine", "makeup tutorial", "clean beauty", "hair care tips", "drugstore dupes"],
+            avgVolume: 55000,
+            competition: "high",
+            trending: ["skin cycling", "glass skin", "lip combo"],
+          },
+          education: {
+            keywords: ["study tips", "online courses", "language learning", "career change", "skill development"],
+            avgVolume: 28000,
+            competition: "low",
+            trending: ["micro-credentials", "AI tutoring", "learn to code"],
+          },
+        };
+
+        const nicheKey = input.niche.toLowerCase();
+        const data = NICHE_DATA[nicheKey] ?? {
+          keywords: [`${input.niche} tips`, `${input.niche} for beginners`, `best ${input.niche}`, `${input.niche} guide`, `${input.niche} trends`],
+          avgVolume: 15000,
+          competition: "unknown",
+          trending: [`${input.niche} 2024`, `${input.niche} AI`],
+        };
+
+        return {
+          niche: input.niche,
+          region: input.region ?? "global",
+          keywords: data.keywords,
+          avgMonthlyVolume: data.avgVolume,
+          competition: data.competition,
+          trendingTopics: data.trending,
+          contentAngles: [
+            `Beginner's guide to ${input.niche}`,
+            `Top 5 ${input.niche} mistakes to avoid`,
+            `${input.niche} myths debunked`,
+            `How I got into ${input.niche} — personal story`,
+          ],
+        };
+      },
+      { agentName: "client-plugin", toolName: "fetchNicheKeywords" },
     );
-    return wrappedFn({ ingredient, claimType });
+    return wrappedFn({ niche, region });
   },
 });

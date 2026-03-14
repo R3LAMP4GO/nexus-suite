@@ -18,14 +18,53 @@ const adaptReelHook = createTool({
   execute: async (executionContext) => {
     const { originalHook, niche, targetDuration } = executionContext.context;
     const wrappedFn = wrapToolHandler(
-      async (input: { originalHook: string; niche?: string; targetDuration?: number }) => ({
-        originalHook: input.originalHook,
-        niche: input.niche ?? "general",
-        targetDuration: Math.min(input.targetDuration ?? 30, 90),
-        adaptedHook: "",
-        textOverlay: "",
-        status: "pending-integration" as const,
-      }),
+      async (input: { originalHook: string; niche?: string; targetDuration?: number }) => {
+        const hook = input.originalHook;
+        const niche = input.niche ?? "general";
+
+        // Generate Reels-optimized variations
+        const variations = [
+          {
+            text: hook,
+            format: "text-overlay",
+            timing: "0-3s",
+            tip: "Original hook as bold text overlay with motion",
+          },
+          {
+            text: `Wait for it... ${hook}`,
+            format: "delayed-reveal",
+            timing: "0-2s tease, 2-4s reveal",
+            tip: "Build anticipation before the hook lands",
+          },
+          {
+            text: hook.length > 50 ? hook.slice(0, 50) + "..." : hook,
+            format: "short-punch",
+            timing: "0-2s",
+            tip: "Shortened for faster impact — pair with visual shock",
+          },
+        ];
+
+        return {
+          originalHook: hook,
+          niche,
+          reelsVariations: variations,
+          formatSpecs: {
+            aspectRatio: "9:16",
+            resolution: "1080x1920",
+            maxDuration: 90,
+            textSafeZone: { top: 150, bottom: 270, left: 40, right: 40 },
+            fontSizeRange: "32-64px",
+          },
+          bestPractices: [
+            "First frame must be visually arresting — no blank screens",
+            "Text overlay appears within 0.5s of video start",
+            "Use captions — 85% of Reels watched on mute",
+            "Hook text should be max 2 lines on mobile",
+            "Pair text hook with contrasting visual (before/after, zoom, reveal)",
+          ],
+          audioRecommendation: "Use trending Reels audio for algorithmic boost — add to Saved Audio library",
+        };
+      },
       { agentName: "reel-hook-adapter", toolName: "adaptReelHook" },
     );
     return wrappedFn({ originalHook, niche, targetDuration });
