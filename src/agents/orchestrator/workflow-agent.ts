@@ -2,6 +2,7 @@ import { Agent } from "@mastra/core/agent";
 import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { wrapToolHandler } from "@/agents/general";
+import { modelConfig } from "../platforms/model-config";
 import { prepareContext } from "../general/prepare-context";
 import { buildSystemPrompt } from "../general/prompts";
 import type { RawAgentContext } from "../general/types";
@@ -71,7 +72,7 @@ const validateWorkflowTool = createTool({
 const workflowAgent = new Agent({
   name: AGENT_NAME,
   instructions: WORKFLOW_AGENT_INSTRUCTIONS,
-  model: undefined as any, // Model injected at runtime via agent-delegate
+  model: modelConfig.tier1,
   tools: { validate_workflow: validateWorkflowTool },
 });
 

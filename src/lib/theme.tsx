@@ -33,35 +33,28 @@ function resolveTheme(theme: Theme): "light" | "dark" {
   return theme === "system" ? getSystemPreference() : theme;
 }
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolved, setResolved] = useState<"light" | "dark">("light");
+function getInitialTheme(): Theme {
+  if (typeof window === "undefined") return "system";
+  return (localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
+}
 
-  // On mount, read stored preference
-  useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial = stored ?? "system";
-    setThemeState(initial);
-    setResolved(resolveTheme(initial));
-  }, []);
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const resolved = resolveTheme(theme);
 
   // Apply dark class + listen for system changes
   useEffect(() => {
-    const r = resolveTheme(theme);
-    setResolved(r);
-    document.documentElement.classList.toggle("dark", r === "dark");
+    document.documentElement.classList.toggle("dark", resolved === "dark");
 
     if (theme === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
       const handler = (e: MediaQueryListEvent) => {
-        const sys = e.matches ? "dark" : "light";
-        setResolved(sys);
-        document.documentElement.classList.toggle("dark", sys === "dark");
+        document.documentElement.classList.toggle("dark", e.matches);
       };
       mq.addEventListener("change", handler);
       return () => mq.removeEventListener("change", handler);
     }
-  }, [theme]);
+  }, [theme, resolved]);
 
   const setTheme = useCallback((t: Theme) => {
     localStorage.setItem(STORAGE_KEY, t);

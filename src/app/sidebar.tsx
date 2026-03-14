@@ -77,11 +77,10 @@ export function Sidebar() {
   // Mobile open/close
   const [mobileOpen, setMobileOpen] = useState(false);
   // Desktop collapsed
-  const [collapsed, setCollapsed] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(localStorage.getItem(COLLAPSED_KEY) === "true");
-  }, []);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem(COLLAPSED_KEY) === "true";
+  });
 
   const toggleCollapse = useCallback(() => {
     setCollapsed((prev) => {
@@ -91,10 +90,9 @@ export function Sidebar() {
     });
   }, []);
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
+  // Close mobile sidebar on route change — intentional setState on external event
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   if (!isProtected) return null;
 

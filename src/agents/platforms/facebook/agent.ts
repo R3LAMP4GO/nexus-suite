@@ -1,4 +1,5 @@
 import { Agent } from "@mastra/core/agent";
+import { modelConfig } from "../model-config";
 import { prepareContext } from "../../general/prepare-context";
 import { buildSystemPrompt } from "../../general/prompts";
 import type { RawAgentContext } from "../../general/types";
@@ -31,7 +32,7 @@ const AGENT_NAME = "facebook-agent";
 const facebookAgent = new Agent({
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
-  model: undefined as any,
+  model: modelConfig.tier2,
   tools: {},
 });
 

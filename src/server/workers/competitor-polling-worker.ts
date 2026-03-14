@@ -266,8 +266,7 @@ async function handlePollCron(): Promise<void> {
   let totalFetched = 0;
 
   // Paginate through active creators in batches
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  for (;;) {
     const batch = await db.trackedCreator.findMany({
       where: {
         isActive: true,

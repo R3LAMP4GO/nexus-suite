@@ -85,7 +85,7 @@ function LoginForm() {
 
           <div className="rounded-lg border border-gray-800 bg-gray-800/50 p-3">
             <p className="text-center text-xs text-gray-500">
-              Didn't receive it? Check your spam folder, or{" "}
+              Didn&apos;t receive it? Check your spam folder, or{" "}
               <button
                 onClick={() => {
                   setEmailSent(false);

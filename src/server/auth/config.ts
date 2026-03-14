@@ -62,7 +62,6 @@ const devCredentials =
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Prisma 7 client type doesn't match @auth/prisma-adapter's expected PrismaClient shape
   adapter: PrismaAdapter(db as any),
   session: { strategy: "jwt" },
   providers: [

@@ -5,6 +5,7 @@ import { assignProxy } from "./commands/assign-proxy";
 import { generateWorkflows } from "./commands/generate-workflows";
 import { warmupStart, type WarmupStartOpts } from "./commands/warmup-start";
 import { initPlugin } from "./commands/init-plugin";
+import { onboardFree } from "./commands/onboard-free";
 
 // dry-run-client is a standalone script (npx tsx src/cli/commands/dry-run-client.ts)
 // but we also register it as a CLI subcommand for discoverability.
@@ -84,6 +85,17 @@ program
   .argument("<agentName>", "Agent name (e.g., custom-writer)")
   .action(async (orgId: string, agentName: string) => {
     await initPlugin(orgId, agentName);
+  });
+
+program
+  .command("onboard-free")
+  .description("Onboard a user for free — bypasses Stripe, creates org, sets to ACTIVE")
+  .argument("<email>", "User email address")
+  .option("--name <name>", "Organization/brand name")
+  .option("--tier <tier>", "Pricing tier: PRO, MULTIPLIER, or ENTERPRISE", "MULTIPLIER")
+  .option("--niche <niche>", "Content niche (e.g. fitness, tech, beauty)")
+  .action(async (email: string, opts: { name?: string; tier?: string; niche?: string }) => {
+    await onboardFree(email, opts);
   });
 
 program
