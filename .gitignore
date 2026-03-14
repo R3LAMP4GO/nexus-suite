@@ -17,3 +17,6 @@ __pycache__/
 tsconfig.tsbuildinfo
 .vercel
 backups/
+e2e/.auth/
+test-results/
+playwright-report/
