@@ -1,4 +1,4 @@
-import { createTool } from "@mastra/core";
+import { createTool } from "@mastra/core/tools";
 import { z } from "zod";
 import { execPocketCli } from "@/server/modules/cli-bridge/cli-bridge.service";
 import { wrapToolHandler } from "./tool-wrappers";
@@ -17,7 +17,7 @@ interface CliToolMeta {
   service: string;
   action: string;
   description: string;
-  inputSchema: z.ZodObject<Record<string, z.ZodTypeAny>>;
+  inputSchema: z.ZodObject<Record<string, z.ZodType>>;
 }
 
 export interface WrappedToolResult {
@@ -35,7 +35,7 @@ export function wrapCliToolHandler(meta: CliToolMeta) {
     id: `pocket_${meta.domain}_${meta.service}_${meta.action}`,
     description: meta.description,
     inputSchema: meta.inputSchema,
-    execute: async ({ context }): Promise<WrappedToolResult> => {
+    execute: async ({ context }: { context: Record<string, unknown> }): Promise<WrappedToolResult> => {
       const toolId = `pocket_${meta.domain}_${meta.service}_${meta.action}`;
       const wrappedFn = wrapToolHandler(
         async (inputArgs: Record<string, string>) => {

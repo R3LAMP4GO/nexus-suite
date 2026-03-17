@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { SendOptions } from "pg-boss";
 import { getBoss } from "@/lib/pg-boss";
 import type { MediaJobPayload } from "@/shared/queue-types";
 
@@ -11,7 +11,7 @@ const QUEUE_NAME = "media:task";
 
 export async function sendMediaJob(
   payload: MediaJob,
-  options?: PgBoss.SendOptions,
+  options?: SendOptions,
 ): Promise<string | null> {
   const boss = await getBoss();
   return boss.send(QUEUE_NAME, payload, options ?? {});

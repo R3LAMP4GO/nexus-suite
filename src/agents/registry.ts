@@ -56,7 +56,7 @@ export function bootstrapAgents(): void {
   // The Agent object uses name "orchestrator", and delegateToSpecialist resolves by registry key.
   const orchestratorFn = async (prompt: string) => {
     const result = await orchestratorAgent.generate(prompt, {});
-    return { text: result.text, usage: result.usage ? { promptTokens: result.usage.promptTokens, completionTokens: result.usage.completionTokens, model: "default" } : undefined };
+    return { text: result.text, usage: result.usage ? { promptTokens: result.usage.inputTokens ?? 0, completionTokens: result.usage.outputTokens ?? 0, model: "default" } : undefined };
   };
   registerAgent("nexus-orchestrator", orchestratorFn);
   registerAgent("orchestrator", orchestratorFn);
@@ -66,23 +66,23 @@ export function bootstrapAgents(): void {
 
   // Tier 2: Platform agents (6) — wrap Agent.generate for those without a generate fn
   registerAgent("youtube-main", async (prompt, opts) => {
-    const result = await youtubeMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await youtubeMainAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("tiktok-main", async (prompt, opts) => {
-    const result = await tiktokMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await tiktokMainAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("instagram-main", async (prompt, opts) => {
-    const result = await instagramMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await instagramMainAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("linkedin-main", async (prompt, opts) => {
-    const result = await linkedinMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await linkedinMainAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("x-main", async (prompt, opts) => {
-    const result = await xMainAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await xMainAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("facebook-agent", (prompt, opts) =>
@@ -91,47 +91,47 @@ export function bootstrapAgents(): void {
 
   // Tier 2.5: Platform sub-agents (11)
   registerAgent("community-post-formatter", async (prompt, opts) => {
-    const result = await communityPostFormatterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await communityPostFormatterAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("shorts-optimizer", async (prompt, opts) => {
-    const result = await shortsOptimizerAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await shortsOptimizerAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("duet-stitch-logic", async (prompt, opts) => {
-    const result = await duetStitchLogicAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await duetStitchLogicAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("sound-selector", async (prompt, opts) => {
-    const result = await soundSelectorAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await soundSelectorAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("carousel-sequencer", async (prompt, opts) => {
-    const result = await carouselSequencerAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await carouselSequencerAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("story-formatter", async (prompt, opts) => {
-    const result = await storyFormatterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await storyFormatterAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("professional-tone-adapter", async (prompt, opts) => {
-    const result = await professionalToneAdapterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await professionalToneAdapterAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("article-formatter", async (prompt, opts) => {
-    const result = await articleFormatterAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await articleFormatterAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("news-scout", async (prompt, opts) => {
-    const result = await newsScoutAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await newsScoutAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("tone-translator", async (prompt, opts) => {
-    const result = await toneTranslatorAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await toneTranslatorAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("x-engagement-responder", async (prompt, opts) => {
-    const result = await engagementResponderAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await engagementResponderAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
 
@@ -171,7 +171,7 @@ export function bootstrapAgents(): void {
     generateArticleWriter(prompt, buildCtx(prompt, opts), opts),
   );
   registerAgent("trend-scout", async (prompt, opts) => {
-    const result = await trendScoutAgent.generate(prompt, { maxTokens: opts?.maxTokens });
+    const result = await trendScoutAgent.generate(prompt, { modelSettings: opts?.maxTokens ? { maxOutputTokens: opts.maxTokens } : undefined });
     return { text: result.text };
   });
   registerAgent("engagement-responder", (prompt, opts) =>

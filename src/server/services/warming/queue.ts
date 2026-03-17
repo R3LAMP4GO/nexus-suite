@@ -56,7 +56,7 @@ export async function enqueueWarmTask(
     singletonKey: options?.singletonKey,
     retryLimit: 3,
     retryDelay: 60,
-    expireInMinutes: 30,
+    expireInSeconds: 30 * 60, // 30 minutes
   });
 }
 

@@ -14,6 +14,13 @@ export default function AnalyticsPage() {
   const health = api.dashboard.getAccountHealth.useQuery();
   const posts = api.dashboard.getRecentPosts.useQuery();
 
+  const syncMutation = api.analytics.triggerSync.useMutation({
+    onSuccess: () => {
+      void health.refetch();
+      void posts.refetch();
+    },
+  });
+
   const isLoading = health.isLoading || posts.isLoading;
   const hasAccounts = health.data && health.data.length > 0;
 
@@ -27,13 +34,49 @@ export default function AnalyticsPage() {
     <div className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">
-            Your Performance
-          </h1>
-          <p className="mt-2 text-lg text-[var(--text-muted)]">
-            See how your accounts are performing across all platforms
-          </p>
+        <div className="mb-10 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)]">
+              Your Performance
+            </h1>
+            <p className="mt-2 text-lg text-[var(--text-muted)]">
+              See how your accounts are performing across all platforms
+            </p>
+          </div>
+          <button
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+          >
+            {syncMutation.isPending ? (
+              <svg
+                className="h-4 w-4 animate-spin"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                />
+              </svg>
+            ) : (
+              "🔄"
+            )}
+            {syncMutation.isPending
+              ? "Syncing…"
+              : syncMutation.isSuccess
+                ? "Analytics sync triggered"
+                : "Refresh Analytics"}
+          </button>
         </div>
 
         {isLoading ? (

@@ -5,7 +5,8 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 export const adCopyOptimizerAgent = new Agent({
-  name: "ad-copy-optimizer",
+  id: "ad-copy-optimizer",
+  name: "Ad Copy Optimizer",
   instructions: `You are an Ad Copy Optimizer sub-agent for the Facebook platform.
 
 Your job is to optimize organic Facebook post copy using proven ad-copy frameworks:

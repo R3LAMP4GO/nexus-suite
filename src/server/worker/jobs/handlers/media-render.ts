@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import { writeFile, unlink, mkdir } from "node:fs/promises";
@@ -61,7 +61,7 @@ async function cleanupFiles(paths: string[]): Promise<void> {
 // ── Handler ─────────────────────────────────────────────────────
 
 export async function handleMediaRender(
-  job: PgBoss.Job<MediaRenderJob>,
+  job: Job<MediaRenderJob>,
 ): Promise<void> {
   const {
     organizationId,

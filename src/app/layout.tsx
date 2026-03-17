@@ -5,6 +5,7 @@ import { Sidebar } from "./sidebar";
 import { ThemeProvider } from "@/lib/theme";
 import { ToastProvider } from "@/components/ui/toast";
 import { CommandPaletteProvider } from "@/components/command-palette";
+import { StudioGlobalWrapper } from "@/components/chat";
 
 export const metadata: Metadata = {
   title: "Nexus Suite",

@@ -34,7 +34,8 @@ const delegateToSubAgent = createTool({
 });
 
 export const linkedinMainAgent = new Agent({
-  name: "linkedin-main",
+  id: "linkedin-main",
+  name: "LinkedIn Main",
   instructions: `You are the LinkedIn Platform Main Agent. Your role is to handle all LinkedIn-related content tasks.
 
 You can delegate to these sub-agents:

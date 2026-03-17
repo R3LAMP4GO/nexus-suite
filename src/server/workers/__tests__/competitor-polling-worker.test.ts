@@ -15,7 +15,7 @@ const bossMock = {
 };
 
 vi.mock("pg-boss", () => ({
-  default: class {
+  PgBoss: class {
     start = bossMock.start;
     send = bossMock.send;
     schedule = bossMock.schedule;
@@ -43,7 +43,7 @@ vi.mock("@/lib/db", () => ({ db: dbMock }));
 
 // ── Mock fetch ──────────────────────────────────────────────────
 const mockFetch = vi.fn();
-vi.stubGlobal("fetch", mockFetch);
+globalThis.fetch = mockFetch as typeof fetch;
 
 beforeEach(() => {
   vi.clearAllMocks();

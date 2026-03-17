@@ -10,6 +10,7 @@ import { pricingRouter } from "./routers/pricing";
 import { workflowsRouter } from "./routers/workflows";
 import { agentsRouter } from "./routers/agents";
 import { scriptsRouter } from "./routers/scripts";
+import { chatRouter } from "./routers/chat";
 import { uploadRouter } from "./routers/upload";
 import { analyticsRouter } from "./routers/analytics";
 
@@ -26,6 +27,7 @@ export const appRouter = createTRPCRouter({
   workflows: workflowsRouter,
   agents: agentsRouter,
   scripts: scriptsRouter,
+  chat: chatRouter,
   upload: uploadRouter,
 });
 

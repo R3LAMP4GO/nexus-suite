@@ -5,6 +5,7 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 export const communityPostFormatterAgent = new Agent({
+  id: "community-post-formatter",
   name: "community-post-formatter",
   instructions: `You are a Community Post Formatter sub-agent for the YouTube platform.
 

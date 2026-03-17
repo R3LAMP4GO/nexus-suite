@@ -13,7 +13,7 @@ const baseStep = z.object({
 export const actionStep = baseStep.extend({
   type: z.literal("action"),
   action: z.string(), // "service.method" format
-  params: z.record(z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
 });
 
 export const agentDelegateStep = baseStep.extend({
@@ -82,7 +82,7 @@ const manualTrigger = z.object({
 const eventTrigger = z.object({
   type: z.literal("event"),
   event: z.string(), // e.g. "outlier:detected"
-  filter: z.record(z.unknown()).optional(),
+  filter: z.record(z.string(), z.unknown()).optional(),
 });
 
 const triggerSchema = z.discriminatedUnion("type", [
@@ -98,8 +98,8 @@ export const workflowSchema = z.object({
   description: z.string().max(500).optional(),
   organizationId: z.string(),
   trigger: triggerSchema,
-  config: z.record(z.unknown()).optional(),
-  input: z.record(z.string()).optional(), // input type declarations
+  config: z.record(z.string(), z.unknown()).optional(),
+  input: z.record(z.string(), z.string()).optional(), // input type declarations
   steps: z.array(stepSchema).min(1),
 });
 

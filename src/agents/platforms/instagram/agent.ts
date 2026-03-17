@@ -34,7 +34,8 @@ const delegateToSubAgent = createTool({
 });
 
 export const instagramMainAgent = new Agent({
-  name: "instagram-main",
+  id: "instagram-main",
+  name: "Instagram Main",
   instructions: `You are the Instagram Platform Main Agent. Your role is to handle all Instagram-related content tasks.
 
 You can delegate to these sub-agents:

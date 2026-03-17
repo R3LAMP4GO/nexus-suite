@@ -1,6 +1,6 @@
 import { readdirSync, existsSync } from "fs";
 import { join } from "path";
-import type PgBoss from "pg-boss";
+import type { PgBoss } from "pg-boss";
 import { loadOrgWorkflows } from "@/server/worker/jobs/handlers/workflow-run";
 import type { WorkflowRunJob } from "@/server/worker/jobs/handlers/workflow-run";
 import { JobType } from "@/server/worker/jobs/types";

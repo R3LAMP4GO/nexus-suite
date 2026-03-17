@@ -12,7 +12,7 @@ const bossMock = {
 };
 
 vi.mock("pg-boss", () => ({
-  default: class {
+  PgBoss: class {
     start = bossMock.start;
     send = bossMock.send;
   },

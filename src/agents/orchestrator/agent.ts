@@ -77,6 +77,7 @@ const delegateToSpecialist = createTool({
 });
 
 export const orchestratorAgent = new Agent({
+  id: "orchestrator",
   name: "orchestrator",
   instructions: `You are the Orchestrator — the top-level coordinator for all content creation tasks.
 

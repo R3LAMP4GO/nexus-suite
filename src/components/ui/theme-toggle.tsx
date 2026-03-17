@@ -1,17 +1,25 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useTheme } from "@/lib/theme";
 
 export function ThemeToggle({ className = "" }: { className?: string }) {
   const { resolved, toggleTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   return (
     <button
       onClick={toggleTheme}
       className={`inline-flex items-center justify-center rounded-md p-2 transition hover:bg-[var(--bg-tertiary)] ${className}`}
       aria-label={`Switch to ${resolved === "dark" ? "light" : "dark"} mode`}
+      suppressHydrationWarning
     >
-      {resolved === "dark" ? (
+      {!mounted ? (
+        /* Placeholder to avoid hydration mismatch — matches size of icons */
+        <span className="inline-block h-5 w-5" />
+      ) : resolved === "dark" ? (
         /* Sun icon */
         <svg
           className="h-5 w-5 text-[var(--text-muted)]"

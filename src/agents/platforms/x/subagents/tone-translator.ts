@@ -97,6 +97,7 @@ const adaptTone = createTool({
 });
 
 export const toneTranslatorAgent = new Agent({
+  id: "tone-translator",
   name: "tone-translator",
   instructions: `You are a Tone Translator sub-agent for the X (Twitter) platform.
 

@@ -9,6 +9,7 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config.js";
 
 export const customHookWriterAgent = new Agent({
+  id: "hook-writer",
   name: "hook-writer",
   instructions: `You are a custom Hook Writer for this organization.
 

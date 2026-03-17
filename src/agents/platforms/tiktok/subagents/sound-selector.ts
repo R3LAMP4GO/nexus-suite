@@ -89,6 +89,7 @@ const searchTrendingSounds = createTool({
 });
 
 export const soundSelectorAgent = new Agent({
+  id: "sound-selector",
   name: "sound-selector",
   instructions: `You are a Sound Selector sub-agent for the TikTok platform.
 

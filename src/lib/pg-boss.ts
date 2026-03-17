@@ -1,16 +1,23 @@
-import PgBoss from "pg-boss";
+import { PgBoss } from "pg-boss";
+import type { ConstructorOptions, QueueOptions } from "pg-boss";
 
 // ── Shared pg-boss singleton ────────────────────────────────────
 // pg-boss.start() must only be called once per database connection.
 // All routers, services, and workers share this single instance.
 
-const BOSS_OPTIONS: PgBoss.ConstructorOptions = {
-  schema: "pgboss",
+/**
+ * Default queue-level options applied when creating queues.
+ * In pg-boss v12 these are per-queue, not global constructor options.
+ */
+export const DEFAULT_QUEUE_OPTIONS: QueueOptions = {
   retryLimit: 3,
   retryDelay: 30,
-  expireInHours: 24,
-  archiveCompletedAfterSeconds: 7 * 86400, // 7 days
-  deleteAfterDays: 30,
+  expireInSeconds: 24 * 3600, // 24 hours
+  deleteAfterSeconds: 30 * 86400, // 30 days
+};
+
+const BOSS_OPTIONS: ConstructorOptions = {
+  schema: "pgboss",
 };
 
 let instance: PgBoss | null = null;
@@ -29,7 +36,7 @@ export async function getBoss(): Promise<PgBoss> {
       if (!connectionString) throw new Error("DATABASE_URL is required for pg-boss");
 
       const boss = new PgBoss({ connectionString, ...BOSS_OPTIONS });
-      boss.on("error", (err) => console.error("[pg-boss] error:", err));
+      boss.on("error", (err: Error) => console.error("[pg-boss] error:", err));
       await boss.start();
       instance = boss;
       return boss;
@@ -47,7 +54,7 @@ export function createBoss(): PgBoss {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error("DATABASE_URL is required for pg-boss");
   const boss = new PgBoss({ connectionString, ...BOSS_OPTIONS });
-  boss.on("error", (err) => console.error("[pg-boss] error:", err));
+  boss.on("error", (err: Error) => console.error("[pg-boss] error:", err));
   return boss;
 }
 

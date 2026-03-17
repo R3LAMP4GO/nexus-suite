@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { PgBoss, Job } from "pg-boss";
 import { db } from "@/lib/db";
 import { incCounter } from "@/lib/metrics";
 import { canPost } from "@/server/services/circuit-breaker";
@@ -7,7 +7,7 @@ import type { Platform } from "@/generated/prisma/client";
 
 export async function handleContentSchedule(
   boss: PgBoss,
-  job: PgBoss.Job<ContentScheduleJob>,
+  job: Job<ContentScheduleJob>,
 ): Promise<void> {
   const { contentId, scheduledAt, organizationId } = job.data;
   const scheduleDate = new Date(scheduledAt);

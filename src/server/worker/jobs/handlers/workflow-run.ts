@@ -3,7 +3,7 @@ import { join } from "path";
 import { parse as parseYaml } from "yaml";
 import { executeWorkflow } from "@/server/workflows/executor";
 import type { WorkflowDefinition } from "@/server/workflows/workflow-schema";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 
 export interface WorkflowRunJob {
   workflowName: string;
@@ -47,7 +47,7 @@ export function loadOrgWorkflows(orgId: string): WorkflowDefinition[] {
 }
 
 export async function handleWorkflowRun(
-  job: PgBoss.Job<WorkflowRunJob>,
+  job: Job<WorkflowRunJob>,
 ): Promise<void> {
   const { workflowName, organizationId, triggeredAt } = job.data;
 

@@ -91,7 +91,7 @@ export const settingsRouter = createTRPCRouter({
   updateBrandConfig: onboardedProcedure
     .input(
       z.object({
-        brandConfig: z.record(z.unknown()),
+        brandConfig: z.record(z.string(), z.unknown()),
       }),
     )
     .mutation(async ({ ctx, input }) => {

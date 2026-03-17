@@ -1,11 +1,11 @@
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import type { WebhookDispatchJob } from "../types.js";
 
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
 export async function handleWebhookDispatch(
-  job: PgBoss.Job<WebhookDispatchJob>,
+  job: Job<WebhookDispatchJob>,
 ): Promise<void> {
   const { webhookUrl, payload, organizationId } = job.data;
 

@@ -44,6 +44,7 @@ export const scriptsRouter = createTRPCRouter({
         hookText: z.string().min(1),
         bodyText: z.string().min(1),
         ctaText: z.string().min(1),
+        status: z.nativeEnum(ScriptStatus).default("DRAFT"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -54,7 +55,7 @@ export const scriptsRouter = createTRPCRouter({
           hookText: input.hookText,
           bodyText: input.bodyText,
           ctaText: input.ctaText,
-          status: "DRAFT",
+          status: input.status,
         },
       });
     }),

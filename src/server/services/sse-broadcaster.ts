@@ -32,9 +32,22 @@ function channelKey(orgId: string): string {
 // Publisher — shared singleton
 let publisher: Redis | null = null;
 
+function createSSERedis(): Redis {
+  const client = new Redis(redisUrl, {
+    maxRetriesPerRequest: 3,
+    retryStrategy(times) {
+      return Math.min(times * 200, 5000);
+    },
+  });
+  client.on("error", (err) => {
+    console.error("[sse-redis] connection error:", err.message);
+  });
+  return client;
+}
+
 function getPublisher(): Redis {
   if (!publisher) {
-    publisher = new Redis(redisUrl);
+    publisher = createSSERedis();
   }
   return publisher;
 }
@@ -61,7 +74,7 @@ export function subscribeSSE(orgId: string): {
   stream: ReadableStream<Uint8Array>;
   cleanup: () => void;
 } {
-  const subscriber = new Redis(redisUrl);
+  const subscriber = createSSERedis();
   const encoder = new TextEncoder();
   let controllerRef: ReadableStreamDefaultController<Uint8Array> | null = null;
   let closed = false;

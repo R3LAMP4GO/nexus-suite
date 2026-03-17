@@ -5,7 +5,8 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 export const carouselSequencerAgent = new Agent({
-  name: "carousel-sequencer",
+  id: "carousel-sequencer",
+  name: "Carousel Sequencer",
   instructions: `You are a Carousel Sequencer sub-agent for the Instagram platform.
 
 Your job is to plan carousel post slide sequences:

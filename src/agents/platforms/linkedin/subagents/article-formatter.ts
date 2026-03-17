@@ -98,7 +98,8 @@ const formatLinkedInArticle = createTool({
 });
 
 export const articleFormatterAgent = new Agent({
-  name: "article-formatter",
+  id: "article-formatter",
+  name: "Article Formatter",
   instructions: `You are an Article Formatter sub-agent for the LinkedIn platform.
 
 Your job is to format long-form content for LinkedIn Articles:

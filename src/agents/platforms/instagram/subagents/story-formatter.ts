@@ -100,7 +100,8 @@ const formatStorySequence = createTool({
 });
 
 export const storyFormatterAgent = new Agent({
-  name: "story-formatter",
+  id: "story-formatter",
+  name: "Story Formatter",
   instructions: `You are a Story Formatter sub-agent for the Instagram platform.
 
 Your job is to format content for Instagram Stories:

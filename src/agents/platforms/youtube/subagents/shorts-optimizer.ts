@@ -5,6 +5,7 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 export const shortsOptimizerAgent = new Agent({
+  id: "shorts-optimizer",
   name: "shorts-optimizer",
   instructions: `You are a Shorts Optimizer sub-agent for the YouTube platform.
 

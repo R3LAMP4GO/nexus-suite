@@ -72,7 +72,8 @@ const adaptReelHook = createTool({
 });
 
 export const reelHookAdapterAgent = new Agent({
-  name: "reel-hook-adapter",
+  id: "reel-hook-adapter",
+  name: "Reel Hook Adapter",
   instructions: `You are a Reel Hook Adapter sub-agent for the Facebook platform.
 
 Your job is to adapt hooks and intros specifically for Facebook Reels:

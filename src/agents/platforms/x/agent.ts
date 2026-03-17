@@ -35,6 +35,7 @@ const delegateToSubAgent = createTool({
 });
 
 export const xMainAgent = new Agent({
+  id: "x-main",
   name: "x-main",
   instructions: `You are the X (Twitter) Platform Main Agent. Your role is to handle all X/Twitter-related content tasks.
 

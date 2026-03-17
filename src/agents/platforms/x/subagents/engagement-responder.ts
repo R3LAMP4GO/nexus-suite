@@ -90,6 +90,7 @@ const craftReply = createTool({
 });
 
 export const engagementResponderAgent = new Agent({
+  id: "x-engagement-responder",
   name: "x-engagement-responder",
   instructions: `You are an Engagement Responder sub-agent for the X (Twitter) platform.
 

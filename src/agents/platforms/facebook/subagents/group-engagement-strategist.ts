@@ -88,7 +88,8 @@ const planGroupContent = createTool({
 });
 
 export const groupEngagementStrategistAgent = new Agent({
-  name: "group-engagement-strategist",
+  id: "group-engagement-strategist",
+  name: "Group Engagement Strategist",
   instructions: `You are a Group Engagement Strategist sub-agent for the Facebook platform.
 
 Your job is to plan content specifically for Facebook Groups:

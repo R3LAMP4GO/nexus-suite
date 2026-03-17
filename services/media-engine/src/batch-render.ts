@@ -2,6 +2,8 @@
 // Concatenates Hook + Meat + CTA clips with FFmpeg, normalizing resolution,
 // applying ASS captions (karaoke word highlighting), and text overlays.
 
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore — fluent-ffmpeg types installed in root, not in this service
 import ffmpegCmd from "fluent-ffmpeg";
 import { join, normalize } from "path";
 import { writeFileSync, mkdirSync, unlinkSync } from "fs";
@@ -187,12 +189,12 @@ export function concatWithNormalization(
         "-c:v", "libx264", "-preset", "fast", "-crf", "23",
         "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart",
       ])
-      .on("progress", (p) => onProgress?.(p.percent || 0))
-      .on("end", () => {
+      .on("progress", (p: { percent?: number }) => onProgress?.(p.percent || 0))
+      .on("end", (_stdout: string | null, _stderr: string | null) => {
         tempAssFiles.forEach((f) => { try { unlinkSync(f); } catch {} });
         resolve();
       })
-      .on("error", (err, _stdout, stderr) => {
+      .on("error", (err: Error, _stdout: string | null, stderr: string | null) => {
         tempAssFiles.forEach((f) => { try { unlinkSync(f); } catch {} });
         reject(new Error(stderr ? `${err.message}\n${stderr}` : err.message));
       });

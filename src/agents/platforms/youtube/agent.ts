@@ -34,6 +34,7 @@ const delegateToSubAgent = createTool({
 });
 
 export const youtubeMainAgent = new Agent({
+  id: "youtube-main",
   name: "youtube-main",
   instructions: `You are the YouTube Platform Main Agent. Your role is to handle all YouTube-related content tasks.
 

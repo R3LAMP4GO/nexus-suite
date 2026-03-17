@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import { db } from "@/lib/db";
 import { incCounter } from "@/lib/metrics";
 import { postContent } from "@/server/services/posting";
@@ -8,7 +8,7 @@ import type { ContentPublishJob } from "../types.js";
 import type { Platform } from "@/generated/prisma/client";
 
 export async function handleContentPublish(
-  job: PgBoss.Job<ContentPublishJob>,
+  job: Job<ContentPublishJob>,
 ): Promise<void> {
   const { contentId, platformIds, organizationId } = job.data;
 

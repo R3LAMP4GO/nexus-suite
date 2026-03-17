@@ -5,7 +5,8 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 export const professionalToneAdapterAgent = new Agent({
-  name: "professional-tone-adapter",
+  id: "professional-tone-adapter",
+  name: "Professional Tone Adapter",
   instructions: `You are a Professional Tone Adapter sub-agent for the LinkedIn platform.
 
 Your job is to adapt content to LinkedIn's professional tone:

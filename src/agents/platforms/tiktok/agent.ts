@@ -34,6 +34,7 @@ const delegateToSubAgent = createTool({
 });
 
 export const tiktokMainAgent = new Agent({
+  id: "tiktok-main",
   name: "tiktok-main",
   instructions: `You are the TikTok Platform Main Agent. Your role is to handle all TikTok-related content tasks.
 

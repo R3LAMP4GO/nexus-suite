@@ -1,7 +1,6 @@
 import NextAuth from "next-auth";
 import { authConfig } from "@/server/auth/auth.config";
 import { NextRequest, NextResponse } from "next/server";
-import { checkRateLimit, AUTH_LIMIT, OAUTH_LIMIT, WEBHOOK_LIMIT } from "@/lib/rate-limit";
 
 const { auth } = NextAuth(authConfig);
 
@@ -14,36 +13,49 @@ const ONBOARDING_FLOW_ROUTES = ["/onboarding", "/provisioning", "/pricing"];
 // Routes only accessible to admins via admin UI (no redirect guards needed)
 const ADMIN_ROUTES = ["/admin"];
 
-// ── Rate-limited route patterns ─────────────────────────────────
-const RATE_LIMITED_ROUTES: Array<{ prefix: string; config: typeof AUTH_LIMIT }> = [
-  { prefix: "/api/auth", config: AUTH_LIMIT },
-  { prefix: "/api/oauth", config: OAUTH_LIMIT },
-  { prefix: "/api/webhooks", config: WEBHOOK_LIMIT },
+// ── In-memory rate limiting (Node.js runtime) ───────────────────
+// Simple fixed-window limiter. Proxy runs in Node.js runtime (not edge).
+// Redis-backed rate limiting runs in API route handlers for persistence.
+interface RateLimitEntry { count: number; resetAt: number; }
+const rateLimitMap = new Map<string, RateLimitEntry>();
+
+const RATE_LIMIT_CONFIGS: Array<{ prefix: string; limit: number; windowSecs: number }> = [
+  { prefix: "/api/auth", limit: 10, windowSecs: 60 },
+  { prefix: "/api/oauth", limit: 20, windowSecs: 60 },
+  { prefix: "/api/webhooks", limit: 100, windowSecs: 60 },
 ];
+
+function checkRateLimit(key: string, limit: number, windowSecs: number): { allowed: boolean; resetAt: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now >= entry.resetAt) {
+    const resetAt = now + windowSecs * 1000;
+    rateLimitMap.set(key, { count: 1, resetAt });
+    return { allowed: true, resetAt };
+  }
+  entry.count++;
+  return { allowed: entry.count <= limit, resetAt: entry.resetAt };
+}
 
 export default auth(async (req) => {
   const nextReq = req as unknown as NextRequest;
   const { pathname } = nextReq.nextUrl;
 
   // ── IP-based rate limiting for sensitive endpoints ──────────────
-  const rateLimitRoute = RATE_LIMITED_ROUTES.find((r) => pathname.startsWith(r.prefix));
+  const rateLimitRoute = RATE_LIMIT_CONFIGS.find((r) => pathname.startsWith(r.prefix));
   if (rateLimitRoute) {
     const ip = nextReq.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    try {
-      const result = await checkRateLimit(`ip:${ip}:${rateLimitRoute.prefix}`, rateLimitRoute.config);
-      if (!result.allowed) {
-        return NextResponse.json(
-          { error: "Too many requests. Please try again later." },
-          {
-            status: 429,
-            headers: {
-              "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)),
-            },
+    const result = checkRateLimit(`ip:${ip}:${rateLimitRoute.prefix}`, rateLimitRoute.limit, rateLimitRoute.windowSecs);
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(Math.ceil((result.resetAt - Date.now()) / 1000)),
           },
-        );
-      }
-    } catch {
-      // Redis down — fail open to avoid blocking all requests
+        },
+      );
     }
   }
   const session = req.auth;

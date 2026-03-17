@@ -83,6 +83,7 @@ const searchTrendingNews = createTool({
 });
 
 export const newsScoutAgent = new Agent({
+  id: "news-scout",
   name: "news-scout",
   instructions: `You are a News Scout sub-agent for the X (Twitter) platform.
 

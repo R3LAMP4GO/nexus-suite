@@ -2,10 +2,10 @@ import { executeAgentDelegate } from "@/server/workflows/agent-delegate";
 import { checkLlmBudget } from "@/server/services/llm-budget";
 import { incCounter, observeHistogram } from "@/lib/metrics";
 import type { AgentExecuteJob } from "../types.js";
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 
 export async function handleAgentExecute(
-  job: PgBoss.Job<AgentExecuteJob>,
+  job: Job<AgentExecuteJob>,
 ): Promise<void> {
   const { agentId, input, organizationId } = job.data;
 

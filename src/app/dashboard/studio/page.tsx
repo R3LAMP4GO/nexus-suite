@@ -1,98 +1,280 @@
 "use client";
 
+import { useState, useCallback, useRef, useEffect } from "react";
 import { api } from "@/lib/trpc-client";
-import { SkeletonCard } from "@/components/ui/skeleton";
+import {
+  ConversationSidebar,
+  ChatMessageList,
+  ChatInput,
+  SuggestedPrompts,
+  DelegationCard,
+} from "@/components/chat";
 
 export default function StudioPage() {
-  const scripts = api.scripts.list.useQuery({ status: "APPROVED" });
+  const utils = api.useUtils();
+
+  /* ------------------------------------------------------------------ */
+  /*  State                                                              */
+  /* ------------------------------------------------------------------ */
+
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [assistantMsgId, setAssistantMsgId] = useState<string | null>(null);
+  const pendingSendRef = useRef<string | null>(null);
+
+  /* ------------------------------------------------------------------ */
+  /*  Queries                                                            */
+  /* ------------------------------------------------------------------ */
+
+  const conversations = api.chat.listConversations.useQuery();
+
+  const conversation = api.chat.getConversation.useQuery(
+    { id: activeConversationId! },
+    { enabled: !!activeConversationId },
+  );
+
+  const jobStatus = api.chat.getJobStatus.useQuery(
+    { jobId: activeJobId! },
+    { enabled: !!activeJobId, refetchInterval: 2000 },
+  );
+
+  /* ------------------------------------------------------------------ */
+  /*  Mutations                                                          */
+  /* ------------------------------------------------------------------ */
+
+  const createConversation = api.chat.createConversation.useMutation({
+    onSuccess(data) {
+      setActiveConversationId(data.id);
+      void utils.chat.listConversations.invalidate();
+      // If there's a pending message, send it now
+      if (pendingSendRef.current) {
+        const msg = pendingSendRef.current;
+        pendingSendRef.current = null;
+        doSendMessage(data.id, msg);
+      }
+    },
+  });
+
+  const deleteConversation = api.chat.deleteConversation.useMutation({
+    onSuccess(_data, variables) {
+      if (variables.id === activeConversationId) {
+        setActiveConversationId(null);
+      }
+      void utils.chat.listConversations.invalidate();
+    },
+  });
+
+  const sendMessage = api.chat.sendMessage.useMutation();
+  const invokeOrchestrator = api.chat.invokeOrchestrator.useMutation();
+  const addAssistantMessage = api.chat.addAssistantMessage.useMutation();
+
+  /* ------------------------------------------------------------------ */
+  /*  Handle job completion                                              */
+  /* ------------------------------------------------------------------ */
+
+  const prevJobStateRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!jobStatus.data || !activeJobId || !activeConversationId) return;
+
+    const state = jobStatus.data.state;
+    if (prevJobStateRef.current === state) return;
+    prevJobStateRef.current = state;
+
+    if (state === "completed") {
+      const output = jobStatus.data.output;
+      const content =
+        typeof output === "object" && output !== null && "result" in output
+          ? String((output as Record<string, unknown>).result)
+          : "Agent completed the task.";
+
+      addAssistantMessage.mutate(
+        {
+          conversationId: activeConversationId,
+          content,
+        },
+        {
+          onSuccess() {
+            // Delete the "Processing…" status message by invalidating
+            void utils.chat.getConversation.invalidate({ id: activeConversationId });
+            setActiveJobId(null);
+            setAssistantMsgId(null);
+            prevJobStateRef.current = null;
+          },
+        },
+      );
+    } else if (state === "failed") {
+      addAssistantMessage.mutate(
+        {
+          conversationId: activeConversationId,
+          content: "Sorry, the agent encountered an error. Please try again.",
+          type: "error",
+        },
+        {
+          onSuccess() {
+            void utils.chat.getConversation.invalidate({ id: activeConversationId });
+            setActiveJobId(null);
+            setAssistantMsgId(null);
+            prevJobStateRef.current = null;
+          },
+        },
+      );
+    }
+  }, [
+    jobStatus.data,
+    activeJobId,
+    activeConversationId,
+    addAssistantMessage,
+    utils.chat.getConversation,
+  ]);
+
+  /* ------------------------------------------------------------------ */
+  /*  Handlers                                                           */
+  /* ------------------------------------------------------------------ */
+
+  const doSendMessage = useCallback(
+    (convId: string, content: string) => {
+      sendMessage.mutate(
+        { conversationId: convId, content },
+        {
+          onSuccess(msg) {
+            void utils.chat.getConversation.invalidate({ id: convId });
+            void utils.chat.listConversations.invalidate();
+            invokeOrchestrator.mutate(
+              { conversationId: convId, messageId: msg.id },
+              {
+                onSuccess(result) {
+                  setActiveJobId(result.jobId);
+                  setAssistantMsgId(result.assistantMessageId);
+                  void utils.chat.getConversation.invalidate({ id: convId });
+                },
+              },
+            );
+          },
+        },
+      );
+    },
+    [sendMessage, invokeOrchestrator, utils.chat.getConversation, utils.chat.listConversations],
+  );
+
+  const handleSend = useCallback(
+    (content: string) => {
+      if (!activeConversationId) {
+        // No active conversation — create one first, then send via pendingSendRef
+        pendingSendRef.current = content;
+        createConversation.mutate();
+      } else {
+        doSendMessage(activeConversationId, content);
+      }
+    },
+    [activeConversationId, createConversation, doSendMessage],
+  );
+
+  const handleSelectPrompt = useCallback(
+    (prompt: string) => {
+      handleSend(prompt);
+    },
+    [handleSend],
+  );
+
+  const handleCreateConversation = useCallback(() => {
+    createConversation.mutate(undefined, {
+      onSuccess(data) {
+        setActiveConversationId(data.id);
+        void utils.chat.listConversations.invalidate();
+      },
+    });
+  }, [createConversation, utils.chat.listConversations]);
+
+  const handleDeleteConversation = useCallback(
+    (id: string) => {
+      deleteConversation.mutate({ id });
+    },
+    [deleteConversation],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /*  Derived state                                                      */
+  /* ------------------------------------------------------------------ */
+
+  const sidebarConversations = (conversations.data?.conversations ?? []).map((c) => ({
+    id: c.id,
+    title: c.title,
+    updatedAt: c.updatedAt,
+    lastMessage: c.messages[0] ? { content: c.messages[0].content, role: c.messages[0].role } : null,
+  }));
+
+  const messages = (conversation.data?.messages ?? []).map((m) => ({
+    id: m.id,
+    role: m.role,
+    type: m.type,
+    content: m.content,
+    metadata: (m.metadata as Record<string, unknown> | null) ?? undefined,
+    createdAt: m.createdAt,
+  }));
+  const conversationTitle = conversation.data?.title ?? "New Conversation";
+  const isAgentRunning = !!activeJobId;
+  const isSending = sendMessage.isPending || createConversation.isPending;
+  const showSuggestedPrompts = !activeConversationId || messages.length === 0;
+
+  /* ------------------------------------------------------------------ */
+  /*  Render                                                             */
+  /* ------------------------------------------------------------------ */
 
   return (
-    <div className="min-h-screen p-8">
-      <div className="mx-auto max-w-3xl">
-        {/* Header */}
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">Your Scripts</h1>
-          <p className="mt-2 text-lg text-[var(--text-muted)]">
-            Read through your approved scripts before recording
-          </p>
+    <div className="flex h-[calc(100vh-var(--header-height,64px))] flex-row">
+      {/* Sidebar */}
+      <div className="w-60 shrink-0">
+        <ConversationSidebar
+          conversations={sidebarConversations}
+          activeId={activeConversationId ?? undefined}
+          onSelect={setActiveConversationId}
+          onCreate={handleCreateConversation}
+          onDelete={handleDeleteConversation}
+          isLoading={conversations.isLoading}
+        />
+      </div>
+
+      {/* Main chat area */}
+      <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Header bar */}
+        <div className="flex items-center gap-3 border-b border-[var(--border)] px-6 py-3">
+          <h1 className="text-lg font-semibold text-[var(--text-primary)]">
+            {conversationTitle}
+          </h1>
+          {isAgentRunning && (
+            <DelegationCard
+              agentName="nexus-orchestrator"
+              status="running"
+              className="ml-auto"
+            />
+          )}
         </div>
 
-        {/* Script List */}
-        {scripts.isLoading ? (
-          <div className="space-y-6">
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
-        ) : !scripts.data?.length ? (
-          <div className="rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--card-bg)] p-12 text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-[var(--text-muted)]"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            <h3 className="mt-4 text-lg font-medium text-[var(--text-primary)]">
-              No approved scripts yet
-            </h3>
-            <p className="mt-2 text-[var(--text-muted)]">
-              Your team will prepare scripts for you.
-            </p>
-          </div>
+        {/* Messages or empty state */}
+        {showSuggestedPrompts ? (
+          <SuggestedPrompts onSelect={handleSelectPrompt} />
         ) : (
-          <div className="space-y-6">
-            {scripts.data.map((script) => (
-              <div
-                key={script.id}
-                className="rounded-xl border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm transition hover:shadow-md"
-              >
-                {/* Title + Badge */}
-                <div className="mb-5 flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-                    {script.title}
-                  </h2>
-                  <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                    ✓ Ready to Record
-                  </span>
-                </div>
-
-                {/* Teleprompter Sections */}
-                <div className="space-y-4">
-                  <div className="rounded-lg border-l-4 border-purple-500 bg-purple-50 p-4 dark:bg-purple-900/20">
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-purple-600 dark:text-purple-400">
-                      Hook · 0-3s
-                    </p>
-                    <p className="text-lg font-bold leading-relaxed text-[var(--text-primary)]">
-                      {script.hookText}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:bg-blue-900/20">
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-                      Body
-                    </p>
-                    <p className="text-base leading-relaxed text-[var(--text-secondary)]">
-                      {script.bodyText}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border-l-4 border-green-500 bg-green-50 p-4 dark:bg-green-900/20">
-                    <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-green-600 dark:text-green-400">
-                      Call to Action
-                    </p>
-                    <p className="text-lg font-semibold leading-relaxed text-[var(--text-primary)]">
-                      {script.ctaText}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <ChatMessageList
+            messages={messages}
+            isLoading={isAgentRunning}
+          />
         )}
+
+        {/* Input */}
+        <div className="border-t border-[var(--border)] px-4 py-3">
+          <div className="mx-auto max-w-3xl">
+            <ChatInput
+              onSend={handleSend}
+              disabled={isSending || isAgentRunning}
+              placeholder={
+                isAgentRunning
+                  ? "Waiting for agent response…"
+                  : "Ask anything…"
+              }
+            />
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -8,7 +8,7 @@ const bossMock = {
 };
 
 vi.mock("pg-boss", () => ({
-  default: class {
+  PgBoss: class {
     start = bossMock.start;
     work = bossMock.work;
     stop = bossMock.stop;

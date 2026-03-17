@@ -1,6 +1,17 @@
+import { getBoss } from "@/lib/pg-boss";
 import { createTRPCRouter, onboardedProcedure } from "../trpc";
 
 export const analyticsRouter = createTRPCRouter({
+  triggerSync: onboardedProcedure.mutation(async ({ ctx }) => {
+    const boss = await getBoss();
+    const jobId = await boss.send("analytics-sync", {
+      type: "analytics-sync",
+      organizationId: ctx.organizationId,
+      createdAt: new Date().toISOString(),
+    });
+    return { jobId };
+  }),
+
   platformBreakdown: onboardedProcedure.query(async ({ ctx }) => {
     const orgId = ctx.organizationId;
 

@@ -1,9 +1,9 @@
-import type PgBoss from "pg-boss";
+import type { PgBoss, Job } from "pg-boss";
 import type { ScraperRunJob } from "../types.js";
 
 export async function handleScraperRun(
   boss: PgBoss,
-  job: PgBoss.Job<ScraperRunJob>,
+  job: Job<ScraperRunJob>,
 ): Promise<void> {
   const { targetUrl, profileId, organizationId } = job.data;
 

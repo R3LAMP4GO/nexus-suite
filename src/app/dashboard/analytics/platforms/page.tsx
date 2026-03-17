@@ -11,6 +11,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "@/components/ui/index";
+import { TrendSparkline } from "@/components/analytics";
 
 /* ── Helpers ─────────────────────────────────────────────────── */
 
@@ -127,7 +128,22 @@ function PlatformStatsCard({
           <span className="text-xl">{PLATFORM_ICONS[data.platform]}</span>
           <Badge colorMap="platform" value={data.platform} />
         </div>
-        <GrowthIndicator percent={data.growthPercent} />
+        <div className="flex items-center gap-2">
+          {data.postsLast30Days > 0 && (
+            <TrendSparkline
+              data={[
+                data.totalPosts - data.postsLast30Days,
+                data.totalPosts,
+              ].concat(
+                data.growthPercent !== 0
+                  ? [data.totalPosts * (1 + data.growthPercent / 100)]
+                  : [],
+              )}
+              color={data.growthPercent >= 0 ? "#22c55e" : "#ef4444"}
+            />
+          )}
+          <GrowthIndicator percent={data.growthPercent} />
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -231,7 +247,14 @@ function PlatformsSkeleton() {
 /* ── Main Page ───────────────────────────────────────────────── */
 
 export default function PlatformAnalyticsPage() {
-  const { data, isLoading } = api.analytics.platformBreakdown.useQuery();
+  const { data, isLoading, refetch } =
+    api.analytics.platformBreakdown.useQuery();
+
+  const syncMutation = api.analytics.triggerSync.useMutation({
+    onSuccess: () => {
+      void refetch();
+    },
+  });
 
   const hasAnyData = data?.some((p) => p.totalPosts > 0 || p.accountCount > 0);
 
@@ -260,13 +283,47 @@ export default function PlatformAnalyticsPage() {
       <div className="mx-auto max-w-5xl">
         {/* Header */}
         <div className="mb-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
             <Link
               href="/dashboard/analytics"
               className="text-sm text-[var(--text-muted)] transition hover:text-[var(--text-secondary)]"
             >
               ← Analytics
             </Link>
+            <button
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending}
+              className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] transition hover:bg-[var(--bg-secondary)] disabled:opacity-50"
+            >
+              {syncMutation.isPending ? (
+                <svg
+                  className="h-4 w-4 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+              ) : (
+                "🔄"
+              )}
+              {syncMutation.isPending
+                ? "Syncing…"
+                : syncMutation.isSuccess
+                  ? "Analytics sync triggered"
+                  : "Refresh Analytics"}
+            </button>
           </div>
           <h1 className="mt-3 text-3xl font-bold text-[var(--text-primary)]">
             Platform Breakdown
@@ -496,6 +553,15 @@ export default function PlatformAnalyticsPage() {
                           30-Day Trend
                         </h3>
                         <div className="flex items-center gap-3">
+                          <TrendSparkline
+                            data={[
+                              p.totalPosts - p.postsLast30Days,
+                              p.totalPosts,
+                            ]}
+                            color={p.growthPercent >= 0 ? "#22c55e" : "#ef4444"}
+                            width={120}
+                            height={32}
+                          />
                           <GrowthIndicator percent={p.growthPercent} />
                           <span className="text-sm text-[var(--text-muted)]">
                             {p.postsLast30Days} posts in the last 30 days

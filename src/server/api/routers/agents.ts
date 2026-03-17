@@ -4,6 +4,21 @@ import { createTRPCRouter, onboardedProcedure, tierGatedProcedure } from "../trp
 import { getRegisteredAgents } from "@/server/workflows/agent-delegate";
 import { getRecentDiagnostics } from "@/agents/general/tool-wrappers";
 import { getBoss } from "@/lib/pg-boss";
+import { bootstrapAgents } from "@/agents/registry";
+
+// ── Lazy bootstrap ──────────────────────────────────────────────
+// The instrumentation hook should handle this at startup, but if it
+// hasn't fired (dev server race, edge case) we bootstrap on first
+// access so the registry is never empty when agents exist.
+
+let bootstrapped = false;
+
+function ensureAgentsBootstrapped() {
+  if (!bootstrapped && getRegisteredAgents().size === 0) {
+    bootstrapAgents();
+    bootstrapped = true;
+  }
+}
 
 // ── Tier classification ─────────────────────────────────────────
 
@@ -78,6 +93,7 @@ export const agentsRouter = createTRPCRouter({
   }),
 
   list: onboardedProcedure.query(() => {
+    ensureAgentsBootstrapped();
     const registry = getRegisteredAgents();
     return Array.from(registry.entries()).map(([name, entry]) => ({
       name,
@@ -181,6 +197,7 @@ export const agentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      ensureAgentsBootstrapped();
       const registry = getRegisteredAgents();
       if (!registry.has(input.agentName)) {
         throw new TRPCError({
@@ -222,6 +239,7 @@ export const agentsRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      ensureAgentsBootstrapped();
       const registry = getRegisteredAgents();
       for (const a of input.agents) {
         if (!registry.has(a.agentName)) {

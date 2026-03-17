@@ -1,10 +1,10 @@
-import type PgBoss from "pg-boss";
+import type { Job } from "pg-boss";
 import { db } from "@/lib/db";
 import { fetchSecret } from "@/lib/infisical";
 import type { AnalyticsSyncJob } from "../types.js";
 
 export async function handleAnalyticsSync(
-  job: PgBoss.Job<AnalyticsSyncJob>,
+  job: Job<AnalyticsSyncJob>,
 ): Promise<void> {
   const { platformId, dateRange, organizationId } = job.data;
 

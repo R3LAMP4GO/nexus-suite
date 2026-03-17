@@ -1,4 +1,4 @@
-import type PgBoss from "pg-boss";
+import type { PgBoss } from "pg-boss";
 import { incCounter, observeHistogram } from "@/lib/metrics";
 import { JobType } from "./types.js";
 import type { JobData, ContentPublishJob, ContentScheduleJob, ScraperRunJob, MediaRenderJob, AgentExecuteJob, AnalyticsSyncJob, WebhookDispatchJob } from "./types.js";

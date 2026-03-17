@@ -5,6 +5,7 @@ import { Agent } from "@mastra/core/agent";
 import { modelConfig } from "@/agents/platforms/model-config";
 
 export const duetStitchLogicAgent = new Agent({
+  id: "duet-stitch-logic",
   name: "duet-stitch-logic",
   instructions: `You are a Duet/Stitch Logic sub-agent for the TikTok platform.
 

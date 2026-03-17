@@ -156,6 +156,19 @@ export const workflowsRouter = createTRPCRouter({
       return run;
     }),
 
+  create: onboardedProcedure
+    .input(z.object({ name: z.string().min(1), yaml: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const fs = await import("fs/promises");
+      const path = await import("path");
+      const dir = path.join(process.cwd(), "src", "agents", "clients", ctx.organizationId, "workflows");
+      await fs.mkdir(dir, { recursive: true });
+      const filename = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".yaml";
+      const filepath = path.join(dir, filename);
+      await fs.writeFile(filepath, input.yaml, "utf-8");
+      return { filename, path: filepath };
+    }),
+
   runNow: tierGatedProcedure("maxWorkflowRuns")
     .input(z.object({ workflowName: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {

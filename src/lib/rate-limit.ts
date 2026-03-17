@@ -1,5 +1,3 @@
-import { redis } from "@/lib/redis";
-
 interface RateLimitConfig {
   /** Maximum number of requests in the window */
   limit: number;
@@ -13,9 +11,12 @@ interface RateLimitResult {
   resetAt: number;
 }
 
+import { redis } from "@/lib/redis";
+
 /**
  * Sliding-window rate limiter backed by Redis.
  * Uses a simple INCR + EXPIRE pattern (fixed window, close enough for API protection).
+ * For Node.js runtime only — Edge middleware uses its own in-memory limiter.
  */
 export async function checkRateLimit(
   key: string,

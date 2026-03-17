@@ -10,7 +10,7 @@ import redis.asyncio as aioredis
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-from scrapling import Fetcher, StealthFetcher
+from scrapling.fetchers import Fetcher, StealthyFetcher
 
 # ── globals ──────────────────────────────────────────────────────────
 redis_client: aioredis.Redis | None = None
@@ -97,8 +97,7 @@ async def _fetch_tiered(url: str, proxy: str | None = None) -> dict[str, Any]:
     # Tier 2: Scrapling stealth mode
     start = time.monotonic()
     try:
-        fetcher = StealthFetcher()
-        page = fetcher.fetch(url, headless=True)
+        page = StealthyFetcher.fetch(url, headless=True)
         body = page.html_content
         elapsed = (time.monotonic() - start) * 1000
         status = page.status if hasattr(page, "status") else 200
@@ -107,11 +106,10 @@ async def _fetch_tiered(url: str, proxy: str | None = None) -> dict[str, Any]:
     except Exception:
         pass
 
-    # Tier 3: full browser via Scrapling
+    # Tier 3: full browser via Scrapling Fetcher
     start = time.monotonic()
     try:
-        fetcher = Fetcher()
-        page = fetcher.fetch(url)
+        page = Fetcher.get(url)
         body = page.html_content
         elapsed = (time.monotonic() - start) * 1000
         status = page.status if hasattr(page, "status") else 200
@@ -231,8 +229,8 @@ async def scrape_profile(req: ProfileRequest):
     if not html:
         return JSONResponse(status_code=502, content={"error": "fetch_failed", "detail": "Could not fetch page."})
 
-    from scrapling import Adaptor
-    page = Adaptor(html, url=req.url)
+    from scrapling.parser import Selector
+    page = Selector(html, url=req.url)
 
     selectors = PROFILE_SELECTORS.get(req.platform, {})
     profile: dict[str, str | None] = {}
@@ -262,8 +260,8 @@ async def scrape_posts(req: PostsRequest):
     if not html:
         return JSONResponse(status_code=502, content={"error": "fetch_failed", "detail": "Could not fetch page."})
 
-    from scrapling import Adaptor
-    page = Adaptor(html, url=req.url)
+    from scrapling.parser import Selector
+    page = Selector(html, url=req.url)
 
     selectors = POST_SELECTORS.get(req.platform, {})
     container_sel = selectors.get("container", "article")
