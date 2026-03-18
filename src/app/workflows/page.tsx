@@ -1,15 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { api } from "@/lib/trpc-client";
 import { Badge, SkeletonCard, Skeleton } from "@/components/ui/index";
-import { WorkflowCreateModal } from "@/components/workflows/workflow-create-modal";
 
 export default function WorkflowsPage() {
-  const [createOpen, setCreateOpen] = useState(false);
-
-  const utils = api.useUtils();
-
   const { data: workflows, isLoading: loadingWorkflows } =
     api.workflows.list.useQuery();
 
@@ -21,26 +15,12 @@ export default function WorkflowsPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="mx-auto max-w-7xl">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Workflows</h1>
-            <p className="mt-1 text-sm text-[var(--text-muted)]">
-              Manage and run your content workflows
-            </p>
-          </div>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:bg-[var(--accent-hover)]"
-          >
-            + New Workflow
-          </button>
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Workflows</h1>
+          <p className="mt-1 text-sm text-[var(--text-muted)]">
+            Manage and run your content workflows
+          </p>
         </div>
-
-        <WorkflowCreateModal
-          open={createOpen}
-          onClose={() => setCreateOpen(false)}
-          onCreated={() => void utils.workflows.list.invalidate()}
-        />
 
         {/* Workflow Definitions */}
         <section className="mb-10">

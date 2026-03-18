@@ -9,11 +9,7 @@ import {
   GitBranch,
   Eye,
   BarChart3,
-  Pencil,
-  LinkIcon,
 } from "@/components/icons";
-import { QuickActionBar } from "@/components/dashboard/quick-action-bar";
-import { EmptyStatePrompt } from "@/components/dashboard/empty-state-prompt";
 
 /* ── Helpers ────────────────────────────────────────────────── */
 
@@ -166,11 +162,6 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        {/* Quick Action Bar */}
-        <div className="mb-8">
-          <QuickActionBar />
-        </div>
-
         {/* Account Health Grid */}
         <div className="mb-8 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
@@ -182,13 +173,9 @@ export default function DashboardPage() {
               <SkeletonCard />
             </div>
           ) : !health.data?.length ? (
-            <EmptyStatePrompt
-              title="No accounts connected"
-              description="Connect your social media accounts to start publishing"
-              actionLabel="Connect Accounts"
-              actionHref="/dashboard/settings/connections"
-              icon={<LinkIcon className="h-10 w-10" />}
-            />
+            <p className="text-[var(--text-muted)]">
+              No platform accounts connected
+            </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {health.data.map((token) => (
@@ -228,22 +215,12 @@ export default function DashboardPage() {
           <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
             Recent Posts
           </h2>
-          {!posts.isLoading && !posts.data?.length ? (
-            <EmptyStatePrompt
-              title="No content yet"
-              description="Start by generating a script in Studio or uploading a video"
-              actionLabel="Open Studio"
-              actionHref="/dashboard/studio"
-              icon={<Pencil className="h-10 w-10" />}
-            />
-          ) : (
-            <DataTable
-              columns={recentPostColumns}
-              data={posts.data ?? []}
-              isLoading={posts.isLoading}
-              emptyMessage="No posts yet"
-            />
-          )}
+          <DataTable
+            columns={recentPostColumns}
+            data={posts.data ?? []}
+            isLoading={posts.isLoading}
+            emptyMessage="No posts yet"
+          />
         </div>
 
         {/* Recent Activity */}
