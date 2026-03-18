@@ -164,6 +164,24 @@ PROFILE_SELECTORS: dict[str, dict[str, str]] = {
         "following_count": "a[href$='/following'] span span",
         "avatar_url": "[data-testid='UserAvatar'] img",
     },
+    "facebook": {
+        "username": "meta[property='al:android:url']",
+        "display_name": "meta[property='og:title']",
+        "bio": "meta[property='og:description']",
+        "follower_count": "[data-pagelet='ProfileTilesFeed_0'] span, a[href*='/followers'] span",
+        "avatar_url": "[data-pagelet='ProfilePhoto'] img, image[preserveAspectRatio]",
+    },
+    # NOTE: LinkedIn is extremely aggressive with anti-scraping (IP bans, CAPTCHAs,
+    # auth walls). Public/guest pages serve limited SSR HTML for SEO. The stealth
+    # browser (tier 2/3) is almost always required. These selectors target the
+    # public/guest view; logged-in DOM uses completely different class names.
+    "linkedin": {
+        "username": "meta[property='al:android:url'], link[rel='canonical']",
+        "display_name": "h1.top-card-layout__title, h1.text-heading-xlarge",
+        "bio": ".top-card-layout__headline, .top-card__subline-row, meta[property='og:description']",
+        "follower_count": ".top-card-layout__first-subline .top-card-layout__entity-info-container span, .org-top-card-summary-info-list__info-item",
+        "avatar_url": ".top-card-layout__card img, .top-card__profile-image, img.evi-image",
+    },
 }
 
 POST_SELECTORS: dict[str, dict[str, str]] = {
@@ -193,6 +211,25 @@ POST_SELECTORS: dict[str, dict[str, str]] = {
         "url": "a[href*='/status/']",
         "likes": "[data-testid='like'] span",
         "comments": "[data-testid='reply'] span",
+    },
+    "facebook": {
+        "container": "[role='article'], [data-pagelet*='FeedUnit']",
+        "title": "[data-ad-preview='message'], [data-ad-comet-preview='message']",
+        "url": "a[href*='/posts/'], a[href*='permalink'], a[href*='/photos/']",
+        "thumbnail": "img[src*='scontent'], img[data-visualcompletion='media-vc-image']",
+        "likes": "[aria-label*='Like'] span, [data-testid='UFI2ReactionsCount/sent498_icon']",
+        "comments": "a[href*='comment_id'] span, [aria-label*='comment']",
+    },
+    # NOTE: LinkedIn post feeds are almost never available without authentication.
+    # The stealth browser (tier 2/3) is required. These selectors target the
+    # logged-in / stealth-rendered DOM for company and personal activity feeds.
+    "linkedin": {
+        "container": "div.feed-shared-update-v2, div.occludable-update, [data-urn*='urn:li:activity:']",
+        "title": ".feed-shared-update-v2__description, .update-components-text, .feed-shared-text__text, .break-words",
+        "url": "a[href*='/feed/update/'], a[href*='/posts/'], a[data-tracking-control-name*='update']",
+        "thumbnail": ".feed-shared-image__image, .update-components-image img, .feed-shared-article__image img",
+        "likes": ".social-details-social-counts__reactions-count, [data-test-id='social-actions__reaction-count']",
+        "comments": ".social-details-social-counts__comments, [data-test-id='social-actions__comments']",
     },
 }
 
@@ -237,6 +274,8 @@ async def scrape_profile(req: ProfileRequest):
     for field, sel in selectors.items():
         if field.endswith("_url"):
             profile[field] = _extract_attr(page, sel, "src")
+        elif sel.startswith("meta["):
+            profile[field] = _extract_attr(page, sel, "content")
         else:
             profile[field] = _extract_text(page, sel)
 
