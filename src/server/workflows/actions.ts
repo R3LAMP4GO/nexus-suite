@@ -366,7 +366,7 @@ export function registerWorkflowActions(): void {
             startAfter: new Date(Date.now() + delayMinutes * 60000),
             singletonKey: `cross:${post.id}:${otherAccountId}`,
             retryLimit: 2,
-            expireInMinutes: 120,
+            expireInSeconds: 120 * 60,
           },
         );
         engagementsQueued++;

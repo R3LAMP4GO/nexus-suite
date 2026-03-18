@@ -13,7 +13,7 @@ export function initSentry() {
     tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 1.0,
     debug: false,
     enabled: !!SENTRY_DSN,
-    beforeSend(event) {
+    beforeSend(event: Sentry.ErrorEvent) {
       if (event.request?.headers) {
         delete event.request.headers["authorization"];
         delete event.request.headers["cookie"];

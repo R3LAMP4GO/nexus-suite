@@ -210,6 +210,7 @@ const saveRecreatedScript = createTool({
 });
 
 const contentRecreatorAgent = new Agent({
+  id: 'content-recreator',
   name: AGENT_NAME,
   instructions: INSTRUCTIONS,
   model: modelConfig.tier1, // Tier 1 — creative work requires highest capability
@@ -230,21 +231,20 @@ export async function generate(
 
   const result = await contentRecreatorAgent.generate(prompt, {
     instructions: systemPrompt,
-    maxTokens: opts?.maxTokens,
   });
 
   return {
     text: result.text,
     usage: result.usage
       ? {
-          promptTokens: result.usage.promptTokens,
-          completionTokens: result.usage.completionTokens,
+          promptTokens: result.usage.inputTokens ?? 0,
+          completionTokens: result.usage.outputTokens ?? 0,
           model: opts?.model ?? "default",
         }
       : undefined,
     toolCalls: result.toolCalls?.map((tc) => ({
-      name: tc.toolName,
-      args: tc.args as Record<string, unknown>,
+      name: tc.payload.toolName,
+      args: tc.payload.args as Record<string, unknown>,
       result: undefined,
     })),
   };
