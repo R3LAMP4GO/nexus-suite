@@ -3,6 +3,7 @@ import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
 import { validateOAuthState } from "../../_lib/oauth-state";
+import { getYouTubeCredentials } from "../../_lib/platform-credentials";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -31,8 +32,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const clientId = process.env.YOUTUBE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.YOUTUBE_OAUTH_CLIENT_SECRET;
+  const { clientId, clientSecret } = await getYouTubeCredentials();
   if (!clientId || !clientSecret) {
     return NextResponse.json(
       { error: "YouTube OAuth is not configured — YOUTUBE_OAUTH_CLIENT_ID or YOUTUBE_OAUTH_CLIENT_SECRET is missing" },

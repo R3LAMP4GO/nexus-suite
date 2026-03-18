@@ -3,6 +3,7 @@ import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
 import { validateOAuthState } from "../../_lib/oauth-state";
+import { getFacebookCredentials } from "../../_lib/platform-credentials";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -34,8 +35,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const clientId = process.env.FACEBOOK_APP_ID;
-  const clientSecret = process.env.FACEBOOK_APP_SECRET;
+  const { clientId, clientSecret } = await getFacebookCredentials();
   if (!clientId || !clientSecret) {
     return NextResponse.json(
       { error: "Facebook OAuth is not configured — FACEBOOK_APP_ID or FACEBOOK_APP_SECRET is missing" },

@@ -3,6 +3,7 @@ import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
 import { validateOAuthState } from "../../_lib/oauth-state";
+import { getTikTokCredentials } from "../../_lib/platform-credentials";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -31,8 +32,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
-  const clientSecret = process.env.TIKTOK_CLIENT_SECRET;
+  const { clientKey, clientSecret } = await getTikTokCredentials();
   if (!clientKey || !clientSecret) {
     return NextResponse.json(
       { error: "TikTok OAuth is not configured — TIKTOK_CLIENT_KEY or TIKTOK_CLIENT_SECRET is missing" },

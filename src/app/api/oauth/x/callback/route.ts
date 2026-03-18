@@ -4,6 +4,7 @@ import { auth } from "@/server/auth/config";
 import { validateOAuthState } from "../../_lib/oauth-state";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
+import { getXCredentials } from "../../_lib/platform-credentials";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 const X_REDIRECT_BASE = process.env.X_OAUTH_REDIRECT_BASE ?? REDIRECT_BASE;
@@ -55,8 +56,9 @@ export async function GET(req: NextRequest) {
 
   try {
     // X OAuth 2.0 token exchange with PKCE
+    const { clientId: xClientId, clientSecret: xClientSecret } = await getXCredentials();
     const basicAuth = Buffer.from(
-      `${process.env.X_CLIENT_ID}:${process.env.X_CLIENT_SECRET}`,
+      `${xClientId}:${xClientSecret}`,
     ).toString("base64");
 
     const tokenRes = await fetch("https://api.twitter.com/2/oauth2/token", {

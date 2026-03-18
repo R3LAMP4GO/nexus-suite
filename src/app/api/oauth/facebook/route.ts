@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/server/auth/config";
 import { generateOAuthState } from "../_lib/oauth-state";
+import { getFacebookCredentials } from "../_lib/platform-credentials";
 
 /**
  * Facebook OAuth 2.0 (for Facebook Pages publishing)
@@ -13,7 +14,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
 
-  const clientId = process.env.FACEBOOK_APP_ID;
+  const { clientId } = await getFacebookCredentials();
   if (!clientId) {
     return NextResponse.json(
       { error: "Facebook OAuth is not configured — FACEBOOK_APP_ID is missing" },

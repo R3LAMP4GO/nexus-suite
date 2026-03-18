@@ -3,6 +3,7 @@ import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { storeOAuthTokens } from "../../_lib/store-tokens";
 import { validateOAuthState } from "../../_lib/oauth-state";
+import { getLinkedInCredentials } from "../../_lib/platform-credentials";
 
 const REDIRECT_BASE = process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
@@ -34,8 +35,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const clientId = process.env.LINKEDIN_CLIENT_ID;
-  const clientSecret = process.env.LINKEDIN_CLIENT_SECRET;
+  const { clientId, clientSecret } = await getLinkedInCredentials();
   if (!clientId || !clientSecret) {
     return NextResponse.json(
       { error: "LinkedIn OAuth is not configured — LINKEDIN_CLIENT_ID or LINKEDIN_CLIENT_SECRET is missing" },

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/server/auth/config";
 import { generateOAuthState } from "../_lib/oauth-state";
+import { getTikTokCredentials } from "../_lib/platform-credentials";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
@@ -8,7 +9,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
 
-  const clientKey = process.env.TIKTOK_CLIENT_KEY;
+  const { clientKey } = await getTikTokCredentials();
   if (!clientKey) {
     return NextResponse.json(
       { error: "TikTok OAuth is not configured — TIKTOK_CLIENT_KEY is missing" },

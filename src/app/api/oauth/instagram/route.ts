@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/server/auth/config";
 import { generateOAuthState } from "../_lib/oauth-state";
+import { getInstagramCredentials } from "../_lib/platform-credentials";
 
 export async function GET(_req: NextRequest) {
   const session = await auth();
@@ -8,7 +9,7 @@ export async function GET(_req: NextRequest) {
     return NextResponse.redirect(new URL("/login", process.env.NEXTAUTH_URL));
   }
 
-  const clientId = process.env.INSTAGRAM_APP_ID;
+  const { clientId } = await getInstagramCredentials();
   if (!clientId) {
     return NextResponse.json(
       { error: "Instagram OAuth is not configured — INSTAGRAM_APP_ID is missing" },
