@@ -6,7 +6,7 @@ export async function getInfisicalClient(): Promise<InfisicalSDK> {
   if (client) return client;
 
   client = new InfisicalSDK({
-    siteUrl: process.env.INFISICAL_SITE_URL ?? "http://localhost:8080",
+    siteUrl: process.env.INFISICAL_SITE_URL ?? "https://app.infisical.com/api",
   });
 
   await client.auth().universalAuth.login({
