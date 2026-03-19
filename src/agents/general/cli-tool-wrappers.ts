@@ -35,7 +35,7 @@ export function wrapCliToolHandler(meta: CliToolMeta) {
     id: `pocket_${meta.domain}_${meta.service}_${meta.action}`,
     description: meta.description,
     inputSchema: meta.inputSchema,
-    execute: async ({ context }: { context: Record<string, unknown> }): Promise<WrappedToolResult> => {
+    execute: async (input: Record<string, unknown>): Promise<WrappedToolResult> => {
       const toolId = `pocket_${meta.domain}_${meta.service}_${meta.action}`;
       const wrappedFn = wrapToolHandler(
         async (inputArgs: Record<string, string>) => {
@@ -77,7 +77,7 @@ export function wrapCliToolHandler(meta: CliToolMeta) {
       );
 
       const inputArgs: Record<string, string> = {};
-      for (const [k, v] of Object.entries(context as Record<string, unknown>)) {
+      for (const [k, v] of Object.entries(input)) {
         inputArgs[k] = String(v);
       }
       return wrappedFn(inputArgs);

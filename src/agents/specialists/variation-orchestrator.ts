@@ -113,8 +113,8 @@ const getTransformPresets = createTool({
     videoFormat: z.string().optional().describe("Source video format (mp4, webm, etc.)"),
     maxQualityLoss: z.number().optional().describe("Max acceptable quality loss 0-100"),
   }),
-  execute: async (executionContext) => {
-    const { videoFormat, maxQualityLoss } = executionContext.context;
+  execute: async (input) => {
+    const { videoFormat, maxQualityLoss } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { videoFormat?: string; maxQualityLoss?: number }) => {
         const maxLoss = input.maxQualityLoss ?? 5;

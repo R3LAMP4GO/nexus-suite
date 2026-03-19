@@ -59,3 +59,61 @@ export function createMockContext(
     ...overrides,
   };
 }
+
+// ── Mock pg-boss ─────────────────────────────────────────────────
+export function mockPgBoss() {
+  return {
+    send: vi.fn(async () => `job_${Date.now()}`),
+    sendAfter: vi.fn(async () => `job_${Date.now()}`),
+    subscribe: vi.fn(),
+    unsubscribe: vi.fn(),
+    fetch: vi.fn(async () => null),
+    complete: vi.fn(),
+    fail: vi.fn(),
+    cancel: vi.fn(),
+    getQueueSize: vi.fn(async () => 0),
+    createQueue: vi.fn(),
+    deleteQueue: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+  };
+}
+
+// ── Mock S3 Client ───────────────────────────────────────────────
+export function mockS3Client() {
+  return {
+    send: vi.fn(async (command: unknown) => {
+      const name = (command as { constructor: { name: string } }).constructor.name;
+      switch (name) {
+        case "PutObjectCommand":
+          return {};
+        case "GetObjectCommand":
+          return {
+            Body: {
+              async *[Symbol.asyncIterator]() {
+                yield Buffer.from("test-content");
+              },
+            },
+          };
+        case "DeleteObjectCommand":
+          return {};
+        case "HeadObjectCommand":
+          return { ContentLength: 1024, ContentType: "video/mp4" };
+        case "ListObjectsV2Command":
+          return { Contents: [], IsTruncated: false };
+        case "CopyObjectCommand":
+          return {};
+        default:
+          return {};
+      }
+    }),
+  };
+}
+
+// ── Mock Infisical ───────────────────────────────────────────────
+export function mockInfisical() {
+  return {
+    fetchSecret: vi.fn(async () => "mock-secret-value"),
+    fetchSecrets: vi.fn(async () => ({})),
+  };
+}

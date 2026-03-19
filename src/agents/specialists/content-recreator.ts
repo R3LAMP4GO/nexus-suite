@@ -48,8 +48,8 @@ const getViralPatterns = createTool({
     platform: z.string().optional().describe("Filter by platform"),
     limit: z.number().default(10).describe("Number of patterns to retrieve"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId, platform, limit } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId, platform, limit } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string; platform?: string; limit: number }) => {
         // Look up tracked viral posts with high performance metrics
@@ -103,7 +103,7 @@ const getViralPatterns = createTool({
       },
       { agentName: AGENT_NAME, toolName: "getViralPatterns" },
     );
-    return wrappedFn({ organizationId, platform, limit });
+    return wrappedFn({ organizationId, platform, limit: limit ?? 10 });
   },
 });
 
@@ -113,8 +113,8 @@ const getBrandContext = createTool({
   inputSchema: z.object({
     organizationId: z.string().describe("Organization ID"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string }) => {
         const org = await db.organization.findUnique({
@@ -156,8 +156,8 @@ const saveRecreatedScript = createTool({
     targetPlatforms: z.array(z.string()).optional().describe("Target platforms for this script"),
     estimatedDuration: z.number().optional().describe("Estimated video duration in seconds"),
   }),
-  execute: async (executionContext) => {
-    const ctx = executionContext.context;
+  execute: async (input) => {
+    const ctx = input;
     const wrappedFn = wrapToolHandler(
       async (input: {
         organizationId: string;

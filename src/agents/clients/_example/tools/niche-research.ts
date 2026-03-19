@@ -15,8 +15,8 @@ export const fetchNicheKeywords = createTool({
     niche: z.string().describe("Content niche to research (e.g. fitness, tech, finance)"),
     region: z.string().optional().describe("Region for keyword data (defaults to global)"),
   }),
-  execute: async (executionContext) => {
-    const { niche, region } = executionContext.context;
+  execute: async (input) => {
+    const { niche, region } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { niche: string; region?: string }) => {
         const NICHE_DATA: Record<string, { keywords: string[]; avgVolume: number; competition: string; trending: string[] }> = {

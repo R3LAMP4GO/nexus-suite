@@ -15,8 +15,8 @@ const delegateToSubAgent = createTool({
     subAgentName: z.string().describe("Name of the sub-agent to delegate to"),
     prompt: z.string().describe("Task prompt for the sub-agent"),
   }),
-  execute: async (executionContext) => {
-    const { subAgentName, prompt } = executionContext.context;
+  execute: async (input) => {
+    const { subAgentName, prompt } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { subAgentName: string; prompt: string }) => {
         const workflowContext = getWorkflowContext();

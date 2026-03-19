@@ -15,8 +15,8 @@ const searchTrendingNews = createTool({
     industry: z.string().describe("Industry or vertical to search (e.g. tech, finance, healthcare)"),
     topic: z.string().optional().describe("Specific topic or keyword to focus on"),
   }),
-  execute: async (executionContext) => {
-    const { industry, topic } = executionContext.context;
+  execute: async (input) => {
+    const { industry, topic } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { industry: string; topic?: string }) => {
         const industry = input.industry.toLowerCase();

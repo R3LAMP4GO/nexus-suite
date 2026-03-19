@@ -4,8 +4,9 @@ description: Run checks, commit with AI message, and push
 ---
 
 1. Run quality checks — fix ALL errors before continuing:
-   - `npx tsc --noEmit` (typecheck)
-   - `npx eslint . --fix` then `npx eslint .` (lint — auto-fix first, then verify)
+   - `bunx tsc --noEmit` (typecheck)
+   - `bunx eslint . --fix` then `bunx eslint .` (lint — auto-fix first, then verify)
+   - `bun run test` (unit tests)
 
 2. Run `git status` and `git diff --staged` and `git diff` to review changes.
 

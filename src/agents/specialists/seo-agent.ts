@@ -37,8 +37,8 @@ const tavilySearch = createTool({
     query: z.string().describe("Search query for SEO research"),
     searchDepth: z.enum(["basic", "advanced"]).optional().describe("Search depth"),
   }),
-  execute: async (executionContext) => {
-    const { query, searchDepth } = executionContext.context;
+  execute: async (input) => {
+    const { query, searchDepth } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { query: string; searchDepth?: string }) => {
         const words = input.query.toLowerCase().split(/\s+/);
@@ -91,8 +91,8 @@ const youtubeSearch = createTool({
     query: z.string().describe("YouTube search query"),
     maxResults: z.number().optional().describe("Number of results"),
   }),
-  execute: async (executionContext) => {
-    const { query, maxResults } = executionContext.context;
+  execute: async (input) => {
+    const { query, maxResults } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { query: string; maxResults?: number }) => {
         const words = input.query.toLowerCase().split(/\s+/);
@@ -148,8 +148,8 @@ const getKeywordMetrics = createTool({
     keywords: z.array(z.string()).describe("Keywords to analyze"),
     region: z.string().optional().describe("Geographic region"),
   }),
-  execute: async (executionContext) => {
-    const { keywords, region } = executionContext.context;
+  execute: async (input) => {
+    const { keywords, region } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { keywords: string[]; region?: string }) => {
         const metrics = await Promise.all(

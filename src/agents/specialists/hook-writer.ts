@@ -42,8 +42,8 @@ const searchViralPatterns = createTool({
     platform: z.string().describe("Target platform"),
     niche: z.string().optional().describe("Content niche"),
   }),
-  execute: async (executionContext) => {
-    const { platform, niche } = executionContext.context;
+  execute: async (input) => {
+    const { platform, niche } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; niche?: string }) => {
         const platformUpper = input.platform.toUpperCase();
@@ -96,8 +96,8 @@ const getWinnerLogs = createTool({
     platform: z.string().describe("Target platform"),
     limit: z.number().optional().describe("Number of results"),
   }),
-  execute: async (executionContext) => {
-    const { platform, limit } = executionContext.context;
+  execute: async (input) => {
+    const { platform, limit } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; limit?: number }) => {
         const resultLimit = input.limit ?? 10;
@@ -223,8 +223,8 @@ const getPlatformTemplates = createTool({
     platform: z.string().describe("Target platform"),
     hookType: z.string().optional().describe("Hook framework type"),
   }),
-  execute: async (executionContext) => {
-    const { platform, hookType } = executionContext.context;
+  execute: async (input) => {
+    const { platform, hookType } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; hookType?: string }) => {
         const platformKey = input.platform.toLowerCase();
@@ -258,8 +258,8 @@ const getTopPerformingHooks = createTool({
     organizationId: z.string().optional().describe("Organization ID"),
     limit: z.number().default(10).describe("Number of top hooks to return"),
   }),
-  execute: async (executionContext) => {
-    const { platform, organizationId, limit } = executionContext.context;
+  execute: async (input) => {
+    const { platform, organizationId, limit } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; organizationId?: string; limit: number }) => {
         const { sampleTopHooks, getFrameworkStats } = await import("@/server/services/hook-performance");
@@ -288,7 +288,7 @@ const getTopPerformingHooks = createTool({
       },
       { agentName: AGENT_NAME, toolName: "getTopPerformingHooks" },
     );
-    return wrappedFn({ platform, organizationId, limit });
+    return wrappedFn({ platform, organizationId, limit: limit ?? 10 });
   },
 });
 

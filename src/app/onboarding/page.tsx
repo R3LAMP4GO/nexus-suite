@@ -89,6 +89,7 @@ export default function OnboardingPage() {
     }
   }, [existing, reset]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- expected react-hook-form usage
   const selectedPlatforms = watch("platforms") ?? [];
 
   async function nextStep() {

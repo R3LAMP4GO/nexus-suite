@@ -15,8 +15,8 @@ const adaptTone = createTool({
     targetTone: z.string().optional().describe("Target tone (e.g. witty, informative, casual)"),
     format: z.enum(["single-tweet", "thread"]).optional().describe("Output format"),
   }),
-  execute: async (executionContext) => {
-    const { content, targetTone, format } = executionContext.context;
+  execute: async (input) => {
+    const { content, targetTone, format } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { content: string; targetTone?: string; format?: string }) => {
         const tone = input.targetTone ?? "conversational";

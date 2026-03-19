@@ -295,7 +295,10 @@ export default function StudioPage() {
       : null,
   }));
 
-  const messages = conversationQuery.data?.messages ?? [];
+  const messages = (conversationQuery.data?.messages ?? []).map((m) => ({
+    ...m,
+    metadata: (m.metadata ?? undefined) as Record<string, unknown> | undefined,
+  }));
   const isBusy =
     sendMessage.isPending || invokeOrchestrator.isPending || isPolling;
 

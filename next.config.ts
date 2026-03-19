@@ -47,6 +47,7 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  turbopack: {},
   webpack: (config) => {
     // Prisma 7 generates .ts files but uses .js import extensions (ESM convention).
     // Add an alias so webpack resolves ./internal/class.js → ./internal/class.ts etc.

@@ -161,8 +161,8 @@ const detectClipCandidates = createTool({
     minClipDuration: z.number().default(10).describe("Minimum clip duration in seconds"),
     maxClipDuration: z.number().default(60).describe("Maximum clip duration in seconds"),
   }),
-  execute: async (executionContext) => {
-    const { localPath, transcript, minClipDuration, maxClipDuration } = executionContext.context;
+  execute: async (input) => {
+    const { localPath, transcript, minClipDuration, maxClipDuration } = input;
     const wrappedFn = wrapToolHandler(
       async (input: {
         localPath: string;
@@ -295,7 +295,7 @@ const detectClipCandidates = createTool({
       },
       { agentName: AGENT_NAME, toolName: "detectClipCandidates" },
     );
-    return wrappedFn({ localPath, transcript, minClipDuration, maxClipDuration });
+    return wrappedFn({ localPath, transcript, minClipDuration: minClipDuration ?? 10, maxClipDuration: maxClipDuration ?? 60 });
   },
 });
 
@@ -309,8 +309,8 @@ const cutClip = createTool({
     sourceVideoId: z.string().optional().describe("SourceVideo ID to link the clip to"),
     organizationId: z.string().optional().describe("Organization ID for DB records"),
   }),
-  execute: async (executionContext) => {
-    const { localPath, startTime, endTime, sourceVideoId, organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { localPath, startTime, endTime, sourceVideoId, organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: {
         localPath: string;

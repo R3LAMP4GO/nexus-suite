@@ -89,8 +89,8 @@ const generateCaptions = createTool({
     highlightColor: z.string().default("#FFFF00").describe("Accent/highlight color in hex"),
     totalDuration: z.number().optional().describe("Total video duration in seconds"),
   }),
-  execute: async (executionContext) => {
-    const ctx = executionContext.context;
+  execute: async (input) => {
+    const ctx = input;
     const wrappedFn = wrapToolHandler(
       async (input: {
         transcript: Array<{ start: number; end: number; text: string }>;
@@ -205,10 +205,10 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text`
     );
     return wrappedFn({
       transcript: ctx.transcript,
-      style: ctx.style,
-      resolution: ctx.resolution,
-      fontName: ctx.fontName,
-      highlightColor: ctx.highlightColor,
+      style: ctx.style ?? "word-by-word",
+      resolution: ctx.resolution as { width: number; height: number } | undefined,
+      fontName: ctx.fontName ?? "Arial",
+      highlightColor: ctx.highlightColor ?? "#FFFF00",
       totalDuration: ctx.totalDuration,
     });
   },
@@ -221,8 +221,8 @@ const burnCaptions = createTool({
     videoPath: z.string().describe("Input video file path"),
     assContent: z.string().describe("ASS subtitle file content"),
   }),
-  execute: async (executionContext) => {
-    const { videoPath, assContent } = executionContext.context;
+  execute: async (input) => {
+    const { videoPath, assContent } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { videoPath: string; assContent: string }) => {
         const assPath = join(TMP_DIR, `captions-${randomUUID().slice(0, 8)}.ass`);

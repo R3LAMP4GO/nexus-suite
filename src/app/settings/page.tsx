@@ -78,11 +78,9 @@ export default function SettingsPage() {
 
   useEffect(() => {
     if (org.data) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync form state from query data
       setName(org.data.name);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSlug(org.data.slug);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBrandJson(
         org.data.brandConfig
           ? JSON.stringify(org.data.brandConfig, null, 2)

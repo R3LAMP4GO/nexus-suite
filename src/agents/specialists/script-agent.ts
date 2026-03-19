@@ -39,8 +39,8 @@ const getScriptTemplate = createTool({
     format: z.enum(["short", "long"]).optional().describe("Short-form or long-form"),
     duration: z.number().optional().describe("Target duration in seconds"),
   }),
-  execute: async (executionContext) => {
-    const { platform, format, duration } = executionContext.context;
+  execute: async (input) => {
+    const { platform, format, duration } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; format?: string; duration?: number }) => {
         const fmt = input.format ?? "short";

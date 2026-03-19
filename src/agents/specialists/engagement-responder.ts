@@ -36,8 +36,8 @@ const getRecentComments = createTool({
     limit: z.number().optional().describe("Max comments to return"),
     unrespondedOnly: z.boolean().optional().describe("Only fetch unresponded comments"),
   }),
-  execute: async (executionContext) => {
-    const { platform, limit, unrespondedOnly } = executionContext.context;
+  execute: async (input) => {
+    const { platform, limit, unrespondedOnly } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; limit?: number; unrespondedOnly?: boolean }) => {
         const resultLimit = input.limit ?? 50;

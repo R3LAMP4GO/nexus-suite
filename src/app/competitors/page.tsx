@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { api } from "@/lib/trpc-client";
 import { DataTable, type ColumnDef } from "@/components/ui/data-table";
 import { Badge, Button, Modal, SkeletonCard } from "@/components/ui/index";
@@ -193,9 +194,11 @@ function CreatorCard({
       <div className="p-4">
         <div className="flex items-start gap-3">
           {creator.avatarUrl ? (
-            <img
+            <Image
               src={creator.avatarUrl}
               alt={creator.username}
+              width={40}
+              height={40}
               className="h-10 w-10 rounded-full object-cover"
             />
           ) : (

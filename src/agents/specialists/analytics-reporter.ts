@@ -41,8 +41,8 @@ const queryAnalytics = createTool({
     period: z.string().optional().describe("Time period: 7d, 30d, 90d"),
     metrics: z.array(z.string()).optional().describe("Specific metrics to fetch"),
   }),
-  execute: async (executionContext) => {
-    const { platform, period, metrics } = executionContext.context;
+  execute: async (input) => {
+    const { platform, period, metrics } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; period?: string; metrics?: string[] }) => {
         const days = parsePeriodDays(input.period ?? "30d");

@@ -110,8 +110,8 @@ const getEditingRules = createTool({
     contentType: z.string().describe("Type of content: post, article, script, caption"),
     platform: z.string().optional().describe("Target platform"),
   }),
-  execute: async (executionContext) => {
-    const { contentType, platform } = executionContext.context;
+  execute: async (input) => {
+    const { contentType, platform } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { contentType: string; platform?: string }) => {
         const platformKey = input.platform?.toLowerCase() ?? "general";
@@ -142,8 +142,8 @@ const getQualityThresholds = createTool({
     contentType: z.string().describe("Type of content"),
     tier: z.enum(["draft", "review", "publish"]).optional().describe("Quality tier"),
   }),
-  execute: async (executionContext) => {
-    const { contentType, tier } = executionContext.context;
+  execute: async (input) => {
+    const { contentType, tier } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { contentType: string; tier?: string }) => {
         const tierKey = input.tier ?? "publish";
@@ -169,8 +169,8 @@ const scoreContent = createTool({
     contentType: z.string().describe("Type: post, article, script, caption"),
     platform: z.string().optional().describe("Target platform"),
   }),
-  execute: async (executionContext) => {
-    const { content, contentType, platform } = executionContext.context;
+  execute: async (input) => {
+    const { content, contentType, platform } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { content: string; contentType: string; platform?: string }) => {
         const text = input.content;

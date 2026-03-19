@@ -27,8 +27,8 @@ const delegateToPlatform = createTool({
     platform: z.enum(["youtube", "tiktok", "instagram", "linkedin", "x", "facebook"]).describe("Target platform"),
     prompt: z.string().describe("Task prompt for the platform agent"),
   }),
-  execute: async (executionContext) => {
-    const { platform, prompt } = executionContext.context;
+  execute: async (input) => {
+    const { platform, prompt } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; prompt: string }) => {
         const agentName = PLATFORM_AGENTS[input.platform];
@@ -58,8 +58,8 @@ const delegateToSpecialist = createTool({
     specialistName: z.string().describe("Name of the specialist agent"),
     prompt: z.string().describe("Task prompt for the specialist"),
   }),
-  execute: async (executionContext) => {
-    const { specialistName, prompt } = executionContext.context;
+  execute: async (input) => {
+    const { specialistName, prompt } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { specialistName: string; prompt: string }) => {
         const workflowContext = getWorkflowContext();

@@ -71,8 +71,8 @@ const getPlatformFormats = createTool({
     platforms: z.array(z.string()).describe("Platforms to get format specs for"),
     mediaType: z.string().optional().describe("Filter by media type: video, image, text"),
   }),
-  execute: async (executionContext) => {
-    const { platforms, mediaType } = executionContext.context;
+  execute: async (input) => {
+    const { platforms, mediaType } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platforms: string[]; mediaType?: string }) => {
         const formats = input.platforms.map((p) => {

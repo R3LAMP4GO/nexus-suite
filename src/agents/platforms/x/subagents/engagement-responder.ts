@@ -15,8 +15,8 @@ const craftReply = createTool({
     context: z.string().optional().describe("Additional context about the conversation or brand"),
     replyStyle: z.enum(["witty", "helpful", "insightful", "empathetic"]).optional().describe("Desired reply style"),
   }),
-  execute: async (executionContext) => {
-    const { originalTweet, context, replyStyle } = executionContext.context;
+  execute: async (input) => {
+    const { originalTweet, context, replyStyle } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { originalTweet: string; context?: string; replyStyle?: string }) => {
         const style = input.replyStyle ?? "helpful";

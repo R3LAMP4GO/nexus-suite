@@ -55,8 +55,8 @@ const findHighEngagementContent = createTool({
     maxComments: z.number().optional().describe("Maximum comments (low = less competition)"),
     limit: z.number().optional().describe("Max results"),
   }),
-  execute: async (executionContext) => {
-    const { platform, niche, minLikes, maxComments, limit } = executionContext.context;
+  execute: async (input) => {
+    const { platform, niche, minLikes, maxComments, limit } = input;
     const wrappedFn = wrapToolHandler(
       async (input: {
         platform: string;
@@ -109,8 +109,8 @@ const getReplyHistory = createTool({
     platform: z.string().describe("Platform"),
     sinceDays: z.number().optional().describe("Look back N days"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId, platform, sinceDays } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId, platform, sinceDays } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string; platform: string; sinceDays?: number }) => {
         const since = new Date();
@@ -151,8 +151,8 @@ const getBrandVoice = createTool({
   inputSchema: z.object({
     organizationId: z.string().describe("Organization ID"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string }) => {
         const { loadBrandPrompt } = await import("@/agents/general/brand-loader");

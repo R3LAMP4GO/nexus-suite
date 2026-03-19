@@ -46,8 +46,8 @@ const getAccountHealth = createTool({
     platform: z.string().describe("Platform to fetch account health for"),
     organizationId: z.string().optional().describe("Organization ID to scope results"),
   }),
-  execute: async (executionContext) => {
-    const { platform, organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { platform, organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; organizationId?: string }) => {
         const where: Record<string, unknown> = {
@@ -96,8 +96,8 @@ const getPostingWindows = createTool({
   inputSchema: z.object({
     organizationId: z.string().describe("Organization ID"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string }) => {
         const org = await db.organization.findUnique({
@@ -129,8 +129,8 @@ const getPlatformCaps = createTool({
   inputSchema: z.object({
     organizationId: z.string().describe("Organization ID"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string }) => {
         const org = await db.organization.findUnique({

@@ -14,8 +14,8 @@ const searchTrendingSounds = createTool({
     niche: z.string().describe("Content niche to find sounds for (e.g. fitness, comedy, education)"),
     mood: z.string().optional().describe("Desired mood (e.g. upbeat, chill, dramatic)"),
   }),
-  execute: async (executionContext) => {
-    const { niche, mood } = executionContext.context;
+  execute: async (input) => {
+    const { niche, mood } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { niche: string; mood?: string }) => {
         const mood = input.mood ?? "any";

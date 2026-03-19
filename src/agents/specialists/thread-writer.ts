@@ -38,8 +38,8 @@ const getThreadStructure = createTool({
     narrativeType: z.enum(["listicle", "story", "educational"]).optional().describe("Narrative template"),
     postCount: z.number().optional().describe("Target number of posts"),
   }),
-  execute: async (executionContext) => {
-    const { platform, narrativeType, postCount } = executionContext.context;
+  execute: async (input) => {
+    const { platform, narrativeType, postCount } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; narrativeType?: string; postCount?: number }) => {
         const THREAD_CONFIG: Record<string, { charLimit: number; maxPosts: number; mediaPerPost: number; linkBehavior: string }> = {

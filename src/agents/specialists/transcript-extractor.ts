@@ -161,8 +161,8 @@ const extractTranscript = createTool({
     sourceVideoId: z.string().optional().describe("SourceVideo ID to look up file path in DB"),
     localPath: z.string().optional().describe("Local file path to the video"),
   }),
-  execute: async (executionContext) => {
-    const { sourceVideoId, localPath } = executionContext.context;
+  execute: async (input) => {
+    const { sourceVideoId, localPath } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { sourceVideoId?: string; localPath?: string }) => {
         let videoPath = input.localPath;
@@ -254,8 +254,8 @@ const getVideoMetadata = createTool({
   inputSchema: z.object({
     localPath: z.string().describe("Local file path to the video"),
   }),
-  execute: async (executionContext) => {
-    const { localPath } = executionContext.context;
+  execute: async (input) => {
+    const { localPath } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { localPath: string }) => {
         const probeJson = await exec("ffprobe", [

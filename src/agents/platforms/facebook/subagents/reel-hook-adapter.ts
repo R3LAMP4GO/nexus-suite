@@ -15,8 +15,8 @@ const adaptReelHook = createTool({
     niche: z.string().optional().describe("Content niche (e.g. fitness, finance, tech)"),
     targetDuration: z.number().optional().describe("Target reel duration in seconds (max 90)"),
   }),
-  execute: async (executionContext) => {
-    const { originalHook, niche, targetDuration } = executionContext.context;
+  execute: async (input) => {
+    const { originalHook, niche, targetDuration } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { originalHook: string; niche?: string; targetDuration?: number }) => {
         const hook = input.originalHook;

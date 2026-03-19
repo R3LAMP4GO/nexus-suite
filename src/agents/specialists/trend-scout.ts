@@ -18,8 +18,8 @@ const searchTrends = createTool({
     query: z.string().describe("Search query for trends"),
     platform: z.string().optional().describe("Filter by platform (youtube, tiktok, etc.)"),
   }),
-  execute: async (executionContext) => {
-    const { query, platform } = executionContext.context;
+  execute: async (input) => {
+    const { query, platform } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { query: string; platform?: string }) => {
         // Search tracked posts for trending content matching query
@@ -77,8 +77,8 @@ const searchTwitter = createTool({
     query: z.string().describe("Search query"),
     timeframe: z.string().optional().describe("Time range: 1h, 24h, 7d"),
   }),
-  execute: async (executionContext) => {
-    const { query, timeframe } = executionContext.context;
+  execute: async (input) => {
+    const { query, timeframe } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { query: string; timeframe?: string }) => {
         const hours = input.timeframe === "1h" ? 1 : input.timeframe === "7d" ? 168 : 24;
@@ -124,8 +124,8 @@ const searchHackerNews = createTool({
     query: z.string().describe("Search query"),
     sortBy: z.enum(["relevance", "date", "points"]).optional().describe("Sort order"),
   }),
-  execute: async (executionContext) => {
-    const { query, sortBy } = executionContext.context;
+  execute: async (input) => {
+    const { query, sortBy } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { query: string; sortBy?: string }) => {
         try {
@@ -208,8 +208,8 @@ const searchReddit = createTool({
     query: z.string().describe("Search query"),
     subreddit: z.string().optional().describe("Specific subreddit to search"),
   }),
-  execute: async (executionContext) => {
-    const { query, subreddit } = executionContext.context;
+  execute: async (input) => {
+    const { query, subreddit } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { query: string; subreddit?: string }) => {
         try {

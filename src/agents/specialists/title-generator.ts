@@ -38,8 +38,8 @@ const getTitlePerformance = createTool({
     platform: z.string().optional().describe("Target platform for CTR benchmarks"),
     titleStyle: z.enum(["numbers", "how-to", "curiosity", "urgency"]).optional().describe("Title framework filter"),
   }),
-  execute: async (executionContext) => {
-    const { niche, platform, titleStyle } = executionContext.context;
+  execute: async (input) => {
+    const { niche, platform, titleStyle } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { niche: string; platform?: string; titleStyle?: string }) => {
         const platformUpper = (input.platform ?? "youtube").toUpperCase();

@@ -430,7 +430,7 @@ export function registerWorkflowActions(): void {
         commentText,
         platform,
       },
-      { retryLimit: 2, expireInMinutes: 60 },
+      { retryLimit: 2, expireInSeconds: 3600 },
     );
 
     workflowLogger.info(

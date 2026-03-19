@@ -60,12 +60,12 @@ const validateWorkflowTool = createTool({
     })),
     warnings: z.array(z.string()),
   }),
-  execute: async ({ context }) => {
+  execute: async (input) => {
     const wrappedFn = wrapToolHandler(
-      async (input: { yaml: string }) => validateWorkflow(input.yaml),
+      async (toolInput: { yaml: string }) => validateWorkflow(toolInput.yaml),
       { agentName: AGENT_NAME, toolName: "validate_workflow" },
     );
-    return wrappedFn({ yaml: context.yaml });
+    return wrappedFn({ yaml: input.yaml });
   },
 });
 

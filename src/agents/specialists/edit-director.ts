@@ -60,8 +60,8 @@ const getAvailableClips = createTool({
     sourceVideoId: z.string().describe("SourceVideo ID"),
     organizationId: z.string().describe("Organization ID"),
   }),
-  execute: async (executionContext) => {
-    const { sourceVideoId, organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { sourceVideoId, organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { sourceVideoId: string; organizationId: string }) => {
         const sv = await db.sourceVideo.findUnique({
@@ -112,8 +112,8 @@ const getTransformPresets = createTool({
   inputSchema: z.object({
     platform: z.string().optional().describe("Target platform for platform-specific presets"),
   }),
-  execute: async (executionContext) => {
-    const { platform } = executionContext.context;
+  execute: async (input) => {
+    const { platform } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform?: string }) => {
         // Base presets available for all platforms
@@ -194,8 +194,8 @@ const submitRenderJob = createTool({
     }).describe("The structured edit plan"),
     variationCount: z.number().default(1).describe("Number of unique variations to render"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId, sourceVideoId, editPlan, variationCount } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId, sourceVideoId, editPlan, variationCount } = input;
     const wrappedFn = wrapToolHandler(
       async (input: {
         organizationId: string;
@@ -260,7 +260,7 @@ const submitRenderJob = createTool({
       },
       { agentName: AGENT_NAME, toolName: "submitRenderJob" },
     );
-    return wrappedFn({ organizationId, sourceVideoId, editPlan: editPlan as Record<string, unknown>, variationCount });
+    return wrappedFn({ organizationId, sourceVideoId, editPlan: editPlan as Record<string, unknown>, variationCount: variationCount ?? 1 });
   },
 });
 

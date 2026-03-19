@@ -15,8 +15,8 @@ const planGroupContent = createTool({
     topic: z.string().describe("Topic or theme for the post"),
     goal: z.enum(["discussion", "leads", "authority", "community"]).optional().describe("Primary goal"),
   }),
-  execute: async (executionContext) => {
-    const { groupType, topic, goal } = executionContext.context;
+  execute: async (input) => {
+    const { groupType, topic, goal } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { groupType: string; topic: string; goal?: string }) => {
         const goal = input.goal ?? "discussion";

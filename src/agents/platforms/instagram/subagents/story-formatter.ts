@@ -14,8 +14,8 @@ const formatStorySequence = createTool({
     content: z.string().describe("Raw content to format into story slides"),
     goal: z.string().optional().describe("Story goal (e.g. engagement, traffic, awareness)"),
   }),
-  execute: async (executionContext) => {
-    const { content, goal } = executionContext.context;
+  execute: async (input) => {
+    const { content, goal } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { content: string; goal?: string }) => {
         const goal = input.goal ?? "engagement";

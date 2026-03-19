@@ -35,8 +35,8 @@ const getCharLimits = createTool({
   inputSchema: z.object({
     platform: z.string().describe("Target platform: instagram, tiktok, twitter, linkedin, facebook, youtube"),
   }),
-  execute: async (executionContext) => {
-    const { platform } = executionContext.context;
+  execute: async (input) => {
+    const { platform } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string }) => {
         const limits: Record<string, { charLimit: number; hashtagLimit: number; emojiAdvice: string }> = {
@@ -66,8 +66,8 @@ const getBrandVoice = createTool({
   inputSchema: z.object({
     organizationId: z.string().optional().describe("Organization ID for brand-specific voice"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId?: string }) => {
         const orgId = input.organizationId ?? "default";

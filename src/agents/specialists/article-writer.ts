@@ -41,8 +41,8 @@ const getArticleOutline = createTool({
     wordCount: z.number().optional().describe("Target word count"),
     niche: z.string().optional().describe("Content niche for tailored outlines"),
   }),
-  execute: async (executionContext) => {
-    const { keyword, wordCount, niche } = executionContext.context;
+  execute: async (input) => {
+    const { keyword, wordCount, niche } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { keyword: string; wordCount?: number; niche?: string }) => {
         const targetWords = input.wordCount ?? 1500;

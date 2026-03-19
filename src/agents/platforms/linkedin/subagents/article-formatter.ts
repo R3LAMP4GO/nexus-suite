@@ -15,8 +15,8 @@ const formatLinkedInArticle = createTool({
     targetAudience: z.string().optional().describe("Target professional audience (e.g. CTOs, marketers)"),
     tone: z.string().optional().describe("Article tone (e.g. thought-leadership, educational, case-study)"),
   }),
-  execute: async (executionContext) => {
-    const { rawContent, targetAudience, tone } = executionContext.context;
+  execute: async (input) => {
+    const { rawContent, targetAudience, tone } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { rawContent: string; targetAudience?: string; tone?: string }) => {
         const audience = input.targetAudience ?? "general professionals";

@@ -36,8 +36,8 @@ const getBrandProfile = createTool({
     organizationId: z.string().describe("Organization ID to fetch brand profile for"),
     includeVisual: z.boolean().optional().describe("Include visual identity guidelines"),
   }),
-  execute: async (executionContext) => {
-    const { organizationId, includeVisual } = executionContext.context;
+  execute: async (input) => {
+    const { organizationId, includeVisual } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { organizationId: string; includeVisual?: boolean }) => {
         // Load org from DB with brand config and onboarding data

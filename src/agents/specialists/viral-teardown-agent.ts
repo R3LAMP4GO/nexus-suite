@@ -37,8 +37,8 @@ const fetchViralContent = createTool({
     platform: z.string().optional().describe("Platform to search for viral content"),
     niche: z.string().optional().describe("Content niche to filter by"),
   }),
-  execute: async (executionContext) => {
-    const { url, platform, niche } = executionContext.context;
+  execute: async (input) => {
+    const { url, platform, niche } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { url?: string; platform?: string; niche?: string }) => {
         // If URL provided, look for that specific post

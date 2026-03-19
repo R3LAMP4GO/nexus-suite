@@ -3,7 +3,7 @@
 // GLM-4.6V for vision tasks, GLM-4.5 for text generation.
 
 import { createZhipu } from "zhipu-ai-provider";
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModel } from "@mastra/core/llm";
 
 // Z.ai provider — reads ZHIPU_API_KEY from env.
 // Uses international endpoint by default; swap to bigmodel.cn for China.
@@ -14,11 +14,11 @@ const zhipu = createZhipu({
 
 export const modelConfig = {
   /** Tier 1 orchestrator + Tier 2 platform main agents — highest capability */
-  tier1: zhipu("glm-4.5") as unknown as LanguageModelV1,
+  tier1: zhipu("glm-4.5") as unknown as LanguageModel,
   /** Tier 2 platform main agents — high capability */
-  tier2: zhipu("glm-4.5") as unknown as LanguageModelV1,
+  tier2: zhipu("glm-4.5") as unknown as LanguageModel,
   /** Tier 2.5 sub-agents — cost-optimized */
-  tier25: zhipu("glm-4.5-air") as unknown as LanguageModelV1,
+  tier25: zhipu("glm-4.5-air") as unknown as LanguageModel,
   /** Vision tasks (CAPTCHA, image analysis) — GLM-4.6V */
-  vision: zhipu("glm-4.6v") as unknown as LanguageModelV1,
+  vision: zhipu("glm-4.6v") as unknown as LanguageModel,
 };

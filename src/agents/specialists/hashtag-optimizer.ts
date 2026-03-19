@@ -46,8 +46,8 @@ const getTrending = createTool({
     platform: z.string().describe("Platform: instagram, tiktok, youtube, twitter, linkedin"),
     niche: z.string().optional().describe("Content niche to filter by"),
   }),
-  execute: async (executionContext) => {
-    const { platform, niche } = executionContext.context;
+  execute: async (input) => {
+    const { platform, niche } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; niche?: string }) => {
         const platformUpper = input.platform.toUpperCase();
@@ -108,8 +108,8 @@ const getHashtagAnalytics = createTool({
     hashtags: z.array(z.string()).describe("Hashtags to analyze"),
     platform: z.string().describe("Target platform"),
   }),
-  execute: async (executionContext) => {
-    const { hashtags, platform } = executionContext.context;
+  execute: async (input) => {
+    const { hashtags, platform } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { hashtags: string[]; platform: string }) => {
         const platformUpper = input.platform.toUpperCase();

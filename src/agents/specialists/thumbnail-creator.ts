@@ -37,8 +37,8 @@ const getThumbnailSpecs = createTool({
     platform: z.string().describe("Target platform (youtube, instagram, tiktok)"),
     style: z.string().optional().describe("Visual style preference (bold, minimal, cinematic)"),
   }),
-  execute: async (executionContext) => {
-    const { platform, style } = executionContext.context;
+  execute: async (input) => {
+    const { platform, style } = input;
     const wrappedFn = wrapToolHandler(
       async (input: { platform: string; style?: string }) => {
         const PLATFORM_SPECS: Record<string, {
