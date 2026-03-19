@@ -277,7 +277,7 @@ const getVideoMetadata = createTool({
             codec: videoStream.codec_name,
             width: videoStream.width,
             height: videoStream.height,
-            fps: eval(videoStream.r_frame_rate ?? "0") || 0,
+            fps: (() => { const [num, den] = (videoStream.r_frame_rate ?? "0/1").split("/").map(Number); return den ? num / den : 0; })() || 0,
             pixelFormat: videoStream.pix_fmt,
           } : null,
           audio: audioStream ? {

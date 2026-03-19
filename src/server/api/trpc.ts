@@ -1,7 +1,7 @@
 import "@/lib/env";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { auth } from "@/server/auth/config";
 import { db } from "@/lib/db";
 import { checkUsageLimit } from "@/server/services/usage-tracking";

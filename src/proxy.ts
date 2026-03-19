@@ -4,6 +4,35 @@ import { NextRequest, NextResponse } from "next/server";
 
 const { auth } = NextAuth(authConfig);
 
+// ── Nonce-based Content-Security-Policy ─────────────────────────
+// Generate a per-request nonce and set CSP header to eliminate 'unsafe-inline'/'unsafe-eval'.
+// The nonce is forwarded via x-nonce header so server components can read it.
+function buildCspHeader(nonce: string): string {
+  const sentryOrigin = process.env.NEXT_PUBLIC_SENTRY_DSN
+    ? (() => { try { return new URL(process.env.NEXT_PUBLIC_SENTRY_DSN).origin; } catch { return ""; } })()
+    : "";
+
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    `connect-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    "media-src 'self' blob: https:",
+    "frame-src 'self'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "object-src 'none'",
+  ].join("; ");
+}
+
+function applySecurityHeaders(response: NextResponse, nonce: string): void {
+  response.headers.set("x-nonce", nonce);
+  response.headers.set("Content-Security-Policy", buildCspHeader(nonce));
+}
+
 // Routes that don't require auth
 const PUBLIC_ROUTES = ["/login", "/pricing", "/terms", "/privacy", "/api/webhooks/stripe", "/api/auth", "/api/health"];
 
@@ -41,6 +70,23 @@ export default auth(async (req) => {
   const nextReq = req as unknown as NextRequest;
   const { pathname } = nextReq.nextUrl;
 
+  // Generate a per-request nonce for CSP
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+
+  // Helper: NextResponse.next() with CSP headers
+  function next(): NextResponse {
+    const res = NextResponse.next();
+    applySecurityHeaders(res, nonce);
+    return res;
+  }
+
+  // Helper: NextResponse.redirect() with CSP headers
+  function redirect(url: URL): NextResponse {
+    const res = NextResponse.redirect(url);
+    applySecurityHeaders(res, nonce);
+    return res;
+  }
+
   // ── IP-based rate limiting for sensitive endpoints ──────────────
   const rateLimitRoute = RATE_LIMIT_CONFIGS.find((r) => pathname.startsWith(r.prefix));
   if (rateLimitRoute) {
@@ -62,12 +108,12 @@ export default auth(async (req) => {
 
   // Allow public routes
   if (PUBLIC_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.next();
+    return next();
   }
 
   // No session → login
   if (!session?.user) {
-    return NextResponse.redirect(new URL("/login", nextReq.url));
+    return redirect(new URL("/login", nextReq.url));
   }
 
   // Extract onboarding state from JWT token
@@ -85,19 +131,19 @@ export default auth(async (req) => {
 
   // Admin routes — no onboarding redirects
   if (ADMIN_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.next();
+    return next();
   }
 
   // API routes — let tRPC handle its own auth/guards
   if (pathname.startsWith("/api")) {
-    return NextResponse.next();
+    return next();
   }
 
   // ── Onboarding state routing ──────────────────────────────────
 
   // No org yet → send to pricing (unless already there)
   if (!hasOrg && !ONBOARDING_FLOW_ROUTES.some((r) => pathname.startsWith(r))) {
-    return NextResponse.redirect(new URL("/pricing", nextReq.url));
+    return redirect(new URL("/pricing", nextReq.url));
   }
 
   // Subscription blocked → reactivation page
@@ -105,25 +151,25 @@ export default auth(async (req) => {
   const blockedStatuses = ["CANCELED", "INACTIVE", "UNPAID"];
   if (subscriptionStatus && blockedStatuses.includes(subscriptionStatus)) {
     if (pathname !== "/reactivate" && pathname !== "/suspended") {
-      return NextResponse.redirect(new URL("/reactivate", nextReq.url));
+      return redirect(new URL("/reactivate", nextReq.url));
     }
-    return NextResponse.next();
+    return next();
   }
 
   // Org is SUSPENDED → suspended page
   if (onboardingStatus === "SUSPENDED") {
     if (pathname !== "/suspended") {
-      return NextResponse.redirect(new URL("/suspended", nextReq.url));
+      return redirect(new URL("/suspended", nextReq.url));
     }
-    return NextResponse.next();
+    return next();
   }
 
   // Org is PENDING_PAYMENT → they need to complete checkout
   if (onboardingStatus === "PENDING_PAYMENT") {
     if (!ONBOARDING_FLOW_ROUTES.some((r) => pathname.startsWith(r))) {
-      return NextResponse.redirect(new URL("/pricing", nextReq.url));
+      return redirect(new URL("/pricing", nextReq.url));
     }
-    return NextResponse.next();
+    return next();
   }
 
   // Org is PENDING_SETUP → onboarding form or provisioning wait screen
@@ -132,19 +178,19 @@ export default auth(async (req) => {
       !pathname.startsWith("/onboarding") &&
       !pathname.startsWith("/provisioning")
     ) {
-      return NextResponse.redirect(new URL("/onboarding", nextReq.url));
+      return redirect(new URL("/onboarding", nextReq.url));
     }
-    return NextResponse.next();
+    return next();
   }
 
   // Org is ACTIVE — if they navigate to onboarding/provisioning, redirect to dashboard
   if (onboardingStatus === "ACTIVE") {
     if (ONBOARDING_FLOW_ROUTES.some((r) => pathname.startsWith(r)) && pathname !== "/pricing") {
-      return NextResponse.redirect(new URL("/dashboard", nextReq.url));
+      return redirect(new URL("/dashboard", nextReq.url));
     }
   }
 
-  return NextResponse.next();
+  return next();
 });
 
 export const config = {

@@ -97,8 +97,8 @@ export function Sidebar() {
 
   if (!isProtected) return null;
 
-  const userRole = (session?.user as any)?.role;
-  const showAdmin = ADMIN_ROLES.includes(userRole);
+  const userRole = session?.user?.role;
+  const showAdmin = userRole != null && ADMIN_ROLES.includes(userRole);
 
   const sidebarContent = (
     <>

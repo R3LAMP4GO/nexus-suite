@@ -15,6 +15,9 @@ RUN cp -r .next/standalone/. ./standalone/ && \
     cp -r .next/static ./standalone/.next/static && \
     cp -r public ./standalone/public 2>/dev/null || true
 WORKDIR /app/standalone
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN chown -R nextjs:nodejs /app/standalone
+USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]
 
@@ -22,4 +25,6 @@ CMD ["node", "server.js"]
 FROM base AS worker
 COPY . .
 RUN npx prisma generate
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+USER nextjs
 CMD ["npx", "tsx", "src/server/worker/index.ts"]

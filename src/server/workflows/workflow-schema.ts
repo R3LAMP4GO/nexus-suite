@@ -51,7 +51,26 @@ export const parallelStep = baseStep.extend({
   steps: z.array(z.lazy(() => stepSchema)).min(1),
 });
 
-export const stepSchema: z.ZodType<any> = z.discriminatedUnion("type", [
+// Manual recursive type — z.infer would be circular due to z.lazy() self-reference
+type StepBase = {
+  id: string;
+  dependsOn?: string[];
+  outputAs?: string;
+  retries?: number;
+  timeoutMs?: number;
+};
+
+export type Step = StepBase &
+  (
+    | { type: "action"; action: string; params?: Record<string, unknown> }
+    | { type: "agent-delegate"; agent: string; prompt: string; model?: string; maxTokens?: number }
+    | { type: "condition"; condition: string; onTrue: Step[]; onFalse?: Step[] }
+    | { type: "forEach"; collection: string; as: string; steps: Step[]; maxConcurrency?: number }
+    | { type: "while"; condition: string; maxIterations: number; steps: Step[] }
+    | { type: "parallel"; steps: Step[] }
+  );
+
+export const stepSchema: z.ZodType<Step> = z.discriminatedUnion("type", [
   actionStep,
   agentDelegateStep,
   conditionStep,
@@ -59,8 +78,6 @@ export const stepSchema: z.ZodType<any> = z.discriminatedUnion("type", [
   whileStep,
   parallelStep,
 ]);
-
-export type Step = z.infer<typeof stepSchema>;
 export type ActionStep = z.infer<typeof actionStep>;
 export type AgentDelegateStep = z.infer<typeof agentDelegateStep>;
 export type ConditionStep = z.infer<typeof conditionStep>;

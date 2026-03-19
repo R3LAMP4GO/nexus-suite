@@ -281,7 +281,7 @@ export const adminRouter = createTRPCRouter({
   inviteUser: adminProcedure
     .input(
       z.object({
-        email: z.string().email(),
+        email: z.email(),
         name: z.string().optional(),
         role: z.enum(["OWNER", "ADMIN", "MEMBER"]).default("MEMBER"),
       }),

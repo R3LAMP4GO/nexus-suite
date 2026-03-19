@@ -2,16 +2,14 @@
 // Concatenates Hook + Meat + CTA clips with FFmpeg, normalizing resolution,
 // applying ASS captions (karaoke word highlighting), and text overlays.
 
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore — fluent-ffmpeg types installed in root, not in this service
 import ffmpegCmd from "fluent-ffmpeg";
 import { join, normalize } from "path";
 import { writeFileSync, mkdirSync, unlinkSync } from "fs";
-import { tmpdir } from "os";
+import { cpus, tmpdir } from "os";
 import { randomUUID } from "crypto";
 import type { RenderJob, RenderProgress, WordChunk, CaptionSegment } from "./batch-render.types";
 
-const MAX_CONCURRENT = Math.max(1, Math.floor(require("os").cpus().length / 2));
+const MAX_CONCURRENT = Math.max(1, Math.floor(cpus().length / 2));
 
 // ── Path escaping for FFmpeg filter graphs ──────────────────────
 

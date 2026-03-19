@@ -33,7 +33,7 @@ services:
 
   # ── Secrets Management ──────────────────────────────────────────
   infisical:
-    image: infisical/infisical:latest
+    image: infisical/infisical:v0.158.17
     restart: unless-stopped
     ports:
       - "8080:8080"

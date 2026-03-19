@@ -7,7 +7,7 @@ const onboardingSchema = z.object({
   brandVoice: z.string().max(2000).optional(),
   tonePreferences: z.string().max(1000).optional(),
   competitorUrls: z
-    .array(z.string().url("Must be a valid URL"))
+    .array(z.url({ error: "Must be a valid URL" }))
     .min(0)
     .max(20),
   platforms: z

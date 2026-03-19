@@ -8,4 +8,7 @@ RUN npm ci --ignore-scripts
 COPY . .
 RUN npx prisma generate
 RUN npm run build
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 CMD ["node", "dist/index.js"]

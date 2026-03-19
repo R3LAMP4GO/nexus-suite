@@ -45,4 +45,7 @@ RUN npx patchright install --with-deps chromium
 
 ENV NODE_ENV=production
 
+RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 --gid nodejs nextjs
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 CMD ["node", "dist/index.js"]

@@ -49,8 +49,8 @@ export async function executeCondition(
     if (context.aborted) break;
     const result = await executor(child, context);
     results.push(result);
-    if ((child as any).outputAs && result.output !== undefined) {
-      context.variables[(child as any).outputAs] = result.output;
+    if (child.outputAs && result.output !== undefined) {
+      context.variables[child.outputAs] = result.output;
     }
   }
 
@@ -109,8 +109,8 @@ export async function executeForEach(
         if (context.aborted) break;
         const result = await executor(child, scopedContext);
         iterResults.push(result);
-        if ((child as any).outputAs && result.output !== undefined) {
-          scopedContext.variables[(child as any).outputAs] = result.output;
+        if (child.outputAs && result.output !== undefined) {
+          scopedContext.variables[child.outputAs] = result.output;
         }
       }
       return { iterResults, lastOutput: iterResults[iterResults.length - 1]?.output };
@@ -166,8 +166,8 @@ export async function executeWhile(
       if (context.aborted) break;
       const result = await executor(child, context);
       results.push(result);
-      if ((child as any).outputAs && result.output !== undefined) {
-        context.variables[(child as any).outputAs] = result.output;
+      if (child.outputAs && result.output !== undefined) {
+        context.variables[child.outputAs] = result.output;
       }
     }
     iteration++;
@@ -204,8 +204,8 @@ export async function executeParallel(
 
     if (s.status === "fulfilled") {
       results.push(s.value);
-      if ((child as any).outputAs && s.value.output !== undefined) {
-        context.variables[(child as any).outputAs] = s.value.output;
+      if (child.outputAs && s.value.output !== undefined) {
+        context.variables[child.outputAs] = s.value.output;
       }
     } else {
       results.push({

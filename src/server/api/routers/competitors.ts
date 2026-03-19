@@ -53,7 +53,7 @@ function parseProfileUrl(profileUrl: string): { platform: Platform; username: st
 
 export const competitorsRouter = createTRPCRouter({
   addCreator: onboardedProcedure
-    .input(z.object({ profileUrl: z.string().url() }))
+    .input(z.object({ profileUrl: z.url() }))
     .mutation(async ({ ctx, input }) => {
       const { platform, username } = parseProfileUrl(input.profileUrl);
 

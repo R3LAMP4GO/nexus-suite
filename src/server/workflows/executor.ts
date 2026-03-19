@@ -347,13 +347,15 @@ async function executeStep(
     case "parallel":
       return executeParallel(step, context, executeStep as StepExecutor);
 
-    default:
+    default: {
+      const _exhaustive: never = step;
       return {
-        stepId: step.id,
-        status: "error",
-        error: `Unknown step type: ${(step as any).type}`,
+        stepId: (_exhaustive as Step).id,
+        status: "error" as const,
+        error: `Unknown step type: ${(step as unknown as { type: string }).type}`,
         durationMs: 0,
       };
+    }
   }
 }
 

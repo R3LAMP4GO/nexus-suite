@@ -1,4 +1,4 @@
-import PgBoss from "pg-boss";
+import { PgBoss } from "pg-boss";
 import { uploadToR2 } from "./r2.js";
 import { download } from "./download.js";
 import { runPipeline, runRaw } from "./ffmpeg.js";
@@ -6,6 +6,7 @@ import { ensureAudioSafe, type AudioAnalysis } from "./audio-safety.js";
 import type { TransformConfig, TransformFragment } from "./transforms.js";
 
 const QUEUE_NAME = "media:task";
+const COMPLETE_QUEUE = "media:complete";
 
 // Keep in sync with src/shared/queue-types.ts (canonical MediaJobPayload)
 export interface MediaJob {
@@ -101,11 +102,15 @@ export async function startConsumer(): Promise<PgBoss> {
     throw new Error("DATABASE_URL is required for pg-boss");
   }
 
-  const boss = new PgBoss({ connectionString });
+  const boss = new PgBoss({ connectionString, schema: "pgboss" });
 
   boss.on("error", (err) => console.error("[pg-boss] error:", err));
 
   await boss.start();
+
+  // pg-boss v12 requires queues to be created before use
+  await boss.createQueue(QUEUE_NAME);
+  await boss.createQueue(COMPLETE_QUEUE);
   console.log(`[pg-boss] started, subscribing to ${QUEUE_NAME}`);
 
   await boss.work<MediaJob>(QUEUE_NAME, async (jobs) => {
@@ -158,8 +163,6 @@ export async function startConsumer(): Promise<PgBoss> {
 // We use pg-boss's internal DB connection to run raw SQL updates
 // against the VideoVariation table, then enqueue a media:complete
 // job so the main app can trigger notifications.
-
-const COMPLETE_QUEUE = "media:complete";
 
 async function updateVariationStatus(
   boss: PgBoss,

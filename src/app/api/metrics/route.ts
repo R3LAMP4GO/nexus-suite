@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
@@ -5,7 +6,9 @@ import { redis } from "@/lib/redis";
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
   const secret = process.env.METRICS_SECRET;
-  if (!secret || auth !== `Bearer ${secret}`) {
+  const expected = Buffer.from(`Bearer ${secret}`);
+  const provided = Buffer.from(auth ?? "");
+  if (!secret || expected.length !== provided.length || !timingSafeEqual(expected, provided)) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 

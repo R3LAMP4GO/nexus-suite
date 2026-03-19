@@ -24,7 +24,7 @@ export const multiplierRouter = createTRPCRouter({
   uploadSource: onboardedProcedure
     .input(
       z.object({
-        url: z.string().url(),
+        url: z.url(),
         platform: z.nativeEnum(Platform),
       }),
     )
@@ -185,7 +185,7 @@ export const multiplierRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       await assertMultiplierEnabled(ctx);
 
-      const where: any = {};
+      const where: Prisma.PostRecordWhereInput = {};
 
       if (input.sourceVideoId) {
         // Verify ownership
@@ -201,14 +201,14 @@ export const multiplierRouter = createTRPCRouter({
           where: { sourceVideoId: input.sourceVideoId },
           select: { id: true },
         });
-        where.variationId = { in: variations.map((v: any) => v.id) };
+        where.variationId = { in: variations.map((v) => v.id) };
       } else {
         // All posts for org's accounts
         const accounts = await ctx.db.orgPlatformToken.findMany({
           where: { organizationId: ctx.organizationId },
           select: { id: true },
         });
-        where.accountId = { in: accounts.map((a: any) => a.id) };
+        where.accountId = { in: accounts.map((a) => a.id) };
       }
 
       const posts = await ctx.db.postRecord.findMany({

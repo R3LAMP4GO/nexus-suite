@@ -60,7 +60,7 @@ const FEATURES = [
 
 export default function PricingPage() {
   const { data: session } = useSession();
-  const currentTier = (session?.user as any)?.pricingTier as string | undefined;
+  const currentTier = session?.user?.pricingTier as string | undefined;
 
   const checkout = api.pricing.createCheckoutSession.useMutation({
     onSuccess: (data) => {
