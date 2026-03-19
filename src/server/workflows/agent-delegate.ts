@@ -91,6 +91,8 @@ export const SPECIALIST_AGENTS = new Set([
   "article-writer", "trend-scout", "engagement-responder",
   "analytics-reporter", "content-repurposer", "quality-scorer",
   "variation-orchestrator", "brand-persona-agent", "viral-teardown-agent",
+  "distribution-strategist", "reply-jacker", "transcript-extractor",
+  "auto-clipper", "content-recreator", "edit-director", "caption-generator",
 ]);
 
 // Cache for dynamically loaded client plugins: "orgId::agentName" → RegisteredAgent

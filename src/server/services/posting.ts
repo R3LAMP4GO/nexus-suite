@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { randomUUID } from "node:crypto";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
-import { redis } from "@/lib/redis";
+import { publishSSE } from "./sse-broadcaster";
 import { fetchSecret } from "@/lib/infisical";
 import { incCounter, observeHistogram } from "@/lib/metrics";
 import { recordSuccess, recordFailure } from "./circuit-breaker";
@@ -84,7 +84,7 @@ export async function postContent(
 
   if (!account) {
     const result: PostResult = { success: false, errorMessage: "Account not found" };
-    await finalizePost(postRecordId, accountId, result);
+    await finalizePost(orgId, postRecordId, accountId, result);
     return result;
   }
 
@@ -95,7 +95,7 @@ export async function postContent(
 
   if (!variation) {
     const result: PostResult = { success: false, errorMessage: "Variation not found" };
-    await finalizePost(postRecordId, accountId, result);
+    await finalizePost(orgId, postRecordId, accountId, result);
     return result;
   }
 
@@ -122,13 +122,14 @@ export async function postContent(
     observeHistogram("post_duration_seconds", { platform }, durationSec),
   ]);
 
-  await finalizePost(postRecordId, accountId, result);
+  await finalizePost(orgId, postRecordId, accountId, result);
   return result;
 }
 
 // ── Finalize ──────────────────────────────────────────────────
 
 async function finalizePost(
+  orgId: string,
   postRecordId: string,
   accountId: string,
   result: PostResult,
@@ -150,17 +151,13 @@ async function finalizePost(
   }
 
   // Emit SSE event via Redis pub/sub
-  await redis.publish(
-    "post:events",
-    JSON.stringify({
-      type: result.success ? "post:success" : "post:failure",
-      postRecordId,
-      accountId,
-      externalPostId: result.externalPostId,
-      errorMessage: result.errorMessage,
-      timestamp: new Date().toISOString(),
-    }),
-  );
+  await publishSSE(orgId, result.success ? "post:complete" : "post:complete", {
+    postRecordId,
+    accountId,
+    status: result.success ? "success" : "failed",
+    externalPostId: result.externalPostId,
+    errorMessage: result.errorMessage,
+  });
 }
 
 // ── API Posting (PRIMARY accounts) ────────────────────────────

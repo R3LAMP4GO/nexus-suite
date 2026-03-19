@@ -4,12 +4,10 @@ import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { getBoss } from "@/lib/pg-boss";
 import { incCounter } from "@/lib/metrics";
-import { generate as viralTeardown } from "@/agents/specialists/viral-teardown-agent";
-import { generate as scriptAgent } from "@/agents/specialists/script-agent";
-import { generate as captionWriter } from "@/agents/specialists/caption-writer";
-import { generate as variationOrchestrator } from "@/agents/specialists/variation-orchestrator";
 import { sendMediaJob } from "@/server/services/media-queue";
-import type { RawAgentContext } from "@/agents/general/types";
+import { executeAgentDelegate } from "@/server/workflows/agent-delegate";
+import { checkLlmBudget } from "@/server/services/llm-budget";
+import type { WorkflowContext } from "@/server/workflows/control-flow";
 import type { ScrapeResult } from "@/server/services/scrape-types";
 
 // ── Types ─────────────────────────────────────────────────────
@@ -78,12 +76,23 @@ async function analyzePost(
   const scrapeResult = await waitForScrapeResult(taskId);
   console.log(`[competitor-worker] received scrape:result taskId=${taskId} (${scrapeResult.meta.durationMs}ms)`);
 
-  const agentContext: RawAgentContext = {
+  const budgetCheck = await checkLlmBudget(organizationId);
+  if (!budgetCheck.allowed) {
+    throw new Error(budgetCheck.message ?? "LLM budget exceeded");
+  }
+
+  const workflowContext: WorkflowContext = {
     organizationId,
-    userPrompt: `Analyze the following scraped content from ${url} and produce a viral teardown:\n\n${scrapeResult.html}`,
+    workflowName: "competitor:analyze",
+    runId: taskId,
+    variables: {},
+    config: {},
+    input: {},
+    aborted: false,
   };
 
-  const agentResult = await viralTeardown(agentContext.userPrompt, agentContext);
+  const prompt = `Analyze the following scraped content from ${url} and produce a viral teardown:\n\n${scrapeResult.html}`;
+  const agentResult = await executeAgentDelegate("viral-teardown-agent", prompt, workflowContext) as { text: string };
 
   let analysis: Record<string, unknown>;
   try {
@@ -121,27 +130,44 @@ async function reproducePost(
   }
 
   const analysisJson = JSON.stringify(post.analysis);
-  const baseContext: RawAgentContext = { organizationId, userPrompt: "" };
+
+  const budgetCheck = await checkLlmBudget(organizationId);
+  if (!budgetCheck.allowed) {
+    throw new Error(budgetCheck.message ?? "LLM budget exceeded");
+  }
+
+  const workflowContext: WorkflowContext = {
+    organizationId,
+    workflowName: "competitor:reproduce",
+    runId: randomUUID(),
+    variables: {},
+    config: {},
+    input: {},
+    aborted: false,
+  };
 
   // 1. Script agent
-  const scriptResult = await scriptAgent(
+  const scriptResult = await executeAgentDelegate(
+    "script-agent",
     `Write a video script based on this viral teardown analysis:\n\n${analysisJson}`,
-    { ...baseContext, userPrompt: "Generate script from analysis" },
-  );
+    workflowContext,
+  ) as { text: string };
   console.log(`[competitor-worker] script-agent done for postId=${postId}`);
 
   // 2. Caption writer
-  const captionResult = await captionWriter(
+  const _captionResult = await executeAgentDelegate(
+    "caption-writer",
     `Write a caption for this script and analysis:\n\nScript: ${scriptResult.text}\n\nAnalysis: ${analysisJson}`,
-    { ...baseContext, userPrompt: "Generate caption from script + analysis" },
-  );
+    workflowContext,
+  ) as { text: string };
   console.log(`[competitor-worker] caption-writer done for postId=${postId}`);
 
   // 3. Variation orchestrator → FFmpeg transforms
-  const variationResult = await variationOrchestrator(
+  const variationResult = await executeAgentDelegate(
+    "variation-orchestrator",
     `Generate FFmpeg transform variations for this script:\n\n${scriptResult.text}`,
-    { ...baseContext, userPrompt: "Generate FFmpeg transforms from script" },
-  );
+    workflowContext,
+  ) as { text: string };
   console.log(`[competitor-worker] variation-orchestrator done for postId=${postId}`);
 
   let transforms: Record<string, unknown>;

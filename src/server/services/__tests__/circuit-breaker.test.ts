@@ -8,6 +8,7 @@ const redisMock = {
   get: vi.fn(),
   del: vi.fn(),
   publish: vi.fn(),
+  on: vi.fn(),
 };
 
 vi.mock("ioredis", () => ({
@@ -18,8 +19,12 @@ vi.mock("ioredis", () => ({
     get = redisMock.get;
     del = redisMock.del;
     publish = redisMock.publish;
+    on = redisMock.on;
   },
 }));
+
+const publishSSEMock = vi.hoisted(() => vi.fn(async () => {}));
+vi.mock("@/server/services/sse-broadcaster", () => ({ publishSSE: publishSSEMock }));
 
 // ── Mock Prisma ─────────────────────────────────────────────────
 const dbMock = {
@@ -297,9 +302,13 @@ describe("recordFailure", () => {
 
     await recordFailure("acc_1");
 
-    expect(redisMock.publish).toHaveBeenCalledWith(
-      "admin:alerts",
-      expect.stringContaining("circuit_breaker:auto_disable"),
+    expect(publishSSEMock).toHaveBeenCalledWith(
+      "org_1",
+      "account_health",
+      expect.objectContaining({
+        event: "circuit_breaker:auto_disable",
+        accountId: "acc_1",
+      }),
     );
   });
 });

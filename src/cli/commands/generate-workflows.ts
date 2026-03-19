@@ -4,6 +4,16 @@ import { db } from "@/lib/db";
 
 const AGENTS_DIR = join(process.cwd(), "src", "agents", "clients");
 
+/** Maps platform enum names to their registered agent IDs in src/agents/registry.ts */
+const PLATFORM_AGENT_MAP: Record<string, string> = {
+  YOUTUBE: "youtube-main",
+  TIKTOK: "tiktok-main",
+  INSTAGRAM: "instagram-main",
+  LINKEDIN: "linkedin-main",
+  X: "x-main",
+  FACEBOOK: "facebook-agent",
+};
+
 export interface GenerateWorkflowsOptions {
   niche?: string;
   platforms?: string[];
@@ -203,7 +213,7 @@ steps:
         steps:
 ${platforms.map((p) => `          - id: post-${p.toLowerCase()}
             type: agent-delegate
-            agent: ${p.toLowerCase()}-agent
+            agent: ${PLATFORM_AGENT_MAP[p] ?? `${p.toLowerCase()}-main`}
             prompt: "Distribute content to ${p}: {{script}}, {{hooks}}, {{titles}}, {{thumbnail}}"`).join("\n")}
     onFalse:
       - id: revise
@@ -228,7 +238,7 @@ steps:
     steps:
 ${platforms.map((p) => `      - id: scan-${p.toLowerCase()}
         type: agent-delegate
-        agent: ${p.toLowerCase()}-agent
+        agent: ${PLATFORM_AGENT_MAP[p] ?? `${p.toLowerCase()}-main`}
         prompt: "Scan recent comments, mentions, and DMs on ${p}. Prioritize by sentiment and reach."
         outputAs: ${p.toLowerCase()}Mentions`).join("\n")}
 

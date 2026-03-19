@@ -148,7 +148,7 @@ export default auth(async (req) => {
 
   // Subscription blocked → reactivation page
   // INACTIVE = default for new orgs before first payment (see schema default)
-  const blockedStatuses = ["CANCELED", "INACTIVE", "UNPAID"];
+  const blockedStatuses = ["CANCELED", "INACTIVE", "UNPAID", "PAST_DUE"];
   if (subscriptionStatus && blockedStatuses.includes(subscriptionStatus)) {
     if (pathname !== "/reactivate" && pathname !== "/suspended") {
       return redirect(new URL("/reactivate", nextReq.url));

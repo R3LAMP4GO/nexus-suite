@@ -80,6 +80,11 @@ Run all before committing. CI will reject failures.
 - New queue payloads should reference canonical types in `src/server/services/queue-types.ts`
 - Warming service components must be wired through executor, not called directly
 - SSE events should be published from workers via `publishSSE()` for dashboard updates
+- Always use `publishSSE()` for dashboard-facing events — never raw `redis.publish()` to custom channels
+- Never call agent `generate()` directly — always go through `executeAgentDelegate()` for budget/safety/tracking
+- When adding new agents to `bootstrapAgents()`, also add to `SPECIALIST_AGENTS` or `PLATFORM_SUBAGENTS` in `agent-delegate.ts`
+- When adding new workflow action queue producers, ensure a matching consumer worker exists
+- `warm:task` queue is owned exclusively by the warming service (`SERVICE_MODE=warming`) — do not add consumers in the worker process
 
 ## Shell Commands
 

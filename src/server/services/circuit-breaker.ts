@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { redis } from "@/lib/redis";
+import { publishSSE } from "./sse-broadcaster";
 
 // ── Constants ────────────────────────────────────────────────────
 const FAILURE_THRESHOLD = 3;
@@ -152,15 +153,12 @@ async function emitAdminAlert(
   platform: string,
   healthScore: number,
 ): Promise<void> {
-  const payload = JSON.stringify({
-    type: "circuit_breaker:auto_disable",
+  await publishSSE(organizationId, "account_health", {
+    event: "circuit_breaker:auto_disable",
     accountId,
-    organizationId,
     accountLabel,
     platform,
     healthScore,
     timestamp: new Date().toISOString(),
   });
-
-  await redis.publish("admin:alerts", payload);
 }

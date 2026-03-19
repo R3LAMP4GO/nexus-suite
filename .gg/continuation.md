@@ -1,20 +1,14 @@
-# Wiring Checkpoint Continuation — 2026-03-11
+# Wiring Checkpoint Continuation — 2026-03-19
 
-## Status
-✅ **COMPLETE** — Wiring audit and fixes done. Report at `reports/wiring-2026-03-11.md`.
+## Last Audit
+- Date: 2026-03-19
+- Scope: Full project
+- Findings: 8 gaps (2 critical, 2 high, 3 medium, 1 low)
+- All fixed in this session
 
-## Completed
-- All 6 CRITICAL findings fixed (registry bootstrap, workflow queue, cron scheduling, dead exports, cookie shape)
-- All 2 HIGH findings fixed (LLM budget gate, circuit breaker enforcement)
-- 2 MEDIUM findings fixed (media transforms, trend-scout prepareContext)
-- Wiring notes added to `CLAUDE.md` documenting systemic patterns
-- Resolution status added to wiring report
-
-## Deferred
-- Scraper pool Infisical migration (requires service refactor)
-- CLI option parity (tracked separately)
-- Unused agent registrations (available for future workflows)
-- INACTIVE subscription status (defensive, no runtime impact)
-
-## Next Steps
-- None — wiring checkpoint complete. Resume normal feature development.
+## Areas to Re-Check Next Audit
+- New agents added since last audit — check SPECIALIST_AGENTS sync
+- New workflow YAML files — verify action handlers exist
+- Any new queue producers — verify consumer workers exist
+- Scraper-pool and scrapling-sidecar services (not traced this session — separate process boundaries)
+- ML sidecar integration (not traced — separate Python service)

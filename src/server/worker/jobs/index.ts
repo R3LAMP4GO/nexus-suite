@@ -10,8 +10,6 @@ import { handleAgentExecute } from "./handlers/agent-execute.js";
 import { handleAnalyticsSync } from "./handlers/analytics-sync.js";
 import { handleWebhookDispatch } from "./handlers/webhook-dispatch.js";
 import { handleWorkflowRun, type WorkflowRunJob } from "./handlers/workflow-run.js";
-import { WARM_TASK_QUEUE, type WarmTask } from "@/server/services/warming/queue";
-import { executeWarmTask } from "@/server/services/warming/executor";
 
 async function instrumentedWork<T>(
   queue: string,
@@ -102,12 +100,6 @@ export async function registerJobHandlers(boss: PgBoss): Promise<void> {
   await boss.work<MediaRenderJob>(JobType.MEDIA_RENDER, { batchSize: 1 }, async ([job]) => {
     console.log(`[worker] processing ${JobType.MEDIA_RENDER} job=${job.id}`);
     await instrumentedWork(JobType.MEDIA_RENDER, () => handleMediaRender(job));
-  });
-
-  // WARM_TASK — browser-based account warming (1 task at a time)
-  await boss.work<WarmTask>(WARM_TASK_QUEUE, { batchSize: 1 }, async ([job]) => {
-    console.log(`[worker] processing ${WARM_TASK_QUEUE} job=${job.id}`);
-    await instrumentedWork(WARM_TASK_QUEUE, () => executeWarmTask(job.data));
   });
 }
 

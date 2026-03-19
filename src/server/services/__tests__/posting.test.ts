@@ -12,17 +12,7 @@ const dbMock = vi.hoisted(() => ({
   },
 }));
 
-const redisMock = vi.hoisted(() => ({
-  publish: vi.fn(),
-  incr: vi.fn(),
-  expire: vi.fn(),
-  incrby: vi.fn(),
-  pipeline: vi.fn(() => ({
-    hincrby: vi.fn().mockReturnThis(),
-    hincrbyfloat: vi.fn().mockReturnThis(),
-    exec: vi.fn(async () => []),
-  })),
-}));
+const publishSSEMock = vi.hoisted(() => vi.fn(async () => {}));
 
 const circuitMock = vi.hoisted(() => ({
   recordSuccess: vi.fn(),
@@ -30,7 +20,7 @@ const circuitMock = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ db: dbMock }));
-vi.mock("@/lib/redis", () => ({ redis: redisMock }));
+vi.mock("@/server/services/sse-broadcaster", () => ({ publishSSE: publishSSEMock }));
 vi.mock("@/lib/infisical", () => ({ fetchSecret: vi.fn(async () => "mock-token") }));
 vi.mock("@/lib/metrics", () => ({
   incCounter: vi.fn(async () => {}),
@@ -73,7 +63,6 @@ describe("postContent", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     dbMock.postRecord.update.mockResolvedValue({});
-    redisMock.publish.mockResolvedValue(1);
   });
 
   it("returns error when account not found", async () => {
@@ -179,9 +168,14 @@ describe("postContent", () => {
     });
 
     await postContent("org_1", "acc_1", "var_1", "YOUTUBE", "pr_1");
-    expect(redisMock.publish).toHaveBeenCalledWith(
-      "post:events",
-      expect.stringContaining("post:success"),
+    expect(publishSSEMock).toHaveBeenCalledWith(
+      "org_1",
+      "post:complete",
+      expect.objectContaining({
+        postRecordId: "pr_1",
+        accountId: "acc_1",
+        status: "success",
+      }),
     );
   });
 

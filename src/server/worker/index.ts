@@ -9,6 +9,7 @@ import { startPostWorker, stopPostWorker } from "../workers/post-worker.js";
 import { startCompetitorPollingWorker, stopCompetitorPollingWorker } from "../workers/competitor-polling-worker.js";
 import { startMediaCompletionWorker, stopMediaCompletionWorker } from "../workers/media-completion-worker.js";
 import { startDistributionWorker, stopDistributionWorker } from "../workers/distribution-worker.js";
+import { startEngagementWorker, stopEngagementWorker } from "../workers/engagement-worker.js";
 import { disposeExecutor } from "../services/warming/executor";
 import { workerLogger } from "@/lib/logger";
 
@@ -43,6 +44,9 @@ async function start(): Promise<void> {
   workerLogger.info("starting distribution worker...");
   await startDistributionWorker();
 
+  workerLogger.info("starting engagement worker...");
+  await startEngagementWorker();
+
   workerLogger.info("ready");
 }
 
@@ -53,6 +57,7 @@ async function shutdown(): Promise<void> {
   await stopPostWorker();
   await stopMediaCompletionWorker();
   await stopDistributionWorker();
+  await stopEngagementWorker();
   await disposeExecutor();
   await boss.stop();
   workerLogger.info("stopped");
