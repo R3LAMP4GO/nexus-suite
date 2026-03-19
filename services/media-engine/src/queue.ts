@@ -15,6 +15,10 @@ export interface MediaJob {
   localPath?: string;
   outputKey?: string;
   transforms?: TransformConfig | TransformFragment;
+  /** ID of the VideoVariation record to update on completion */
+  variationId?: string;
+  /** Parent SourceVideo ID — used to trigger completion checks */
+  sourceVideoId?: string;
 }
 
 // Keep in sync with src/shared/queue-types.ts (canonical MediaJobResult)
@@ -38,10 +42,13 @@ async function handleDownload(job: MediaJob): Promise<MediaJobResult> {
 }
 
 async function handleTransform(job: MediaJob): Promise<MediaJobResult> {
-  const { localPath, outputKey, transforms } = job;
-  if (!localPath) {
-    return { success: false, error: "localPath required for transform job" };
+  const { sourceUrl, outputKey, transforms } = job;
+  if (!sourceUrl) {
+    return { success: false, error: "sourceUrl required for transform job" };
   }
+
+  // Download the source from R2/URL to a local temp path for ffmpeg
+  const { localPath } = await download({ url: sourceUrl });
 
   // Support both TransformConfig (layer options) and raw TransformFragment
   const isFragment = transforms && "videoFilters" in transforms;
@@ -103,12 +110,40 @@ export async function startConsumer(): Promise<PgBoss> {
 
   await boss.work<MediaJob>(QUEUE_NAME, async (jobs) => {
     for (const job of jobs) {
+      const { variationId, sourceVideoId, organizationId } = job.data;
       console.log(`[media:task] processing job ${job.id} type=${job.data.type}`);
-      const result = await processJob(job.data);
+
+      let result: MediaJobResult;
+      try {
+        result = await processJob(job.data);
+      } catch (err) {
+        // On unhandled error, mark variation as failed if we have a variationId
+        if (variationId) {
+          await updateVariationStatus(boss, variationId, "failed", null);
+          if (sourceVideoId) {
+            await enqueueMediaComplete(boss, organizationId, sourceVideoId, variationId);
+          }
+        }
+        throw err;
+      }
 
       if (!result.success) {
         console.error(`[media:task] job ${job.id} failed: ${result.error}`);
+        if (variationId) {
+          await updateVariationStatus(boss, variationId, "failed", null);
+          if (sourceVideoId) {
+            await enqueueMediaComplete(boss, organizationId, sourceVideoId, variationId);
+          }
+        }
         throw new Error(result.error);
+      }
+
+      // Update VideoVariation record with result
+      if (variationId) {
+        await updateVariationStatus(boss, variationId, "ready", result.r2Key ?? null);
+        if (sourceVideoId) {
+          await enqueueMediaComplete(boss, organizationId, sourceVideoId, variationId);
+        }
       }
 
       console.log(`[media:task] job ${job.id} complete, r2Key=${result.r2Key}`);
@@ -116,4 +151,46 @@ export async function startConsumer(): Promise<PgBoss> {
   });
 
   return boss;
+}
+
+// ── DB helpers ──────────────────────────────────────────────────
+// The media-engine is a standalone microservice without Prisma.
+// We use pg-boss's internal DB connection to run raw SQL updates
+// against the VideoVariation table, then enqueue a media:complete
+// job so the main app can trigger notifications.
+
+const COMPLETE_QUEUE = "media:complete";
+
+async function updateVariationStatus(
+  boss: PgBoss,
+  variationId: string,
+  status: "ready" | "failed",
+  r2Key: string | null,
+): Promise<void> {
+  try {
+    await boss.getDb().executeSql(
+      `UPDATE "VideoVariation"
+         SET "status" = $1,
+             "r2StorageKey" = COALESCE($2, "r2StorageKey"),
+             "updatedAt" = now()
+       WHERE "id" = $3`,
+      [status, r2Key, variationId],
+    );
+    console.log(`[media:task] updated variation ${variationId} → ${status}`);
+  } catch (err) {
+    console.error(`[media:task] failed to update variation ${variationId}:`, err);
+  }
+}
+
+async function enqueueMediaComplete(
+  boss: PgBoss,
+  organizationId: string,
+  sourceVideoId: string,
+  variationId: string,
+): Promise<void> {
+  try {
+    await boss.send(COMPLETE_QUEUE, { organizationId, sourceVideoId, variationId });
+  } catch (err) {
+    console.error(`[media:task] failed to enqueue media:complete for ${variationId}:`, err);
+  }
 }

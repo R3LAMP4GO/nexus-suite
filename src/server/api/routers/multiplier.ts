@@ -82,6 +82,8 @@ export const multiplierRouter = createTRPCRouter({
             sourceUrl: sourceVideo.url,
             transforms: v.transforms as unknown as TransformFragment,
             outputKey: `variations/${v.id}`,
+            variationId: v.id,
+            sourceVideoId: input.sourceVideoId,
           }),
         ),
       );

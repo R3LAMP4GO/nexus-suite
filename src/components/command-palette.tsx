@@ -44,7 +44,7 @@ interface CommandItem {
 const ITEMS: CommandItem[] = [
   // Pages
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/dashboard", section: "Pages" },
-  { id: "scripts", label: "Scripts", icon: FileText, href: "/dashboard/studio", section: "Pages" },
+  { id: "scripts", label: "Scripts", icon: FileText, href: "/dashboard/scripts", section: "Pages" },
   { id: "upload", label: "Upload", icon: Upload, href: "/dashboard/upload", section: "Pages" },
   { id: "analytics", label: "Analytics", icon: BarChart3, href: "/dashboard/analytics", section: "Pages" },
   { id: "workflows", label: "Workflows", icon: GitBranch, href: "/workflows", section: "Pages" },

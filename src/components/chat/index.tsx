@@ -76,7 +76,7 @@ export function ChatMessageList({ messages, isLoading }: ChatMessageListProps) {
 /* ── ChatInput ───────────────────────────────────────────────── */
 
 export interface ChatInputProps {
-  onSend: (content: string) => void;
+  onSend: (content: string) => Promise<void> | void;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -84,13 +84,19 @@ export interface ChatInputProps {
 export function ChatInput({ onSend, disabled, placeholder }: ChatInputProps) {
   return (
     <form
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
         const form = e.currentTarget;
         const input = form.elements.namedItem("message") as HTMLInputElement;
-        if (input.value.trim()) {
-          onSend(input.value.trim());
-          input.value = "";
+        const value = input.value.trim();
+        if (value) {
+          try {
+            await onSend(value);
+            input.value = "";
+          } catch {
+            // Leave input intact so the user's message is not lost.
+            // The caller (handleSend) is responsible for surfacing errors.
+          }
         }
       }}
       className="flex gap-2"

@@ -1,15 +1,46 @@
 import { getBoss } from "@/lib/pg-boss";
+import { JobType } from "@/server/worker/jobs/types";
 import { createTRPCRouter, onboardedProcedure } from "../trpc";
 
 export const analyticsRouter = createTRPCRouter({
   triggerSync: onboardedProcedure.mutation(async ({ ctx }) => {
     const boss = await getBoss();
-    const jobId = await boss.send("analytics-sync", {
-      type: "analytics-sync",
-      organizationId: ctx.organizationId,
-      createdAt: new Date().toISOString(),
+
+    // pg-boss v12 requires queue to exist before send()
+    await boss.createQueue(JobType.ANALYTICS_SYNC);
+
+    // Query all connected platform accounts for this org
+    const accounts = await ctx.db.orgPlatformToken.findMany({
+      where: { organizationId: ctx.organizationId },
+      select: { id: true },
     });
-    return { jobId };
+
+    if (accounts.length === 0) {
+      return { jobIds: [] };
+    }
+
+    // Default 30-day date range
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const dateRange = {
+      from: thirtyDaysAgo.toISOString().split("T")[0]!,
+      to: now.toISOString().split("T")[0]!,
+    };
+
+    // Enqueue one job per connected account
+    const jobIds = await Promise.all(
+      accounts.map((account) =>
+        boss.send(JobType.ANALYTICS_SYNC, {
+          type: JobType.ANALYTICS_SYNC,
+          organizationId: ctx.organizationId,
+          platformId: account.id,
+          dateRange,
+          createdAt: new Date().toISOString(),
+        }),
+      ),
+    );
+
+    return { jobIds };
   }),
 
   platformBreakdown: onboardedProcedure.query(async ({ ctx }) => {

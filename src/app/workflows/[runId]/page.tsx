@@ -89,7 +89,7 @@ export default function WorkflowRunPage() {
   const params = useParams();
   const runId = params.runId as string;
 
-  const { data: run, isLoading } = api.workflows.getRunDetails.useQuery(
+  const { data: run, isLoading, isError, error } = api.workflows.getRunDetails.useQuery(
     { runId },
     { enabled: !!runId },
   );
@@ -104,6 +104,29 @@ export default function WorkflowRunPage() {
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="min-h-screen p-8">
+        <div className="mx-auto max-w-4xl">
+          <Link
+            href="/workflows"
+            className="text-sm text-[var(--text-muted)] hover:text-[var(--accent)]"
+          >
+            ← Back to Workflows
+          </Link>
+          <div className="mt-4 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
+            <p className="font-medium text-red-700 dark:text-red-400">
+              Failed to load workflow run
+            </p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {error.message}
+            </p>
           </div>
         </div>
       </div>

@@ -18,7 +18,7 @@ export const uploadRouter = createTRPCRouter({
   uploadAndMultiply: onboardedProcedure
     .input(
       z.object({
-        url: z.string().url(),
+        key: z.string().min(1),
         platform: z.nativeEnum(Platform),
         scriptId: z.string().optional(),
       }),
@@ -39,7 +39,7 @@ export const uploadRouter = createTRPCRouter({
       const sourceVideo = await ctx.db.sourceVideo.create({
         data: {
           organizationId: ctx.organizationId,
-          url: input.url,
+          url: input.key,
           platform: input.platform,
           scriptId: input.scriptId ?? null,
         },
@@ -71,6 +71,8 @@ export const uploadRouter = createTRPCRouter({
             sourceUrl: sourceVideo.url,
             transforms: v.transforms as unknown as TransformFragment,
             outputKey: `variations/${v.id}`,
+            variationId: v.id,
+            sourceVideoId: sourceVideo.id,
           }),
         ),
       );
@@ -126,9 +128,23 @@ export const uploadRouter = createTRPCRouter({
       }),
     )
     .query(async ({ ctx, input }) => {
-      // Ensure the key belongs to this organization
-      const orgPrefix = `${ctx.organizationId}/`;
-      if (!input.key.includes(orgPrefix)) {
+      // Strict prefix check for source videos (videos/{orgId}/...)
+      const isOrgVideo = input.key.startsWith(`videos/${ctx.organizationId}/`);
+
+      // Variation outputs use `variations/{variationId}` (no orgId in key),
+      // so verify ownership via DB: variation → sourceVideo → organizationId.
+      let isOrgVariation = false;
+      if (!isOrgVideo && input.key.startsWith("variations/")) {
+        const variationId = input.key.slice("variations/".length);
+        const variation = await ctx.db.videoVariation.findUnique({
+          where: { id: variationId },
+          select: { sourceVideo: { select: { organizationId: true } } },
+        });
+        isOrgVariation =
+          variation?.sourceVideo.organizationId === ctx.organizationId;
+      }
+
+      if (!isOrgVideo && !isOrgVariation) {
         throw new TRPCError({ code: "FORBIDDEN", message: "Key does not belong to this organization" });
       }
 

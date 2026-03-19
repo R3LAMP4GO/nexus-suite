@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { api } from "@/lib/trpc-client";
-import { Badge, Skeleton, SkeletonCard } from "@/components/ui/index";
+import { Badge, Button, Skeleton, SkeletonCard, useToast } from "@/components/ui/index";
 
 function formatNumber(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -11,8 +11,18 @@ function formatNumber(n: number): string {
 }
 
 export default function AnalyticsPage() {
+  const utils = api.useUtils();
+  const { toast } = useToast();
   const health = api.dashboard.getAccountHealth.useQuery();
   const posts = api.dashboard.getRecentPosts.useQuery();
+  const sync = api.analytics.triggerSync.useMutation({
+    onSuccess: () => {
+      void utils.dashboard.getAccountHealth.invalidate();
+      void utils.dashboard.getRecentPosts.invalidate();
+      toast("Analytics sync queued", { type: "success" });
+    },
+    onError: (err) => toast(err.message, { type: "error" }),
+  });
 
   const isLoading = health.isLoading || posts.isLoading;
   const hasAccounts = health.data && health.data.length > 0;
@@ -27,15 +37,26 @@ export default function AnalyticsPage() {
     <div className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">
-            Your Performance
-          </h1>
-          <p className="mt-2 text-lg text-[var(--text-muted)]">
-            See how your accounts are performing across all platforms
-          </p>
+        <div className="mb-10 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)]">
+              Your Performance
+            </h1>
+            <p className="mt-2 text-lg text-[var(--text-muted)]">
+              See how your accounts are performing across all platforms
+            </p>
+          </div>
+          <Button
+            loading={sync.isPending}
+            loadingText="Syncing…"
+            onClick={() => {
+              sync.reset();
+              sync.mutate();
+            }}
+          >
+            Sync Now
+          </Button>
         </div>
-
         {isLoading ? (
           <div className="space-y-6">
             <SkeletonCard className="p-10" />

@@ -159,12 +159,51 @@ export const workflowsRouter = createTRPCRouter({
   create: onboardedProcedure
     .input(z.object({ name: z.string().min(1), yaml: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      // 1. Parse YAML
+      let parsed: unknown;
+      try {
+        parsed = parseYaml(input.yaml);
+      } catch (err) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Invalid YAML syntax: ${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+
+      // 2. Validate against workflow schema
+      const { workflowSchema } = await import("@/server/workflows/workflow-schema");
+      const result = workflowSchema.safeParse(parsed);
+      if (!result.success) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Workflow validation failed: ${result.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+        });
+      }
+
+      // 3. Sanitize filename and guard against empty slugs
+      const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      if (!slug) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Workflow name must contain at least one alphanumeric character",
+        });
+      }
+      const filename = slug + ".yaml";
+
+      // 4. Write file, checking for conflicts
       const fs = await import("fs/promises");
       const path = await import("path");
       const dir = path.join(process.cwd(), "src", "agents", "clients", ctx.organizationId, "workflows");
       await fs.mkdir(dir, { recursive: true });
-      const filename = input.name.toLowerCase().replace(/[^a-z0-9]+/g, "-") + ".yaml";
       const filepath = path.join(dir, filename);
+
+      if (existsSync(filepath)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "A workflow with this name already exists",
+        });
+      }
+
       await fs.writeFile(filepath, input.yaml, "utf-8");
       return { filename, path: filepath };
     }),

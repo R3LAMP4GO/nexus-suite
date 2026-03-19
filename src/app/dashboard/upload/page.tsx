@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { api } from "@/lib/trpc-client";
 import { Button } from "@/components/ui/button";
 
-type UploadState = "idle" | "selected" | "uploading" | "success" | "error";
+type UploadState = "idle" | "selected" | "uploading" | "confirming" | "success" | "error";
 
 export default function UploadPage() {
   const [dragOver, setDragOver] = useState(false);
@@ -12,14 +12,19 @@ export default function UploadPage() {
   const [scriptId, setScriptId] = useState<string>("");
   const [uploadState, setUploadState] = useState<UploadState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
+  const [sourceVideoId, setSourceVideoId] = useState<string | null>(null);
 
   const [platform, setPlatform] = useState<string>("TIKTOK");
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const scripts = api.scripts.list.useQuery({ status: "APPROVED" });
   const presignMutation = api.upload.getPresignedUploadUrl.useMutation();
+  const confirmMutation = api.upload.confirmUpload.useMutation();
   const uploadMutation = api.upload.uploadAndMultiply.useMutation({
-    onSuccess: () => setUploadState("success"),
+    onSuccess: (data) => {
+      setSourceVideoId(data.sourceVideo.id);
+      setUploadState("success");
+    },
     onError: (err) => {
       setUploadState("error");
       setErrorMessage(err.message);
@@ -68,10 +73,15 @@ export default function UploadPage() {
         throw new Error(`Upload failed: ${uploadRes.statusText}`);
       }
 
-      // 3. Tell backend to create variations from the uploaded file
+      // 3. Confirm upload exists in R2
+      setUploadState("confirming");
+      setUploadProgress(60);
+      await confirmMutation.mutateAsync({ key });
+
+      // 4. Tell backend to create variations from the uploaded file
       setUploadProgress(80);
       uploadMutation.mutate({
-        url: key,
+        key: key,
         platform: platform as "TIKTOK" | "YOUTUBE" | "INSTAGRAM" | "LINKEDIN" | "X" | "FACEBOOK",
         scriptId: scriptId || undefined,
       });
@@ -86,6 +96,7 @@ export default function UploadPage() {
     setScriptId("");
     setUploadState("idle");
     setErrorMessage("");
+    setSourceVideoId(null);
   };
 
   return (
@@ -100,33 +111,8 @@ export default function UploadPage() {
           </p>
         </div>
 
-        {uploadState === "success" ? (
-          <div className="rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 p-12 text-center">
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <svg
-                className="h-8 w-8 text-green-600 dark:text-green-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-green-900 dark:text-green-100">
-              Your video is being processed!
-            </h3>
-            <p className="mt-2 text-green-700 dark:text-green-300">
-              We&apos;re creating 5 unique variations automatically.
-            </p>
-            <Button onClick={reset} className="mt-6">
-              Upload Another
-            </Button>
-          </div>
+        {uploadState === "success" && sourceVideoId ? (
+          <ProcessingStatus sourceVideoId={sourceVideoId} onReset={reset} />
         ) : (
           <>
             {/* Dropzone */}
@@ -258,12 +244,34 @@ export default function UploadPage() {
               </div>
             )}
 
+            {/* Upload Progress */}
+            {(uploadState === "uploading" || uploadState === "confirming") && (
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between text-sm">
+                  <span className="font-medium text-[var(--text-secondary)]">
+                    {uploadState === "confirming" ? "Confirming upload…" : "Uploading…"}
+                  </span>
+                  <span className="text-[var(--text-muted)]">{uploadProgress}%</span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--border)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--accent)] transition-all duration-500"
+                    style={{ width: `${uploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
             {/* Upload Button */}
             {file && (
               <Button
                 onClick={handleUpload}
-                loading={uploadState === "uploading"}
-                loadingText="Creating your magic variations…"
+                loading={uploadState === "uploading" || uploadState === "confirming"}
+                loadingText={
+                  uploadState === "confirming"
+                    ? "Confirming upload…"
+                    : "Creating your magic variations…"
+                }
                 size="lg"
                 className="mt-6 w-full"
               >
@@ -273,6 +281,225 @@ export default function UploadPage() {
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Processing Status (polls getStatus, shows variations + downloads) */
+/* ------------------------------------------------------------------ */
+
+function ProcessingStatus({
+  sourceVideoId,
+  onReset,
+}: {
+  sourceVideoId: string;
+  onReset: () => void;
+}) {
+  const statusQuery = api.upload.getStatus.useQuery(
+    { sourceVideoId },
+    {
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        if (!data) return 3000;
+        const allDone = data.variations.every(
+          (v) => v.status === "ready" || v.status === "failed",
+        );
+        return allDone ? false : 3000;
+      },
+    },
+  );
+
+  if (statusQuery.isLoading) {
+    return (
+      <div className="rounded-xl border border-[var(--border)] bg-[var(--card-bg)] p-8 text-center">
+        <div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-4 border-[var(--border)] border-t-[var(--accent)]" />
+        <p className="text-[var(--text-muted)]">Loading processing status…</p>
+      </div>
+    );
+  }
+
+  if (statusQuery.isError) {
+    return (
+      <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-8 text-center">
+        <p className="text-sm text-red-700 dark:text-red-400">
+          Failed to load status: {statusQuery.error.message}
+        </p>
+        <Button onClick={onReset} className="mt-4">
+          Upload Another
+        </Button>
+      </div>
+    );
+  }
+
+  const data = statusQuery.data!;
+  const variations = data.variations;
+  const readyCount = variations.filter((v) => v.status === "ready").length;
+  const failedCount = variations.filter((v) => v.status === "failed").length;
+  const allDone = variations.every(
+    (v) => v.status === "ready" || v.status === "failed",
+  );
+  const allFailed = failedCount === variations.length;
+
+  return (
+    <div className="space-y-6">
+      {/* Summary header */}
+      <div
+        className={`rounded-xl border-2 p-6 text-center ${
+          allFailed
+            ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20"
+            : allDone
+              ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20"
+              : "border-[var(--accent)]/30 bg-blue-50 dark:bg-blue-900/10"
+        }`}
+      >
+        {allFailed ? (
+          <>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+              <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-red-900 dark:text-red-100">
+              Processing Failed
+            </h3>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+              All variations failed to process. Please try uploading again.
+            </p>
+          </>
+        ) : allDone ? (
+          <>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-green-900 dark:text-green-100">
+              Processing Complete!
+            </h3>
+            <p className="mt-1 text-sm text-green-700 dark:text-green-300">
+              {readyCount} of {variations.length} variation{variations.length !== 1 ? "s" : ""} ready
+              {failedCount > 0 ? `, ${failedCount} failed` : ""}
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-[var(--border)] border-t-[var(--accent)]" />
+            <h3 className="text-lg font-semibold text-[var(--text-primary)]">
+              Processing Variations…
+            </h3>
+            <p className="mt-1 text-sm text-[var(--text-muted)]">
+              {readyCount} of {variations.length} complete
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Variation list */}
+      <div className="space-y-3">
+        {variations.map((v) => (
+          <div
+            key={v.id}
+            className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--card-bg)] px-5 py-4"
+          >
+            <div className="flex items-center gap-3">
+              <VariationStatusIcon status={v.status} />
+              <div>
+                <p className="text-sm font-medium text-[var(--text-primary)]">
+                  Variation {v.variationIndex + 1}
+                </p>
+                <p className="text-xs text-[var(--text-muted)] capitalize">
+                  {v.status === "ready" ? "Ready" : v.status}
+                </p>
+              </div>
+            </div>
+            {v.status === "ready" && v.r2StorageKey && (
+              <DownloadButton storageKey={v.r2StorageKey} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      <Button onClick={onReset} variant="secondary" className="w-full">
+        Upload Another
+      </Button>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Variation status icon                                              */
+/* ------------------------------------------------------------------ */
+
+function VariationStatusIcon({ status }: { status: string }) {
+  if (status === "ready") {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+        <svg className="h-4 w-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+    );
+  }
+  if (status === "failed") {
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+        <svg className="h-4 w-4 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+    );
+  }
+  return (
+    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+      <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-300 border-t-blue-600 dark:border-blue-700 dark:border-t-blue-400" />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Download button — fetches presigned URL then opens it              */
+/* ------------------------------------------------------------------ */
+
+function DownloadButton({ storageKey }: { storageKey: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const utils = api.useUtils();
+
+  const handleDownload = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const { url } = await utils.upload.getDownloadUrl.fetch({ key: storageKey });
+      window.open(url, "_blank");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Download failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="flex items-center gap-1.5 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[var(--accent-hover)] disabled:opacity-50"
+      >
+        {loading ? (
+          <div className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        ) : (
+          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        )}
+        Download
+      </button>
+      {error && (
+        <p className="max-w-[200px] text-xs text-red-600 dark:text-red-400">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,19 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/trpc-client";
 import {
   Badge,
   Button,
   Modal,
+  FormField,
   Skeleton,
   SkeletonCard,
   Tabs,
   TabsList,
   TabsTrigger,
   TabsContent,
+  useToast,
 } from "@/components/ui/index";
-import { FileText, Check, X as XIcon } from "@/components/icons";
+import { FileText, Check, Plus, Trash2, X as XIcon } from "@/components/icons";
 import type { ScriptStatus } from "@/generated/prisma/client";
 
 /* ── Types ───────────────────────────────────────────────────── */
@@ -139,6 +142,160 @@ function ScriptDetailModal({
   );
 }
 
+/* ── Create Script Modal ──────────────────────────────────────── */
+
+const EMPTY_FORM = { title: "", hookText: "", bodyText: "", ctaText: "" };
+
+function CreateScriptModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const utils = api.useUtils();
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [errors, setErrors] = useState<Partial<typeof EMPTY_FORM>>({});
+
+  const { toast } = useToast();
+  const create = api.scripts.create.useMutation({
+    onSuccess: () => {
+      void utils.scripts.list.invalidate();
+      setForm(EMPTY_FORM);
+      setErrors({});
+      onClose();
+      toast("Script created", { type: "success" });
+    },
+  });
+
+  const validate = () => {
+    const e: Partial<typeof EMPTY_FORM> = {};
+    if (!form.title.trim()) e.title = "Title is required";
+    if (!form.hookText.trim()) e.hookText = "Hook text is required";
+    if (!form.bodyText.trim()) e.bodyText = "Body text is required";
+    if (!form.ctaText.trim()) e.ctaText = "CTA text is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  const handleSubmit = () => {
+    if (!validate()) return;
+    create.mutate({
+      title: form.title.trim(),
+      hookText: form.hookText.trim(),
+      bodyText: form.bodyText.trim(),
+      ctaText: form.ctaText.trim(),
+    });
+  };
+
+  const inputClass =
+    "w-full rounded-lg border border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)]";
+
+  return (
+    <Modal open={open} onClose={onClose} title="New Script" maxWidth="max-w-xl">
+      <div className="space-y-4">
+        <FormField label="Title" error={errors.title} required>
+          <input
+            className={inputClass}
+            placeholder="Script title"
+            value={form.title}
+            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+          />
+        </FormField>
+
+        <FormField label="Hook (0–3s)" error={errors.hookText} required>
+          <textarea
+            className={inputClass + " min-h-[80px] resize-y"}
+            placeholder="Opening hook to grab attention..."
+            value={form.hookText}
+            onChange={(e) => setForm((f) => ({ ...f, hookText: e.target.value }))}
+          />
+        </FormField>
+
+        <FormField label="Body" error={errors.bodyText} required>
+          <textarea
+            className={inputClass + " min-h-[120px] resize-y"}
+            placeholder="Main body of the script..."
+            value={form.bodyText}
+            onChange={(e) => setForm((f) => ({ ...f, bodyText: e.target.value }))}
+          />
+        </FormField>
+
+        <FormField label="Call to Action" error={errors.ctaText} required>
+          <textarea
+            className={inputClass + " min-h-[80px] resize-y"}
+            placeholder="Call to action..."
+            value={form.ctaText}
+            onChange={(e) => setForm((f) => ({ ...f, ctaText: e.target.value }))}
+          />
+        </FormField>
+
+        {create.error && (
+          <p className="text-sm text-[var(--danger)]">{create.error.message}</p>
+        )}
+
+        <div className="flex items-center justify-end gap-3 border-t border-[var(--border)] pt-4">
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            loading={create.isPending}
+            loadingText="Creating..."
+            icon={<Plus className="h-4 w-4" />}
+            onClick={handleSubmit}
+          >
+            Create Script
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ── Delete Confirmation Modal ───────────────────────────────── */
+
+function DeleteConfirmModal({
+  scriptTitle,
+  open,
+  onClose,
+  onConfirm,
+  isDeleting,
+}: {
+  scriptTitle: string;
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}) {
+  return (
+    <Modal open={open} onClose={onClose} title="Delete Script">
+      <div className="space-y-4">
+        <p className="text-sm text-[var(--text-secondary)]">
+          Are you sure you want to delete <strong>&ldquo;{scriptTitle}&rdquo;</strong>?
+          This action cannot be undone.
+        </p>
+        <div className="flex items-center justify-end gap-3 border-t border-[var(--border)] pt-4">
+          <Button variant="secondary" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            loading={isDeleting}
+            loadingText="Deleting..."
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={onConfirm}
+          >
+            Delete
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
 /* ── Script Row ──────────────────────────────────────────────── */
 
 function ScriptRow({
@@ -146,6 +303,7 @@ function ScriptRow({
   onView,
   onApprove,
   onArchive,
+  onDelete,
   isApproving,
   isArchiving,
 }: {
@@ -153,11 +311,15 @@ function ScriptRow({
   onView: () => void;
   onApprove: () => void;
   onArchive: () => void;
+  onDelete: () => void;
   isApproving: boolean;
   isArchiving: boolean;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-sm transition hover:border-[var(--border-hover)]">
+    <div
+      className="flex cursor-pointer items-center gap-4 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-sm transition hover:border-[var(--border-hover)]"
+      onClick={onView}
+    >
       {/* Icon */}
       <div className="rounded-lg bg-[var(--bg-tertiary)] p-2">
         <FileText className="h-5 w-5 text-indigo-500" />
@@ -165,12 +327,13 @@ function ScriptRow({
 
       {/* Title + date */}
       <div className="min-w-0 flex-1">
-        <button
-          onClick={onView}
+        <Link
+          href={`/dashboard/scripts/${script.id}`}
           className="block truncate text-sm font-medium text-[var(--text-primary)] hover:underline"
+          onClick={(e) => e.stopPropagation()}
         >
           {script.title}
-        </button>
+        </Link>
         <p className="mt-0.5 text-xs text-[var(--text-muted)]">
           {formatDate(script.createdAt)}
         </p>
@@ -179,37 +342,49 @@ function ScriptRow({
       {/* Status badge */}
       <Badge colorMap="status" value={script.status} />
 
-      {/* Actions for drafts */}
-      {script.status === "DRAFT" && (
-        <div className="flex items-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            loading={isApproving}
-            loadingText="..."
-            icon={<Check className="h-3.5 w-3.5" />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onApprove();
-            }}
-          >
-            Approve
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            loading={isArchiving}
-            loadingText="..."
-            icon={<XIcon className="h-3.5 w-3.5" />}
-            onClick={(e) => {
-              e.stopPropagation();
-              onArchive();
-            }}
-          >
-            Archive
-          </Button>
-        </div>
-      )}
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        {script.status === "DRAFT" && (
+          <>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={isApproving}
+              loadingText="..."
+              icon={<Check className="h-3.5 w-3.5" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onApprove();
+              }}
+            >
+              Approve
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={isArchiving}
+              loadingText="..."
+              icon={<XIcon className="h-3.5 w-3.5" />}
+              onClick={(e) => {
+                e.stopPropagation();
+                onArchive();
+              }}
+            >
+              Archive
+            </Button>
+          </>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={<Trash2 className="h-3.5 w-3.5 text-[var(--danger)]" />}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+          aria-label="Delete script"
+        />
+      </div>
     </div>
   );
 }
@@ -256,19 +431,23 @@ function EmptyState({ message }: { message: string }) {
 
 function ScriptList({ status }: { status?: ScriptStatus }) {
   const utils = api.useUtils();
+  const { toast } = useToast();
   const scripts = api.scripts.list.useQuery(
     status ? { status } : undefined,
   );
 
   const [selectedScript, setSelectedScript] = useState<Script | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Script | null>(null);
 
   const approve = api.scripts.update.useMutation({
     onSuccess: () => {
       void utils.scripts.list.invalidate();
       setSelectedScript(null);
       setActionId(null);
+      toast("Script approved", { type: "success" });
     },
+    onError: (err) => toast(err.message, { type: "error" }),
   });
 
   const archive = api.scripts.update.useMutation({
@@ -276,7 +455,18 @@ function ScriptList({ status }: { status?: ScriptStatus }) {
       void utils.scripts.list.invalidate();
       setSelectedScript(null);
       setActionId(null);
+      toast("Script archived", { type: "success" });
     },
+    onError: (err) => toast(err.message, { type: "error" }),
+  });
+
+  const deleteMut = api.scripts.delete.useMutation({
+    onSuccess: () => {
+      void utils.scripts.list.invalidate();
+      setDeleteTarget(null);
+      toast("Script deleted", { type: "success" });
+    },
+    onError: (err) => toast(err.message, { type: "error" }),
   });
 
   const handleApprove = (id: string) => {
@@ -308,6 +498,7 @@ function ScriptList({ status }: { status?: ScriptStatus }) {
             onView={() => setSelectedScript(script)}
             onApprove={() => handleApprove(script.id)}
             onArchive={() => handleArchive(script.id)}
+            onDelete={() => setDeleteTarget(script)}
             isApproving={approve.isPending && actionId === script.id}
             isArchiving={archive.isPending && actionId === script.id}
           />
@@ -323,6 +514,14 @@ function ScriptList({ status }: { status?: ScriptStatus }) {
         isApproving={approve.isPending && actionId === selectedScript?.id}
         isArchiving={archive.isPending && actionId === selectedScript?.id}
       />
+
+      <DeleteConfirmModal
+        scriptTitle={deleteTarget?.title ?? ""}
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && deleteMut.mutate({ id: deleteTarget.id })}
+        isDeleting={deleteMut.isPending}
+      />
     </>
   );
 }
@@ -330,17 +529,28 @@ function ScriptList({ status }: { status?: ScriptStatus }) {
 /* ── Page ────────────────────────────────────────────────────── */
 
 export default function ScriptsPage() {
+  const [showCreate, setShowCreate] = useState(false);
+
   return (
     <div className="min-h-screen p-8">
       <div className="mx-auto max-w-5xl">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-[var(--text-primary)]">
-            Scripts
-          </h1>
-          <p className="mt-1 text-[var(--text-muted)]">
-            Review and approve AI-generated scripts before they go live
-          </p>
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-[var(--text-primary)]">
+              Scripts
+            </h1>
+            <p className="mt-1 text-[var(--text-muted)]">
+              Review and approve AI-generated scripts before they go live
+            </p>
+          </div>
+          <Button
+            variant="primary"
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => setShowCreate(true)}
+          >
+            New Script
+          </Button>
         </div>
 
         {/* Tabs */}
@@ -360,6 +570,8 @@ export default function ScriptsPage() {
           ))}
         </Tabs>
       </div>
+
+      <CreateScriptModal open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   );
 }

@@ -17,6 +17,10 @@ export interface MediaJobPayload {
   localPath?: string;
   outputKey?: string;
   transforms?: TransformConfig | TransformFragment;
+  /** ID of the VideoVariation record to update on completion */
+  variationId?: string;
+  /** Parent SourceVideo ID — used to trigger completion checks */
+  sourceVideoId?: string;
   batchRender?: {
     hookClips: string[];
     meatClips: string[];
