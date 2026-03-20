@@ -8,17 +8,23 @@ const { auth } = NextAuth(authConfig);
 // Generate a per-request nonce and set CSP header to eliminate 'unsafe-inline'/'unsafe-eval'.
 // The nonce is forwarded via x-nonce header so server components can read it.
 function buildCspHeader(nonce: string): string {
+  const isDev = process.env.NODE_ENV === "development";
   const sentryOrigin = process.env.NEXT_PUBLIC_SENTRY_DSN
     ? (() => { try { return new URL(process.env.NEXT_PUBLIC_SENTRY_DSN).origin; } catch { return ""; } })()
     : "";
 
+  // Dev needs 'unsafe-eval' for Next.js hot reload (react-refresh-utils uses eval)
+  const scriptSrc = isDev
+    ? `script-src 'self' 'unsafe-eval' 'nonce-${nonce}' 'strict-dynamic'`
+    : `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`;
+
   return [
     "default-src 'self'",
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    scriptSrc,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
-    `connect-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}`,
+    `connect-src 'self'${sentryOrigin ? ` ${sentryOrigin}` : ""}${isDev ? " ws://localhost:3000 ws://localhost:3001" : ""}`,
     "media-src 'self' blob: https:",
     "frame-src 'self'",
     "frame-ancestors 'none'",
@@ -49,7 +55,7 @@ interface RateLimitEntry { count: number; resetAt: number; }
 const rateLimitMap = new Map<string, RateLimitEntry>();
 
 const RATE_LIMIT_CONFIGS: Array<{ prefix: string; limit: number; windowSecs: number }> = [
-  { prefix: "/api/auth", limit: 10, windowSecs: 60 },
+  { prefix: "/api/auth", limit: 60, windowSecs: 60 },
   { prefix: "/api/oauth", limit: 20, windowSecs: 60 },
   { prefix: "/api/webhooks", limit: 100, windowSecs: 60 },
 ];

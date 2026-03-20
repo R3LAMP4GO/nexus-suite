@@ -9,6 +9,7 @@ import {
   GitBranch,
   Eye,
   BarChart3,
+  AlertCircle,
 } from "@/components/icons";
 
 /* ── Helpers ────────────────────────────────────────────────── */
@@ -28,6 +29,40 @@ function timeAgo(date: string | Date | null | undefined): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function ErrorCard({ error, retry }: { error: unknown; retry?: () => void }) {
+  const message =
+    (error as any)?.message ?? "Something went wrong loading this section.";
+  const isAuth =
+    message.includes("logged in") || message.includes("subscription") || message.includes("provisioned");
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30">
+      <AlertCircle className="h-5 w-5 shrink-0 text-red-500" />
+      <div className="flex-1">
+        <p className="text-sm text-red-700 dark:text-red-400">
+          {isAuth ? message : "Failed to load data"}
+        </p>
+        {isAuth && (
+          <Link
+            href="/login"
+            className="mt-1 inline-block text-xs font-medium text-red-600 underline hover:text-red-800 dark:text-red-400"
+          >
+            Sign in →
+          </Link>
+        )}
+      </div>
+      {retry && !isAuth && (
+        <button
+          onClick={retry}
+          className="shrink-0 rounded-md border border-red-300 px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/40"
+        >
+          Retry
+        </button>
+      )}
+    </div>
+  );
 }
 
 const SPEND_COLORS: Record<string, string> = {
@@ -110,32 +145,40 @@ export default function DashboardPage() {
         </div>
 
         {/* Workflow Stats */}
-        <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
-          {(["active", "completed", "failed", "queued"] as const).map((key) => (
-            <div
-              key={key}
-              className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-sm"
-            >
-              <p className="text-sm font-medium capitalize text-[var(--text-muted)]">
-                {key}
-              </p>
-              {workflows.isLoading ? (
-                <Skeleton className="mt-1 h-8 w-16" />
-              ) : (
-                <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
-                  {workflows.data?.[key] ?? 0}
+        {workflows.error ? (
+          <div className="mb-8">
+            <ErrorCard error={workflows.error} retry={() => workflows.refetch()} />
+          </div>
+        ) : (
+          <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {(["active", "completed", "failed", "queued"] as const).map((key) => (
+              <div
+                key={key}
+                className="rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-4 shadow-sm"
+              >
+                <p className="text-sm font-medium capitalize text-[var(--text-muted)]">
+                  {key}
                 </p>
-              )}
-            </div>
-          ))}
-        </div>
+                {workflows.isLoading ? (
+                  <Skeleton className="mt-1 h-8 w-16" />
+                ) : (
+                  <p className="mt-1 text-2xl font-bold text-[var(--text-primary)]">
+                    {workflows.data?.[key] ?? 0}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* LLM Spend Bar */}
         <div className="mb-8 rounded-lg border border-[var(--card-border)] bg-[var(--card-bg)] p-6 shadow-sm">
           <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
             LLM Spend (Today)
           </h2>
-          {spend.isLoading ? (
+          {spend.error ? (
+            <ErrorCard error={spend.error} retry={() => spend.refetch()} />
+          ) : spend.isLoading ? (
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-3 w-48" />
@@ -167,7 +210,9 @@ export default function DashboardPage() {
           <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
             Account Health
           </h2>
-          {health.isLoading ? (
+          {health.error ? (
+            <ErrorCard error={health.error} retry={() => health.refetch()} />
+          ) : health.isLoading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <SkeletonCard />
               <SkeletonCard />
@@ -215,12 +260,16 @@ export default function DashboardPage() {
           <h2 className="mb-3 text-lg font-semibold text-[var(--text-primary)]">
             Recent Posts
           </h2>
-          <DataTable
-            columns={recentPostColumns}
-            data={posts.data ?? []}
-            isLoading={posts.isLoading}
-            emptyMessage="No posts yet"
-          />
+          {posts.error ? (
+            <ErrorCard error={posts.error} retry={() => posts.refetch()} />
+          ) : (
+            <DataTable
+              columns={recentPostColumns}
+              data={posts.data ?? []}
+              isLoading={posts.isLoading}
+              emptyMessage="No posts yet"
+            />
+          )}
         </div>
 
         {/* Recent Activity */}

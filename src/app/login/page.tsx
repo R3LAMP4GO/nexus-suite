@@ -23,6 +23,8 @@ function LoginForm() {
   const [emailSent, setEmailSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailError, setEmailError] = useState("");
+  const [devLoading, setDevLoading] = useState(false);
+  const [devError, setDevError] = useState("");
 
   if (status === "authenticated") {
     redirect("/dashboard");
@@ -212,16 +214,37 @@ function LoginForm() {
               <div className="h-px flex-1 bg-gray-800" />
             </div>
             <button
-              onClick={() =>
-                signIn("credentials", {
-                  email: "admin@nexus-suite.com",
-                  callbackUrl: "/dashboard",
-                })
-              }
-              className="w-full rounded-lg border border-yellow-700 bg-yellow-900/30 px-4 py-2.5 text-sm font-medium text-yellow-400 transition hover:bg-yellow-900/50"
+              disabled={devLoading}
+              onClick={async () => {
+                setDevLoading(true);
+                setDevError("");
+                try {
+                  const result = await signIn("credentials", {
+                    email: "admin@nexus-suite.com",
+                    redirect: false,
+                  });
+                  if (result?.ok) {
+                    window.location.href = "/dashboard";
+                  } else {
+                    setDevError(
+                      `Login failed: ${result?.error ?? result?.code ?? "unknown"} (status ${result?.status})`,
+                    );
+                  }
+                } catch (err: unknown) {
+                  setDevError(
+                    `Exception: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                } finally {
+                  setDevLoading(false);
+                }
+              }}
+              className="w-full rounded-lg border border-yellow-700 bg-yellow-900/30 px-4 py-2.5 text-sm font-medium text-yellow-400 transition hover:bg-yellow-900/50 disabled:opacity-50"
             >
-              Dev Login (Test Admin)
+              {devLoading ? "Signing in..." : "Dev Login (Test Admin)"}
             </button>
+            {devError && (
+              <p className="text-xs text-red-400">{devError}</p>
+            )}
           </>
         )}
 

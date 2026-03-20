@@ -8,7 +8,27 @@ import superjson from "superjson";
 import { api } from "@/lib/trpc-client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [queryClient] = useState(() => new QueryClient());
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: (failureCount, error: any) => {
+              // Don't retry auth/permission errors — they won't resolve on retry
+              const code = error?.data?.code;
+              if (
+                code === "UNAUTHORIZED" ||
+                code === "FORBIDDEN" ||
+                code === "NOT_FOUND"
+              ) {
+                return false;
+              }
+              return failureCount < 2;
+            },
+          },
+        },
+      }),
+  );
   const [trpcClient] = useState(() =>
     api.createClient({
       links: [
